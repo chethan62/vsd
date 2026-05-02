@@ -249,8 +249,8 @@ impl MediaPlaylist {
 
     pub async fn fetch_split_seg(
         &mut self,
-        base_url: &Option<Url>,
         client: &Client,
+        base_url: &Option<Url>,
         query: &Vec<(String, String)>,
     ) -> Result<()> {
         if self.segments.len() > 1 {

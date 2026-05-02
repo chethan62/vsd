@@ -1,5 +1,8 @@
-use super::{MAX_THREADS, mux::Stream};
 use crate::{
+    downloader::{
+        MAX_THREADS,
+        mux::{Stream, Streams},
+    },
     playlist::{MediaPlaylist, MediaType},
     progress::Progress,
     utils,
@@ -53,7 +56,7 @@ pub async fn download_subtitle_streams(
     base_url: &Option<Url>,
     query: &Vec<(String, String)>,
     directory: Option<&PathBuf>,
-    temp_files: &mut Vec<Stream>,
+    temp_files: &mut Streams,
 ) -> Result<()> {
     let mut i = 0;
     let total = streams.len();
@@ -83,7 +86,7 @@ async fn download_subtitle_stream(
     base_url: &Option<Url>,
     query: &Vec<(String, String)>,
     directory: Option<&PathBuf>,
-    temp_files: &mut Vec<Stream>,
+    temp_files: &mut Streams,
     pb: Progress,
 ) -> Result<()> {
     info!(
@@ -133,7 +136,7 @@ async fn download_subtitle_stream(
     let (ext, codec) = detect_codec(stream.codecs.as_deref(), &data, ext);
 
     temp_file = temp_file.with_extension(ext);
-    temp_files.push(Stream {
+    temp_files.0.push(Stream {
         language: stream.language.clone(),
         media_type: stream.media_type.clone(),
         path: temp_file.clone(),
@@ -211,10 +214,7 @@ async fn download_subtitle_stream(
         _ => data,
     };
 
-    File::create(&temp_file)
-        .await?
-        .write_all(&output)
-        .await?;
+    File::create(&temp_file).await?.write_all(&output).await?;
 
     Ok(())
 }

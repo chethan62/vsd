@@ -249,7 +249,7 @@ impl Downloader {
         for stream in &mut streams {
             if stream.media_type != MediaType::Subtitles {
                 stream
-                    .fetch_split_seg(&self.base_url, &self.client, &self.query)
+                    .fetch_split_seg(&self.client, &self.base_url, &self.query)
                     .await?;
             }
         }
@@ -280,7 +280,7 @@ impl Downloader {
             &self.base_url,
             &self.query,
             self.directory.as_ref(),
-            &mut temp_files.0,
+            &mut temp_files,
         )
         .await?;
 
@@ -291,7 +291,7 @@ impl Downloader {
             &self.keys,
             &self.query,
             &streams,
-            &mut temp_files.0,
+            &mut temp_files,
         )
         .await?;
 

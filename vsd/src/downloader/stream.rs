@@ -1,6 +1,9 @@
 use crate::{
     downloader::{
-        MAX_RETRIES, MAX_THREADS, SKIP_DECRYPT, SKIP_MERGE, encryption::Decrypter, fix, mux::Stream,
+        MAX_RETRIES, MAX_THREADS, SKIP_DECRYPT, SKIP_MERGE,
+        encryption::Decrypter,
+        fix,
+        mux::{Stream, Streams},
     },
     playlist::{KeyMethod, MediaPlaylist, MediaType},
     progress::Progress,
@@ -33,7 +36,7 @@ pub async fn download_streams(
     keys: &HashMap<String, String>,
     query: &Vec<(String, String)>,
     streams: &Vec<MediaPlaylist>,
-    temp_files: &mut Vec<Stream>,
+    temp_files: &mut Streams,
 ) -> Result<()> {
     let streams = streams
         .into_iter()
@@ -54,7 +57,7 @@ pub async fn download_streams(
 
         let temp_file = stream.path(directory);
 
-        temp_files.push(Stream {
+        temp_files.0.push(Stream {
             language: stream.language.clone(),
             media_type: stream.media_type.clone(),
             path: temp_file.clone(),
