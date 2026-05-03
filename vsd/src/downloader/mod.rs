@@ -1,6 +1,5 @@
 mod encryption;
 mod fetch;
-mod fix;
 mod mux;
 mod stream;
 mod subtitle;

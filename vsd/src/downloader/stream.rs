@@ -1,8 +1,7 @@
 use crate::{
     downloader::{
-        MAX_RETRIES, MAX_THREADS, SKIP_DECRYPT, SKIP_MERGE,
+        MAX_RETRIES, MAX_THREADS, RUNNING, SKIP_DECRYPT, SKIP_MERGE,
         encryption::Decrypter,
-        fix,
         mux::{Stream, Streams},
     },
     playlist::{KeyMethod, MediaPlaylist, MediaType},
@@ -10,8 +9,8 @@ use crate::{
 };
 use anyhow::{Result, anyhow, bail};
 use colored::Colorize;
-use log::{debug, error, info, warn};
-use reqwest::{Client, RequestBuilder, StatusCode, Url, header};
+use log::{debug, error, info, trace, warn};
+use reqwest::{Client, Url, header};
 use std::{
     collections::HashMap,
     path::PathBuf,
@@ -27,6 +26,8 @@ use vsd_mp4::{
     decrypt::{CencDecryptingProcessor, HlsAes128Decrypter, HlsSampleAesDecrypter},
     pssh::PsshBox,
 };
+
+const PNG_HEADER: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
 #[allow(clippy::too_many_arguments)]
 pub async fn download_streams(
@@ -97,8 +98,6 @@ async fn download_stream(
     let base_url = base_url
         .clone()
         .unwrap_or(stream.uri.parse::<Url>().unwrap());
-    let mut tasks = Vec::with_capacity(stream.segments.len());
-
     let mut decrypter = Decrypter::None;
     let temp_dir = temp_file.with_extension("");
     let extension = stream.extension();
@@ -115,7 +114,18 @@ async fn download_stream(
         stream.default_kid()
     };
 
+    fs::create_dir_all(&temp_dir).await?;
+
+    let max_threads = MAX_THREADS.load(Ordering::SeqCst) as usize;
+    let mut set: JoinSet<usize> = JoinSet::new();
+
     for (i, segment) in stream.segments.iter().enumerate() {
+        while set.len() >= max_threads {
+            if let Some(Ok(bytes)) = set.join_next().await {
+                pb.update(bytes);
+            }
+        }
+
         if should_decrypt {
             if decrypter.is_hls() && segment.key.is_none() && increment_media_sequence {
                 decrypter.increment_iv();
@@ -198,6 +208,9 @@ async fn download_stream(
             }
         }
 
+        let init_seg = init_seg.clone();
+        let decrypter = decrypter.clone();
+        let temp_file = temp_dir.join(format!("{}.{}.part", i, extension));
         let url = base_url.join(&segment.uri)?;
         let mut request = client.get(url).query(query);
 
@@ -205,38 +218,64 @@ async fn download_stream(
             request = request.header(header::RANGE, range);
         }
 
-        tasks.push(Task {
-            decrypter: decrypter.clone(),
-            init_seg: init_seg.clone(),
-            pb: pb.clone(),
-            request,
-            temp_file: temp_dir.join(format!("{}.{}.part", i, extension)),
-        });
-    }
-
-    fs::create_dir_all(&temp_dir).await?;
-
-    let mut set = JoinSet::new();
-    let max_threads = MAX_THREADS.load(Ordering::SeqCst) as usize;
-
-    for task in tasks {
-        while set.len() >= max_threads {
-            set.join_next().await;
-        }
         set.spawn(async move {
-            if let Err(e) = task.execute().await {
-                error!("{}", e);
-                std::process::exit(1);
+            let mut avl_tries = MAX_RETRIES.load(Ordering::SeqCst);
+            let mut response = request.try_clone().unwrap().send().await.unwrap();
+
+            loop {
+                let status = response.status();
+
+                if status.is_success() {
+                    break;
+                }
+
+                if avl_tries == 0 {
+                    RUNNING.store(false, Ordering::SeqCst);
+                    error!(
+                        "{} request failed ({}): '{}'",
+                        response.url().clone(),
+                        status,
+                        response.text().await.unwrap(),
+                    );
+                    std::process::exit(1);
+                }
+
+                trace!("Retrying {}", response.url());
+                response = request.try_clone().unwrap().send().await.unwrap();
+                avl_tries -= 1;
             }
+
+            let bytes = response.bytes().await.unwrap().to_vec();
+            let size = bytes.len();
+            let bytes = trim_fake_png_header(bytes);
+            let bytes = decrypter
+                .decrypt(bytes, init_seg.as_ref().map(|x| x.as_ref().to_vec()))
+                .unwrap();
+
+            let mut f = File::create(&temp_file).await.unwrap();
+
+            if let Some(init_seg) = init_seg {
+                f.write_all(&init_seg).await.unwrap();
+            }
+
+            f.write_all(&bytes).await.unwrap();
+            f.flush().await.unwrap();
+            fs::rename(&temp_file, temp_file.with_extension(""))
+                .await
+                .unwrap();
+
+            size
         });
     }
 
-    while let Some(_res) = set.join_next().await {}
+    if let Some(Ok(bytes)) = set.join_next().await {
+        pb.update(bytes);
+    }
 
     eprintln!();
 
     if SKIP_MERGE.load(Ordering::SeqCst) {
-        info!("Mergin [{}] skipped", media_type.red());
+        debug!("Stream merging skipped.");
     } else {
         info!(
             "Mergin [{}] {}",
@@ -254,88 +293,17 @@ async fn download_stream(
             }
         }
 
-        info!(
-            "Delete [{}] {}",
-            media_type.bold().red(),
-            temp_dir.to_string_lossy()
-        );
+        debug!("Deleting '{}' directory.", temp_dir.to_string_lossy());
         fs::remove_dir_all(&temp_dir).await?;
     }
     Ok(())
 }
 
-struct Task {
-    decrypter: Decrypter,
-    init_seg: Option<Arc<Vec<u8>>>,
-    pb: Progress,
-    request: RequestBuilder,
-    temp_file: PathBuf,
-}
-
-impl Task {
-    async fn execute(self) -> Result<()> {
-        let segment = self.segment().await?;
-        let segment_bytes = segment.len();
-        let segment = fix::fake_png_header(segment);
-        let segment = self
-            .decrypter
-            .decrypt(segment, self.init_seg.as_ref().map(|x| x.as_ref().to_vec()))?;
-
-        let mut f = File::create(&self.temp_file).await?;
-
-        if let Some(init_seg) = self.init_seg {
-            f.write_all(&init_seg).await?;
-        }
-
-        f.write_all(&segment).await?;
-        f.flush().await?;
-        fs::rename(&self.temp_file, self.temp_file.with_extension("")).await?;
-
-        self.pb.update(segment_bytes);
-        Ok(())
-    }
-
-    async fn segment(&self) -> Result<Vec<u8>> {
-        for _ in 0..MAX_RETRIES.load(Ordering::SeqCst) {
-            let response = match self.request.try_clone().unwrap().send().await {
-                Ok(response) => response,
-                Err(error) => {
-                    debug!("{}", check(&error)?);
-                    continue;
-                }
-            };
-
-            let status = response.status();
-            if status.is_client_error() || status.is_server_error() {
-                bail!("{} (http {})", response.url(), status);
-            }
-
-            let bytes = response.bytes().await?;
-            return Ok(bytes.to_vec());
-        }
-
-        bail!("Exceeded the maximum retry limit while downloading a segment.");
-    }
-}
-
-fn check(error: &reqwest::Error) -> Result<String> {
-    let url = error.url().unwrap();
-
-    if error.is_connect() {
-        return Ok(format!("{url} (connection error)"));
-    } else if error.is_timeout() {
-        return Ok(format!("{url} (timeout)"));
-    }
-
-    if let Some(status) = error.status() {
-        match status {
-            StatusCode::GATEWAY_TIMEOUT => Ok(format!("{url} (gateway timeout)")),
-            StatusCode::REQUEST_TIMEOUT => Ok(format!("{url} (request timeout)")),
-            StatusCode::SERVICE_UNAVAILABLE => Ok(format!("{url} (service unavailable)")),
-            StatusCode::TOO_MANY_REQUESTS => Ok(format!("{url} (too many requests)")),
-            _ => bail!("{} (http {})", url, status),
-        }
+fn trim_fake_png_header(mut data: Vec<u8>) -> Vec<u8> {
+    if data.len() >= 8 && data[0..8] == PNG_HEADER {
+        data.drain(0..8);
+        data
     } else {
-        bail!("{} (http error)", url)
+        data
     }
 }
