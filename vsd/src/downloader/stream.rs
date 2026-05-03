@@ -99,6 +99,7 @@ async fn download_stream(
 ) -> Result<()> {
     let base_url = base_url.clone().unwrap_or(stream.uri.parse()?);
     let ext = stream.extension();
+    let pb_handle = pb.spawn();
     let should_decrypt = !SKIP_DECRYPT.load(Ordering::SeqCst);
     let temp_dir = temp_file.with_extension("");
     let mut auto_increment_iv = false;
@@ -217,7 +218,7 @@ async fn download_stream(
 
         if out_file.exists() {
             let size = fs::metadata(&out_file).await?.len();
-            pb.update(size as usize);
+            pb.skip(size as usize);
             continue;
         }
 
@@ -301,7 +302,8 @@ async fn download_stream(
         }
     }
 
-    eprintln!();
+    pb_handle.abort();
+    pb.finish();
 
     if !RUNNING.load(Ordering::SeqCst) {
         warn!("Download interrupted.");

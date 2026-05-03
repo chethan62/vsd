@@ -4,10 +4,13 @@ use std::{
     sync::{Arc, Mutex},
     time::Instant,
 };
+use tokio::task::JoinHandle;
 
 struct ProgressInner {
     counter: usize,
     id: String,
+    session_counter: usize,
+    session_bytes: usize,
     total: usize,
     timer: Instant,
     total_bytes: usize,
@@ -24,6 +27,8 @@ impl Progress {
             inner: Arc::new(Mutex::new(ProgressInner {
                 counter: 0,
                 id: id.to_owned(),
+                session_counter: 0,
+                session_bytes: 0,
                 total,
                 timer: Instant::now(),
                 total_bytes: 0,
@@ -33,9 +38,46 @@ impl Progress {
 
     pub fn update(&self, chunk_bytes: usize) {
         let mut inner = self.inner.lock().unwrap();
-
         inner.counter += 1;
+        inner.session_counter += 1;
         inner.total_bytes += chunk_bytes;
+        inner.session_bytes += chunk_bytes;
+    }
+
+    pub fn skip(&self, file_bytes: usize) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.counter += 1;
+        inner.total_bytes += file_bytes;
+    }
+
+    pub fn spawn(&self) -> JoinHandle<()> {
+        let inner = self.inner.clone();
+
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                let done = {
+                    let inner = inner.lock().unwrap();
+                    Self::render(&inner);
+                    inner.counter >= inner.total
+                };
+                if done {
+                    break;
+                }
+            }
+        })
+    }
+
+    pub fn finish(&self) {
+        let inner = self.inner.lock().unwrap();
+        Self::render(&inner);
+        eprintln!();
+    }
+
+    fn render(inner: &ProgressInner) {
+        if inner.counter == 0 {
+            return;
+        }
 
         let remaining_bytes =
             ((inner.total_bytes as f64 / inner.counter as f64) * inner.total as f64) as usize;
@@ -47,10 +89,24 @@ impl Progress {
         };
 
         let elapsed_secs = inner.timer.elapsed().as_secs_f64();
-        let rate = inner.counter as f64 / elapsed_secs;
 
-        let speed = inner.total_bytes as f64 / elapsed_secs;
-        let eta_secs = (inner.total.saturating_sub(inner.counter) as f64 / rate) as usize;
+        let speed = if inner.session_counter > 0 {
+            inner.session_bytes as f64 / elapsed_secs
+        } else {
+            0.0
+        };
+
+        let rate = if inner.session_counter > 0 {
+            inner.session_counter as f64 / elapsed_secs
+        } else {
+            0.0
+        };
+
+        let eta_secs = if rate > 0.0 {
+            (inner.total.saturating_sub(inner.counter) as f64 / rate) as usize
+        } else {
+            0
+        };
 
         let stderr = io::stderr();
         let mut handle = stderr.lock();

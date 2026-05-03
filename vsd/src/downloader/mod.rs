@@ -266,12 +266,12 @@ impl Downloader {
 
         tokio::spawn(async {
             if tokio::signal::ctrl_c().await.is_ok() && RUNNING.load(Ordering::SeqCst) {
-                warn!("Ctrl+C received; stopping download.");
+                warn!("Ctrl+C received: stopping download.");
                 RUNNING.store(false, Ordering::SeqCst);
             }
 
             if tokio::signal::ctrl_c().await.is_ok() {
-                error!("Ctrl+C received; force exiting.");
+                error!("Ctrl+C received: force exiting.");
                 std::process::exit(1);
             }
         });

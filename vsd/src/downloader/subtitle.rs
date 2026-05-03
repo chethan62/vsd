@@ -102,9 +102,9 @@ async fn download_subtitle_stream(
     }
 
     let base_url = base_url.clone().unwrap_or(stream.uri.parse()?);
+    let ext = stream.extension();
     let segment = &stream.segments[0];
     let mut data = Vec::new();
-    let ext = stream.extension();
     let mut temp_file = stream.path(directory);
 
     if let Some(map) = &segment.map {
@@ -146,6 +146,7 @@ async fn download_subtitle_stream(
     let remaining = &stream.segments[1..];
 
     if !remaining.is_empty() {
+        let pb_handle = pb.spawn();
         let max_threads = MAX_THREADS.load(Ordering::SeqCst) as usize;
         let mut set: JoinSet<Result<(usize, Vec<u8>)>> = JoinSet::new();
         let mut results = vec![None; remaining.len()];
@@ -196,9 +197,11 @@ async fn download_subtitle_stream(
                 data.append(&mut bytes);
             }
         }
+
+        pb_handle.abort();
     }
 
-    eprintln!();
+    pb.finish();
 
     let output = match codec {
         SubtitleType::Mp4Vtt => {
