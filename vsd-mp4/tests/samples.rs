@@ -35,16 +35,16 @@ macro_rules! sample {
 
             let init_data =
                 fs::read(SAMPLES_DIR.join(concat!($scheme, "-", $mode, "/", $track, "_init.mp4")))?;
-            let segment_data =
+            let mut segment_data =
                 fs::read(SAMPLES_DIR.join(concat!($scheme, "-", $mode, "/", $track, "_1.m4s")))?;
 
-            let decrypted = processor.decrypt(&segment_data, Some(&init_data))?;
+            processor.decrypt(&mut segment_data, Some(init_data.as_slice()))?;
             fs::create_dir_all(OUTPUT_DIR.join(concat!($scheme, "-", $mode)))?;
 
             let mut f =
                 File::create(OUTPUT_DIR.join(concat!($scheme, "-", $mode, "/", $track, ".mp4")))?;
             f.write_all(&init_data)?;
-            f.write_all(&decrypted)?;
+            f.write_all(&segment_data)?;
             Ok(())
         }
     };

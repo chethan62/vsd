@@ -33,9 +33,12 @@ impl Decrypter {
         }
     }
 
-    pub fn decrypt(&self, input: Vec<u8>, init: Option<Vec<u8>>) -> Result<Vec<u8>> {
+    pub fn decrypt(&self, mut input: Vec<u8>, init: Option<&[u8]>) -> Result<Vec<u8>> {
         Ok(match self {
-            Decrypter::Cenc(processor) => processor.decrypt(input, init)?,
+            Decrypter::Cenc(processor) => {
+                processor.decrypt(&mut input, init)?;
+                input
+            }
             Decrypter::Aes128(processor) => processor.decrypt(input),
             Decrypter::SampleAes(processor) => processor.decrypt(input),
             Decrypter::None => input,
@@ -100,7 +103,7 @@ pub async fn get_default_kids(
 
     for stream in streams {
         let Some(init_seg) = stream
-            .fetch_init_seg(client, &stream.uri.parse()?, query)
+            .fetch_init(client, &stream.uri.parse()?, query)
             .await?
         else {
             continue;

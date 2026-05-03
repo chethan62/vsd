@@ -50,20 +50,17 @@ impl CencDecryptingProcessor {
     }
 
     pub fn session(&self, init_data: &[u8]) -> Result<DecryptionSession<'_>> {
-        DecryptionSession::new(&self.keys, init_data)
+        DecryptionSession::new(init_data, &self.keys)
     }
 
-    pub fn decrypt<T: AsRef<[u8]>>(&self, input_data: T, init_data: Option<T>) -> Result<Vec<u8>> {
-        let input = input_data.as_ref();
-        let init = init_data.as_ref().map(|x| x.as_ref());
-
-        if let Some(init) = init {
-            self.session(init)?.decrypt(input)
-        } else if !input.is_empty() {
-            self.session(&input[..input.len().min(1000)])?
-                .decrypt(input)
+    pub fn decrypt(&self, input_data: &mut Vec<u8>, init_data: Option<&[u8]>) -> Result<()> {
+        if let Some(init) = init_data {
+            self.session(init)?.decrypt(input_data)
+        } else if !input_data.is_empty() {
+            let init: Vec<u8> = input_data[..input_data.len().min(1000)].to_vec();
+            self.session(&init)?.decrypt(input_data)
         } else {
-            Ok(Vec::new())
+            Ok(())
         }
     }
 }
@@ -75,7 +72,7 @@ pub struct DecryptionSession<'a> {
 }
 
 impl<'a> DecryptionSession<'a> {
-    fn new(keys: &'a HashMap<[u8; 16], [u8; 16]>, init_data: &[u8]) -> Result<Self> {
+    fn new(init_data: &[u8], keys: &'a HashMap<[u8; 16], [u8; 16]>) -> Result<Self> {
         let schm_box = data!();
         let tenc_box = data!();
 
@@ -123,9 +120,7 @@ impl<'a> DecryptionSession<'a> {
         })
     }
 
-    pub fn decrypt(&self, segment_data: &[u8]) -> Result<Vec<u8>> {
-        let mut output = segment_data.to_vec();
-
+    pub fn decrypt(&self, input_data: &mut Vec<u8>) -> Result<()> {
         let moof_start = data!(0u64);
         let trun_box = data!();
         let senc_box = data!();
@@ -159,14 +154,14 @@ impl<'a> DecryptionSession<'a> {
                     Ok(())
                 }
             })
-            .parse(&output, true, true);
+            .parse(input_data, true, true);
 
         let trun_ref = trun_box.borrow();
         let senc_ref = senc_box.borrow();
 
         let (trun, senc) = match (trun_ref.as_ref(), senc_ref.as_ref()) {
             (Some(t), Some(s)) => (t, s),
-            _ => return Ok(output),
+            _ => return Ok(()),
         };
 
         let kid = self.tenc.default_kid;
@@ -188,7 +183,7 @@ impl<'a> DecryptionSession<'a> {
         };
 
         let mut offset = data_start;
-        let output_len = output.len();
+        let output_len = input_data.len();
 
         for (trun_sample, senc_sample) in trun.sample_data.iter().zip(senc.samples.iter()) {
             let size = trun_sample.sample_size.unwrap_or_default() as usize;
@@ -201,14 +196,11 @@ impl<'a> DecryptionSession<'a> {
                 break;
             }
 
-            let encrypted_sample = output[offset..end].to_vec();
-            let decrypted = decrypter.decrypt_sample(&encrypted_sample, senc_sample);
-
-            output[offset..end].copy_from_slice(&decrypted);
+            decrypter.decrypt_sample_inplace(&mut input_data[offset..end], senc_sample);
             offset = end;
         }
 
-        Ok(output)
+        Ok(())
     }
 }
 

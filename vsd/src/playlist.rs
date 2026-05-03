@@ -229,7 +229,7 @@ impl MediaPlaylist {
             .unwrap_or_else(|| PathBuf::from(filename))
     }
 
-    pub async fn fetch_init_seg(
+    pub async fn fetch_init(
         &self,
         client: &Client,
         base_url: &Url,
