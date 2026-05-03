@@ -4,7 +4,7 @@ use crate::{
 };
 use anyhow::{Result, bail};
 use colored::Colorize;
-use log::{info, warn};
+use log::{debug, info, warn};
 use std::{ffi::OsStr, path::PathBuf, process::Stdio, sync::atomic::Ordering};
 use tokio::{fs, process::Command};
 
@@ -138,21 +138,13 @@ impl Streams {
 
     pub async fn clean(&self, directory: Option<&PathBuf>) -> Result<()> {
         for stream in &self.0 {
-            info!(
-                "Delete [{}] {}",
-                stream.media_type.to_string().bold().red(),
-                stream.path.to_string_lossy()
-            );
+            debug!("Deleting '{}' file.", stream.path.to_string_lossy());
             fs::remove_file(&stream.path).await?;
         }
         if let Some(directory) = directory
             && directory.read_dir()?.next().is_none()
         {
-            info!(
-                "Delete [{}] {}",
-                "dir".bold().red(),
-                directory.to_string_lossy()
-            );
+            debug!("Deleting '{}' directory.", directory.to_string_lossy());
             fs::remove_dir(directory).await?;
         }
         Ok(())
