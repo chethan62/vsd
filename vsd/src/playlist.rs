@@ -2,6 +2,7 @@ use crate::{
     options::{Interaction, SelectOptions},
     progress::ByteSize,
     selector::StreamSelector,
+    utils,
 };
 use anyhow::Result;
 use colored::Colorize;
@@ -11,7 +12,7 @@ use reqwest::{
     header::{self, HeaderValue},
 };
 use serde::Serialize;
-use std::{cmp::Reverse, fmt::Display, path::PathBuf, sync::Arc};
+use std::{cmp::Reverse, fmt::Display, path::PathBuf};
 
 #[derive(Serialize)]
 pub struct MasterPlaylist {
@@ -231,20 +232,23 @@ impl MediaPlaylist {
     pub async fn fetch_init_seg(
         &self,
         client: &Client,
+        base_url: &Url,
         query: &Vec<(String, String)>,
-    ) -> Result<Option<Arc<Vec<u8>>>> {
+    ) -> Result<Option<Vec<u8>>> {
         let Some(Segment { map: Some(map), .. }) = self.segments.first() else {
             return Ok(None);
         };
 
-        let url = self.uri.parse::<Url>().unwrap().join(&map.uri)?;
+        let url = base_url.join(&map.uri)?;
         let mut request = client.get(url).query(query);
+
         if let Some(range) = &map.range {
             request = request.header(header::RANGE, range);
         }
 
-        let bytes = request.send().await?.bytes().await?;
-        Ok(Some(Arc::new(bytes.to_vec())))
+        let response = request.send().await?;
+        let bytes = utils::fetch_bytes(response).await?;
+        Ok(Some(bytes))
     }
 
     pub async fn fetch_split_seg(

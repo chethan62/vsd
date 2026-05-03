@@ -212,7 +212,10 @@ impl Downloader {
 
         let mut pssh_data = HashSet::new();
         for stream in pl.streams {
-            let Some(init_seg) = stream.fetch_init_seg(&self.client, &self.query).await? else {
+            let Some(init_seg) = stream
+                .fetch_init_seg(&self.client, &stream.uri.parse()?, &self.query)
+                .await?
+            else {
                 continue;
             };
             PsshBox::from_init(&init_seg)?

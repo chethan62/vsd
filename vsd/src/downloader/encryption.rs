@@ -99,7 +99,10 @@ pub async fn get_default_kids(
     let mut pssh_hash = HashSet::new();
 
     for stream in streams {
-        let Some(init_seg) = stream.fetch_init_seg(client, query).await? else {
+        let Some(init_seg) = stream
+            .fetch_init_seg(client, &stream.uri.parse()?, query)
+            .await?
+        else {
             continue;
         };
         let pssh = PsshBox::from_init(&init_seg)?;

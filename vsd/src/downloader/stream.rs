@@ -110,7 +110,7 @@ async fn download_stream(
     let mut increment_media_sequence = false;
     let mut media_sequence = stream.media_sequence;
     let media_type = stream.media_type.to_string();
-    let init_seg = stream.fetch_init_seg(client, query).await?;
+    let init_seg = stream.fetch_init_seg(client, &base_url, query).await?;
 
     let default_kid = if let Some(init_seg) = &init_seg {
         TencBox::from_init(init_seg)?.map(|x| x.default_kid_hex())
@@ -266,9 +266,7 @@ async fn download_stream(
 
             let size = bytes.len();
             let bytes = trim_fake_png_header(bytes);
-            let bytes = decrypter
-                .decrypt(bytes, init_seg.as_ref().map(|x| x.as_ref().to_vec()))
-                .unwrap();
+            let bytes = decrypter.decrypt(bytes, init_seg.clone()).unwrap();
 
             let mut f = File::create(&temp_file).await.unwrap();
 
