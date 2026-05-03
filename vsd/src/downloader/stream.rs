@@ -9,7 +9,7 @@ use crate::{
 };
 use anyhow::{Result, anyhow, bail};
 use colored::Colorize;
-use log::{debug, error, info, trace, warn};
+use log::{debug, info, trace, warn};
 use reqwest::{Client, StatusCode, Url, header};
 use std::{
     collections::HashMap,
@@ -133,9 +133,8 @@ async fn download_stream(
                 match result {
                     Ok(bytes) => pb.update(bytes),
                     Err(e) => {
-                        RUNNING.store(false, Ordering::SeqCst);
-                        error!("{}", e);
-                        std::process::exit(1);
+                        set.abort_all();
+                        bail!(e);
                     }
                 }
             }
@@ -246,25 +245,21 @@ async fn download_stream(
                         }
 
                         if avl_tries == 0 {
-                            RUNNING.store(false, Ordering::SeqCst);
-                            error!(
+                            bail!(
                                 "{} request failed ({}): '{}'",
                                 url,
                                 status,
                                 response.text().await?,
                             );
-                            std::process::exit(1);
                         }
                     }
                     Err(e) => {
                         if avl_tries == 0 {
-                            RUNNING.store(false, Ordering::SeqCst);
-                            error!(
+                            bail!(
                                 "{} request failed ({})",
                                 url,
                                 e.status().unwrap_or(StatusCode::NOT_FOUND)
                             );
-                            std::process::exit(1);
                         }
                     }
                 }
@@ -300,9 +295,8 @@ async fn download_stream(
         match result {
             Ok(bytes) => pb.update(bytes),
             Err(e) => {
-                RUNNING.store(false, Ordering::SeqCst);
-                error!("{}", e);
-                std::process::exit(1);
+                set.abort_all();
+                bail!(e);
             }
         }
     }
