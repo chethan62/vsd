@@ -163,14 +163,14 @@ async fn download_stream(
                         }
 
                         let default_kid = default_kid.as_ref().ok_or_else(|| {
-                            anyhow!("Unable to determine the default KID for this stream.")
+                            anyhow!("Unable to determine default kid for this stream.")
                         })?;
 
                         let key = if let Some(v) = keys.get(default_kid) {
                             v.to_owned()
                         } else {
                             warn!(
-                                "No key provided for ({}); checking PSSH data to identify other mappable KIDs.",
+                                "No key provided for '{}'; checking pssh data to identify other mappable kids.",
                                 default_kid
                             );
 
@@ -189,17 +189,16 @@ async fn download_stream(
                             }
 
                             found.ok_or_else(|| {
-                                anyhow!("Unable to determine the key for this stream.")
+                                anyhow!("Unable to determine key for this stream.")
                             })?
                         };
 
+                        info!("DrmKey [{}] {}:{}", "dec".magenta(), default_kid, key);
                         decrypter = Decrypter::Cenc(Arc::new(
                             CencDecryptingProcessor::builder()
                                 .key(default_kid, &key)?
                                 .build()?,
                         ));
-
-                        info!("DrmKey [{}] {}:{}", "dec".magenta(), default_kid, key);
                     }
                     _ => (),
                 }
@@ -260,12 +259,12 @@ async fn download_stream(
 
             let size = bytes.len();
             let bytes = trim_fake_png_header(bytes);
-            let bytes = decrypter.decrypt(bytes, init_seg.as_deref().map(AsRef::as_ref))?;
+            let bytes = decrypter.decrypt(bytes, init_seg.as_deref().map(|x| x.as_ref()))?;
 
             let mut f = File::create(&temp_file).await?;
 
             if let Some(init_seg) = &init_seg {
-                f.write_all(init_seg.as_slice()).await?;
+                f.write_all(init_seg).await?;
             }
 
             f.write_all(&bytes).await?;
@@ -305,14 +304,14 @@ async fn download_stream(
 
             if path.exists() {
                 io::copy(&mut File::open(&path).await?, &mut outfile).await?;
-                trace!("Deleting '{}' file.", path.to_string_lossy());
-                fs::remove_file(&path).await?;
+                // trace!("Deleting '{}' file.", path.to_string_lossy());
+                // fs::remove_file(&path).await?;
             }
         }
 
         debug!("Deleting '{}' directory.", temp_dir.to_string_lossy());
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        fs::remove_dir(&temp_dir).await?;
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        fs::remove_dir_all(&temp_dir).await?;
     }
     Ok(())
 }
