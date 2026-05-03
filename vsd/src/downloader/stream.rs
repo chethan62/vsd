@@ -10,7 +10,7 @@ use crate::{
 use anyhow::{Result, anyhow, bail};
 use colored::Colorize;
 use log::{debug, error, info, trace, warn};
-use reqwest::{Client, Url, header};
+use reqwest::{Client, StatusCode, Url, header};
 use std::{
     collections::HashMap,
     path::PathBuf,
@@ -212,7 +212,7 @@ async fn download_stream(
         let decrypter = decrypter.clone();
         let temp_file = temp_dir.join(format!("{}.{}.part", i, extension));
         let url = base_url.join(&segment.uri)?;
-        let mut request = client.get(url).query(query);
+        let mut request = client.get(url.clone()).query(query);
 
         if let Some(range) = &segment.range {
             request = request.header(header::RANGE, range);
@@ -220,32 +220,46 @@ async fn download_stream(
 
         set.spawn(async move {
             let mut avl_tries = MAX_RETRIES.load(Ordering::SeqCst);
-            let mut response = request.try_clone().unwrap().send().await.unwrap();
+            let bytes;
 
             loop {
-                let status = response.status();
+                match request.try_clone().unwrap().send().await {
+                    Ok(response) => {
+                        let status = response.status();
 
-                if status.is_success() {
-                    break;
+                        if status.is_success() {
+                            bytes = response.bytes().await.unwrap().to_vec();
+                            break;
+                        }
+
+                        if avl_tries == 0 {
+                            RUNNING.store(false, Ordering::SeqCst);
+                            error!(
+                                "{} request failed ({}): '{}'",
+                                url,
+                                status,
+                                response.text().await.unwrap(),
+                            );
+                            std::process::exit(1);
+                        }
+                    }
+                    Err(e) => {
+                        if avl_tries == 0 {
+                            RUNNING.store(false, Ordering::SeqCst);
+                            error!(
+                                "{} request failed ({})",
+                                url,
+                                e.status().unwrap_or(StatusCode::NOT_FOUND)
+                            );
+                            std::process::exit(1);
+                        }
+                    }
                 }
 
-                if avl_tries == 0 {
-                    RUNNING.store(false, Ordering::SeqCst);
-                    error!(
-                        "{} request failed ({}): '{}'",
-                        response.url().clone(),
-                        status,
-                        response.text().await.unwrap(),
-                    );
-                    std::process::exit(1);
-                }
-
-                trace!("Retrying {}", response.url());
-                response = request.try_clone().unwrap().send().await.unwrap();
+                trace!("Retrying {}", url);
                 avl_tries -= 1;
             }
 
-            let bytes = response.bytes().await.unwrap().to_vec();
             let size = bytes.len();
             let bytes = trim_fake_png_header(bytes);
             let bytes = decrypter

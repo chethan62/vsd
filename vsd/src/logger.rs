@@ -22,7 +22,7 @@ impl log::Log for Logger {
                         }
                     }
                 }
-                LevelFilter::Debug | LevelFilter::Trace => {
+                LevelFilter::Debug | LevelFilter::Trace if record.target().starts_with("vsd") => {
                     let location = match (record.file(), record.line()) {
                         (Some(file), Some(line)) => format!("[{}:{}]", file, line).dimmed(),
                         _ => "[unk]".dimmed(),
@@ -36,6 +36,7 @@ impl log::Log for Logger {
                         record.args()
                     );
                 }
+                _ => (),
             }
         }
     }
