@@ -1,6 +1,6 @@
 use crate::{
     downloader::{
-        MAX_THREADS,
+        MAX_THREADS, STREAM_DL_IDX,
         mux::{Stream, Streams},
     },
     playlist::{MediaPlaylist, MediaType},
@@ -58,12 +58,10 @@ pub async fn download_subtitle_streams(
     directory: Option<&PathBuf>,
     temp_files: &mut Streams,
 ) -> Result<()> {
-    let mut i = 0;
     let total = streams.len();
 
     for stream in streams {
         if stream.media_type == MediaType::Subtitles {
-            i += 1;
             download_subtitle_stream(
                 client,
                 stream,
@@ -71,7 +69,10 @@ pub async fn download_subtitle_streams(
                 query,
                 directory,
                 temp_files,
-                Progress::new(&format!("{}/{}", i, total), stream.segments.len()),
+                Progress::new(
+                    &format!("{}/{}", STREAM_DL_IDX.fetch_add(1, Ordering::SeqCst), total),
+                    stream.segments.len(),
+                ),
             )
             .await?;
         }

@@ -1,6 +1,6 @@
 use crate::{
     downloader::{
-        MAX_RETRIES, MAX_THREADS, RUNNING, SKIP_DECRYPT, SKIP_MERGE,
+        MAX_RETRIES, MAX_THREADS, RUNNING, SKIP_DECRYPT, SKIP_MERGE, STREAM_DL_IDX,
         encryption::Decrypter,
         mux::{Stream, Streams},
     },
@@ -39,6 +39,7 @@ pub async fn download_streams(
     streams: &Vec<MediaPlaylist>,
     temp_files: &mut Streams,
 ) -> Result<()> {
+    let total = streams.len();
     let streams = streams
         .into_iter()
         .filter(|x| x.media_type != MediaType::Subtitles)
@@ -73,7 +74,10 @@ pub async fn download_streams(
             base_url,
             client,
             keys,
-            Progress::new("0", stream.segments.len()),
+            Progress::new(
+                &format!("{}/{}", STREAM_DL_IDX.fetch_add(1, Ordering::SeqCst), total),
+                stream.segments.len(),
+            ),
             query,
             stream,
             &temp_file,

@@ -29,6 +29,7 @@ pub(crate) static MAX_THREADS: AtomicU8 = AtomicU8::new(5);
 pub(crate) static RUNNING: AtomicBool = AtomicBool::new(true);
 pub(crate) static SKIP_DECRYPT: AtomicBool = AtomicBool::new(false);
 pub(crate) static SKIP_MERGE: AtomicBool = AtomicBool::new(false);
+pub(crate) static STREAM_DL_IDX: AtomicU8 = AtomicU8::new(1);
 
 /// Download streams from DASH or HLS playlist.
 pub struct Downloader {
