@@ -1,6 +1,6 @@
 use crate::{
     downloader::{
-        MAX_RETRIES, MAX_THREADS, RUNNING, SKIP_DECRYPT, SKIP_MERGE, STREAM_DL_IDX,
+        MAX_RETRIES, MAX_THREADS, NO_RESUME, RUNNING, SKIP_DECRYPT, SKIP_MERGE, STREAM_DL_IDX,
         encryption::Decrypter,
         mux::{Stream, Streams},
     },
@@ -115,12 +115,19 @@ async fn download_stream(
         stream.default_kid()
     };
 
+    if NO_RESUME.load(Ordering::SeqCst) && temp_dir.exists() {
+        fs::remove_dir_all(&temp_dir).await?;
+    }
     fs::create_dir_all(&temp_dir).await?;
 
     let max_threads = MAX_THREADS.load(Ordering::SeqCst) as usize;
     let mut set: JoinSet<Result<usize>> = JoinSet::new();
 
     for (i, segment) in stream.segments.iter().enumerate() {
+        if !RUNNING.load(Ordering::SeqCst) {
+            break;
+        }
+
         while set.len() >= max_threads {
             if let Some(Ok(result)) = set.join_next().await {
                 match result {
@@ -205,9 +212,18 @@ async fn download_stream(
             }
         }
 
+        // Resume Logic
+        let temp_file = temp_dir.join(format!("{}.{}.part", i, ext));
+        let out_file = temp_file.with_extension("");
+
+        if out_file.exists() {
+            let size = fs::metadata(&out_file).await?.len();
+            pb.update(size as usize);
+            continue;
+        }
+
         let init_seg = init_seg.clone();
         let decrypter = decrypter.clone();
-        let temp_file = temp_dir.join(format!("{}.{}.part", i, ext));
         let url = base_url.join(&segment.uri)?;
         let mut request = client.get(url.clone()).query(query);
 
@@ -235,7 +251,7 @@ async fn download_stream(
                                 "{} request failed ({}): '{}'",
                                 url,
                                 status,
-                                response.text().await.unwrap(),
+                                response.text().await?,
                             );
                             std::process::exit(1);
                         }
@@ -292,6 +308,11 @@ async fn download_stream(
     }
 
     eprintln!();
+
+    if !RUNNING.load(Ordering::SeqCst) {
+        warn!("Download interrupted.");
+        std::process::exit(0);
+    }
 
     if SKIP_MERGE.load(Ordering::SeqCst) {
         debug!("Stream merging skipped.");

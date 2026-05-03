@@ -124,6 +124,10 @@ pub struct Save {
     #[arg(long, help_heading = "Download Options")]
     pub no_merge: bool,
 
+    /// Disable resume and re-download all segments from scratch.
+    #[arg(long, help_heading = "Download Options")]
+    pub no_resume: bool,
+
     /// Maximum retry attempts per segment.
     #[arg(long, help_heading = "Download Options", default_value_t = 10)]
     pub retries: u8,
@@ -198,6 +202,7 @@ impl Save {
             .keys(self.keys)
             .skip_decrypt(self.no_decrypt)
             .skip_merge(self.no_merge)
+            .no_resume(self.no_resume)
             .max_retries(self.retries)
             .max_threads(self.threads);
 

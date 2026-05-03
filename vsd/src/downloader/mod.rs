@@ -26,6 +26,7 @@ use std::{
 
 pub(crate) static MAX_RETRIES: AtomicU8 = AtomicU8::new(10);
 pub(crate) static MAX_THREADS: AtomicU8 = AtomicU8::new(5);
+pub(crate) static NO_RESUME: AtomicBool = AtomicBool::new(false);
 pub(crate) static RUNNING: AtomicBool = AtomicBool::new(true);
 pub(crate) static SKIP_DECRYPT: AtomicBool = AtomicBool::new(false);
 pub(crate) static SKIP_MERGE: AtomicBool = AtomicBool::new(false);
@@ -150,6 +151,12 @@ impl Downloader {
         self
     }
 
+    /// Disable resume and re-download all segments from scratch.
+    pub fn no_resume(self, no_resume: bool) -> Self {
+        NO_RESUME.store(no_resume, Ordering::SeqCst);
+        self
+    }
+
     /// Maximum retry attempts per segment.
     pub fn max_retries(self, max_retries: u8) -> Self {
         MAX_RETRIES.store(max_retries, Ordering::SeqCst);
@@ -259,12 +266,12 @@ impl Downloader {
 
         tokio::spawn(async {
             if tokio::signal::ctrl_c().await.is_ok() && RUNNING.load(Ordering::SeqCst) {
-                warn!("Ctrl+C received, stopping gracefully.");
+                warn!("Ctrl+C received; stopping download.");
                 RUNNING.store(false, Ordering::SeqCst);
             }
 
             if tokio::signal::ctrl_c().await.is_ok() {
-                error!("Ctrl+C received, force exiting.");
+                error!("Ctrl+C received; force exiting.");
                 std::process::exit(1);
             }
         });
