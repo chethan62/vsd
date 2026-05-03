@@ -7,9 +7,9 @@ use crate::{
     progress::Progress,
     utils,
 };
-use anyhow::Result;
+use anyhow::{Result, bail};
 use colored::Colorize;
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use reqwest::{Client, Url, header};
 use std::{path::PathBuf, sync::atomic::Ordering};
 use tokio::{fs::File, io::AsyncWriteExt, task::JoinSet};
@@ -147,12 +147,19 @@ async fn download_subtitle_stream(
 
     if !remaining.is_empty() {
         let max_threads = MAX_THREADS.load(Ordering::SeqCst) as usize;
-        let mut set: JoinSet<(usize, Vec<u8>)> = JoinSet::new();
+        let mut set: JoinSet<Result<(usize, Vec<u8>)>> = JoinSet::new();
         let mut results = vec![None; remaining.len()];
 
         for (i, segment) in remaining.iter().enumerate() {
             while set.len() >= max_threads {
-                if let Some(Ok((i, bytes))) = set.join_next().await {
+                if let Some(Ok(result)) = set.join_next().await {
+                    let (i, bytes) = match result {
+                        Ok(v) => v,
+                        Err(e) => {
+                            set.abort_all();
+                            bail!(e);
+                        }
+                    };
                     pb.update(bytes.len());
                     results[i] = Some(bytes);
                 }
@@ -166,19 +173,20 @@ async fn download_subtitle_stream(
             }
 
             set.spawn(async move {
-                let response = request.send().await.unwrap_or_else(|e| {
-                    error!("{}", e);
-                    std::process::exit(1);
-                });
-                let bytes = utils::fetch_bytes(response).await.unwrap_or_else(|e| {
-                    error!("{}", e);
-                    std::process::exit(1);
-                });
-                (i, bytes)
+                let response = request.send().await?;
+                let bytes = utils::fetch_bytes(response).await?;
+                Ok((i, bytes))
             });
         }
 
-        while let Some(Ok((i, bytes))) = set.join_next().await {
+        while let Some(Ok(result)) = set.join_next().await {
+            let (i, bytes) = match result {
+                Ok(v) => v,
+                Err(e) => {
+                    set.abort_all();
+                    bail!(e);
+                }
+            };
             pb.update(bytes.len());
             results[i] = Some(bytes);
         }
