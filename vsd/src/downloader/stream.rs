@@ -118,12 +118,19 @@ async fn download_stream(
     fs::create_dir_all(&temp_dir).await?;
 
     let max_threads = MAX_THREADS.load(Ordering::SeqCst) as usize;
-    let mut set: JoinSet<usize> = JoinSet::new();
+    let mut set: JoinSet<Result<usize>> = JoinSet::new();
 
     for (i, segment) in stream.segments.iter().enumerate() {
         while set.len() >= max_threads {
-            if let Some(Ok(bytes)) = set.join_next().await {
-                pb.update(bytes);
+            if let Some(Ok(result)) = set.join_next().await {
+                match result {
+                    Ok(bytes) => pb.update(bytes),
+                    Err(e) => {
+                        RUNNING.store(false, Ordering::SeqCst);
+                        error!("{}", e);
+                        std::process::exit(1);
+                    }
+                }
             }
         }
 
@@ -163,7 +170,7 @@ async fn download_stream(
                             v.to_owned()
                         } else {
                             warn!(
-                                "No key provided for ({}:?); checking PSSH data to identify other mappable KIDs.",
+                                "No key provided for ({}); checking PSSH data to identify other mappable KIDs.",
                                 default_kid
                             );
 
@@ -253,28 +260,31 @@ async fn download_stream(
 
             let size = bytes.len();
             let bytes = trim_fake_png_header(bytes);
-            let bytes = decrypter
-                .decrypt(bytes, init_seg.as_deref().map(AsRef::as_ref))
-                .unwrap();
+            let bytes = decrypter.decrypt(bytes, init_seg.as_deref().map(AsRef::as_ref))?;
 
-            let mut f = File::create(&temp_file).await.unwrap();
+            let mut f = File::create(&temp_file).await?;
 
             if let Some(init_seg) = &init_seg {
-                f.write_all(init_seg.as_slice()).await.unwrap();
+                f.write_all(init_seg.as_slice()).await?;
             }
 
-            f.write_all(&bytes).await.unwrap();
-            f.flush().await.unwrap();
-            fs::rename(&temp_file, temp_file.with_extension(""))
-                .await
-                .unwrap();
+            f.write_all(&bytes).await?;
+            f.flush().await?;
+            fs::rename(&temp_file, temp_file.with_extension("")).await?;
 
-            size
+            Ok(size)
         });
     }
 
-    if let Some(Ok(bytes)) = set.join_next().await {
-        pb.update(bytes);
+    if let Some(Ok(result)) = set.join_next().await {
+        match result {
+            Ok(bytes) => pb.update(bytes),
+            Err(e) => {
+                RUNNING.store(false, Ordering::SeqCst);
+                error!("{}", e);
+                std::process::exit(1);
+            }
+        }
     }
 
     eprintln!();
