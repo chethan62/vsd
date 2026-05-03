@@ -101,9 +101,8 @@ async fn download_stream(
     let ext = stream.extension();
     let should_decrypt = !SKIP_DECRYPT.load(Ordering::SeqCst);
     let temp_dir = temp_file.with_extension("");
+    let mut auto_increment_iv = false;
     let mut decrypter = Decrypter::None;
-    let mut increment_media_sequence = false;
-    let mut media_sequence = stream.media_sequence;
 
     let init_seg = stream
         .fetch_init(client, &base_url, query)
@@ -129,38 +128,29 @@ async fn download_stream(
         }
 
         if should_decrypt {
-            if decrypter.is_hls() && segment.key.is_none() && increment_media_sequence {
+            if decrypter.is_hls() && segment.key.is_none() && auto_increment_iv {
                 decrypter.increment_iv();
-                media_sequence += 1;
             }
 
             if let Some(key) = &segment.key {
-                match key.method {
-                    KeyMethod::Aes128 | KeyMethod::SampleAes => {
-                        match key.method {
-                            KeyMethod::Aes128 => {
-                                decrypter = Decrypter::Aes128(HlsAes128Decrypter::new(
-                                    &key.key(&base_url, client, query).await?,
-                                    &key.iv(media_sequence)?,
-                                ));
-                            }
-                            KeyMethod::SampleAes => {
-                                decrypter = Decrypter::SampleAes(HlsSampleAesDecrypter::new(
-                                    &key.key(&base_url, client, query).await?,
-                                    &key.iv(media_sequence)?,
-                                ));
-                            }
-                            _ => (),
-                        }
+                let media_sequence = stream.media_sequence + i as u64;
 
-                        if key.iv.is_none() {
-                            increment_media_sequence = true;
-                            media_sequence += 1;
-                        } else {
-                            increment_media_sequence = false;
-                        }
+                match key.method {
+                    KeyMethod::Aes128 => {
+                        decrypter = Decrypter::Aes128(HlsAes128Decrypter::new(
+                            &key.key(client, &base_url, query).await?,
+                            &key.iv(media_sequence)?,
+                        ));
+                        auto_increment_iv = key.iv.is_none();
                     }
-                    KeyMethod::Cenc => {
+                    KeyMethod::SampleAes => {
+                        decrypter = Decrypter::SampleAes(HlsSampleAesDecrypter::new(
+                            &key.key(client, &base_url, query).await?,
+                            &key.iv(media_sequence)?,
+                        ));
+                        auto_increment_iv = key.iv.is_none();
+                    }
+                    KeyMethod::Cenc if !matches!(decrypter, Decrypter::Cenc(_)) => {
                         if keys.is_empty() {
                             bail!("Custom keys are required to proceed further.");
                         }
@@ -169,33 +159,32 @@ async fn download_stream(
                             anyhow!("Unable to determine the default KID for this stream.")
                         })?;
 
-                        let mut key = None;
-
-                        if keys.contains_key(default_kid) {
-                            key = Some(keys.get(default_kid).unwrap().to_owned())
+                        let key = if let Some(v) = keys.get(default_kid) {
+                            v.to_owned()
                         } else {
                             warn!(
                                 "No key provided for ({}:?); checking PSSH data to identify other mappable KIDs.",
                                 default_kid
                             );
 
+                            let mut found = None;
                             if let Some(init_seg) = &init_seg {
                                 for kid in PsshBox::from_init(init_seg)?
                                     .data
                                     .into_iter()
-                                    .map(|x| x.key_ids)
-                                    .flatten()
+                                    .flat_map(|x| x.key_ids)
                                 {
-                                    if keys.contains_key(&kid.0) {
-                                        key = Some(keys.get(&kid.0).unwrap().to_owned());
+                                    if let Some(v) = keys.get(&kid.0) {
+                                        found = Some(v.to_owned());
+                                        break;
                                     }
                                 }
                             }
-                        }
 
-                        let key = key.ok_or_else(|| {
-                            anyhow!("Unable to determine the key for this stream.")
-                        })?;
+                            found.ok_or_else(|| {
+                                anyhow!("Unable to determine the key for this stream.")
+                            })?
+                        };
 
                         decrypter = Decrypter::Cenc(Arc::new(
                             CencDecryptingProcessor::builder()
@@ -265,7 +254,7 @@ async fn download_stream(
             let size = bytes.len();
             let bytes = trim_fake_png_header(bytes);
             let bytes = decrypter
-                .decrypt(bytes, init_seg.as_deref().map(|x| x.as_slice()))
+                .decrypt(bytes, init_seg.as_deref().map(AsRef::as_ref))
                 .unwrap();
 
             let mut f = File::create(&temp_file).await.unwrap();

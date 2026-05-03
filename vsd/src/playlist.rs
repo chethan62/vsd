@@ -107,8 +107,8 @@ impl TryFrom<&Range> for HeaderValue {
 impl Key {
     pub async fn key(
         &self,
-        base_url: &Url,
         client: &Client,
+        base_url: &Url,
         query: &Vec<(String, String)>,
     ) -> Result<[u8; 16]> {
         let url = base_url.join(self.uri.as_ref().unwrap())?;
