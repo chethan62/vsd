@@ -288,13 +288,13 @@ impl Downloader {
         .await?;
 
         stream::download_streams(
-            &self.base_url,
             &self.client,
-            self.directory.as_ref(),
-            &self.keys,
-            &self.query,
             &streams,
+            &self.base_url,
+            &self.query,
+            self.directory.as_ref(),
             &mut temp_files,
+            &self.keys,
         )
         .await?;
 

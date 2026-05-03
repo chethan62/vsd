@@ -31,21 +31,21 @@ const PNG_HEADER: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
 #[allow(clippy::too_many_arguments)]
 pub async fn download_streams(
-    base_url: &Option<Url>,
     client: &Client,
-    directory: Option<&PathBuf>,
-    keys: &HashMap<String, String>,
-    query: &Vec<(String, String)>,
     streams: &Vec<MediaPlaylist>,
+    base_url: &Option<Url>,
+    query: &Vec<(String, String)>,
+    directory: Option<&PathBuf>,
     temp_files: &mut Streams,
+    keys: &HashMap<String, String>,
 ) -> Result<()> {
     let total = streams.len();
-    let streams = streams
-        .into_iter()
-        .filter(|x| x.media_type != MediaType::Subtitles)
-        .collect::<Vec<_>>();
 
     for stream in streams {
+        if stream.media_type == MediaType::Subtitles {
+            continue;
+        }
+
         info!(
             "DownLD [{}] {}",
             stream.media_type.to_string().green(),
@@ -58,46 +58,44 @@ pub async fn download_streams(
         }
 
         let temp_file = stream.path(directory);
-
         temp_files.0.push(Stream {
             language: stream.language.clone(),
             media_type: stream.media_type.clone(),
             path: temp_file.clone(),
         });
-
         info!(
             "Saving [{}] {}",
             stream.media_type.to_string().green(),
             temp_file.with_extension("").to_string_lossy()
         );
+
         download_stream(
-            base_url,
             client,
+            stream,
+            base_url,
+            query,
+            &temp_file,
             keys,
             Progress::new(
                 &format!("{}/{}", STREAM_DL_IDX.fetch_add(1, Ordering::SeqCst), total),
                 stream.segments.len(),
             ),
-            query,
-            stream,
-            &temp_file,
         )
         .await?;
     }
 
-    // eprintln!();
     Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
 async fn download_stream(
-    base_url: &Option<Url>,
     client: &Client,
+    stream: &MediaPlaylist,
+    base_url: &Option<Url>,
+    query: &Vec<(String, String)>,
+    temp_file: &PathBuf,
     keys: &HashMap<String, String>,
     pb: Progress,
-    query: &Vec<(String, String)>,
-    stream: &MediaPlaylist,
-    temp_file: &PathBuf,
 ) -> Result<()> {
     let base_url = base_url
         .clone()
