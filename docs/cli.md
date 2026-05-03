@@ -108,7 +108,7 @@ vsd license [OPTIONS] <INPUT>
 
 **Arguments:**
 
-- `<INPUT>`: INIT_PATH | PLAYLIST_URL | BASE64_PSSH *(required)*
+- `<INPUT>`: HTTP(S):// | INIT.mp4 | PSSH_BASE64 *(required)*
 
 **Options:**
 
@@ -192,7 +192,6 @@ vsd save [OPTIONS] <INPUT>
 |------|-------------|
 | `--cookies` | Path to a netscape cookie file for authenticated requests |
 | `-H, --header` | Additional headers for requests in same format as curl.<br><br>This option can be used multiple times. |
-| `--no-certificate-checks` | Disable TLS certificate verification (insecure) |
 | `--proxy` | Proxy server URL (HTTP, HTTPS, or SOCKS) |
 | `--query` | Additional query parameters for requests |
 
@@ -208,6 +207,7 @@ vsd save [OPTIONS] <INPUT>
 | Flag | Description |
 |------|-------------|
 | `--no-merge` | Skip segment merging and keep individual files.<br><br>Ignores `--output` when enabled. |
+| `--no-resume` | Disable resume and re-download all segments from scratch |
 | `--retries` | Maximum retry attempts per segment<br>*Default:* `10` |
 | `-t, --threads` | Number of concurrent download threads (1–16)<br>*Default:* `5` |
 

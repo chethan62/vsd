@@ -312,7 +312,7 @@ impl Downloader {
             temp_files
                 .mux(&ffmpeg, self.output.as_ref().unwrap(), &self.subs_codec)
                 .await?;
-            temp_files.clean(self.directory.as_ref()).await?;
+            temp_files.clean(self.directory.as_deref()).await?;
         }
 
         Ok(())

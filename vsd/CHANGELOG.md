@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `capture`
     - Feature re-worked.
 
+### Fixed
+
+- `save`
+    - Several muxing related errors.
+
 ## [0.4.3] - 2025-08-16
 
 ### Added
