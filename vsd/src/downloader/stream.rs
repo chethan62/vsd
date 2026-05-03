@@ -311,11 +311,14 @@ async fn download_stream(
 
             if path.exists() {
                 io::copy(&mut File::open(&path).await?, &mut outfile).await?;
+                trace!("Deleting '{}' file.", path.to_string_lossy());
+                fs::remove_file(&path).await?;
             }
         }
 
         debug!("Deleting '{}' directory.", temp_dir.to_string_lossy());
-        fs::remove_dir_all(&temp_dir).await?;
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        fs::remove_dir(&temp_dir).await?;
     }
     Ok(())
 }
