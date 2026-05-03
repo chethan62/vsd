@@ -275,7 +275,7 @@ async fn download_stream(
         });
     }
 
-    if let Some(Ok(result)) = set.join_next().await {
+    while let Some(Ok(result)) = set.join_next().await {
         match result {
             Ok(bytes) => pb.update(bytes),
             Err(e) => {
@@ -310,7 +310,7 @@ async fn download_stream(
         }
 
         debug!("Deleting '{}' directory.", temp_dir.to_string_lossy());
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        // tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         fs::remove_dir_all(&temp_dir).await?;
     }
     Ok(())
