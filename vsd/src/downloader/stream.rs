@@ -217,7 +217,7 @@ async fn download_stream(
 
         set.spawn(async move {
             let mut avl_tries = MAX_RETRIES.load(Ordering::SeqCst);
-            let bytes;
+            let mut bytes;
 
             loop {
                 match request.try_clone().unwrap().send().await {
@@ -225,7 +225,7 @@ async fn download_stream(
                         let status = response.status();
 
                         if status.is_success() {
-                            bytes = response.bytes().await.unwrap().to_vec();
+                            bytes = response.bytes().await?.to_vec();
                             break;
                         }
 
@@ -258,7 +258,12 @@ async fn download_stream(
             }
 
             let size = bytes.len();
-            let bytes = trim_fake_png_header(bytes);
+
+            // Trim fake PNG header.
+            if bytes.len() >= 8 && bytes[..8] == PNG_HEADER {
+                bytes = bytes.split_off(8)
+            }
+
             let bytes = decrypter.decrypt(bytes, init_seg.as_deref().map(|x| x.as_ref()))?;
 
             let mut f = File::create(&temp_file).await?;
@@ -314,13 +319,4 @@ async fn download_stream(
         fs::remove_dir_all(&temp_dir).await?;
     }
     Ok(())
-}
-
-fn trim_fake_png_header(mut data: Vec<u8>) -> Vec<u8> {
-    if data.len() >= 8 && data[0..8] == PNG_HEADER {
-        data.drain(0..8);
-        data
-    } else {
-        data
-    }
 }
