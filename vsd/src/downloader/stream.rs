@@ -97,17 +97,14 @@ async fn download_stream(
     keys: &HashMap<String, String>,
     pb: Progress,
 ) -> Result<()> {
-    let base_url = base_url
-        .clone()
-        .unwrap_or(stream.uri.parse::<Url>().unwrap());
-    let mut decrypter = Decrypter::None;
-    let temp_dir = temp_file.with_extension("");
-    let extension = stream.extension();
-    let total = stream.segments.len();
+    let base_url = base_url.clone().unwrap_or(stream.uri.parse()?);
+    let ext = stream.extension();
     let should_decrypt = !SKIP_DECRYPT.load(Ordering::SeqCst);
+    let temp_dir = temp_file.with_extension("");
+    let mut decrypter = Decrypter::None;
     let mut increment_media_sequence = false;
     let mut media_sequence = stream.media_sequence;
-    let media_type = stream.media_type.to_string();
+
     let init_seg = stream
         .fetch_init(client, &base_url, query)
         .await?
@@ -215,7 +212,7 @@ async fn download_stream(
 
         let init_seg = init_seg.clone();
         let decrypter = decrypter.clone();
-        let temp_file = temp_dir.join(format!("{}.{}.part", i, extension));
+        let temp_file = temp_dir.join(format!("{}.{}.part", i, ext));
         let url = base_url.join(&segment.uri)?;
         let mut request = client.get(url.clone()).query(query);
 
@@ -298,14 +295,14 @@ async fn download_stream(
     } else {
         info!(
             "Mergin [{}] {}",
-            media_type.cyan(),
+            stream.media_type.to_string().cyan(),
             temp_file.to_string_lossy()
         );
 
         let mut outfile = File::create(temp_file).await?;
 
-        for i in 0..total {
-            let path = temp_dir.join(format!("{}.{}", i, extension));
+        for i in 0..stream.segments.len() {
+            let path = temp_dir.join(format!("{}.{}", i, ext));
 
             if path.exists() {
                 io::copy(&mut File::open(&path).await?, &mut outfile).await?;

@@ -101,9 +101,7 @@ async fn download_subtitle_stream(
         return Ok(());
     }
 
-    let base_url = base_url
-        .clone()
-        .unwrap_or(stream.uri.parse::<Url>().unwrap());
+    let base_url = base_url.clone().unwrap_or(stream.uri.parse()?);
     let segment = &stream.segments[0];
     let mut data = Vec::new();
     let ext = stream.extension();
