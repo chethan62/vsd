@@ -170,13 +170,13 @@ impl Downloader {
     }
 
     async fn fetch_playlist(&self) -> Result<FetchedPlaylist> {
-        Ok(FetchedPlaylist::new(
+        FetchedPlaylist::new(
             &self.input,
             &self.client,
             self.base_url.as_ref(),
             &self.query,
         )
-        .await?)
+        .await
     }
 
     pub(crate) async fn list_playlist(self) -> Result<()> {

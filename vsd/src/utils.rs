@@ -1,4 +1,4 @@
-use anyhow::{Ok, Result, bail};
+use anyhow::{Result, bail};
 use reqwest::Response;
 use std::{env, path::PathBuf};
 
@@ -19,7 +19,7 @@ pub async fn fetch_bytes(response: Response) -> Result<Vec<u8>> {
 
 pub fn find_ffmpeg() -> Option<PathBuf> {
     let mut paths = Vec::new();
-    if let Some(path) = env::current_dir().ok() {
+    if let Ok(path) = env::current_dir() {
         paths.push(path);
     }
     if let Some(path) = env::current_exe()

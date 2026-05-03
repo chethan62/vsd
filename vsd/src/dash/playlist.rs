@@ -375,7 +375,7 @@ pub(crate) async fn push_segments(
                                 );
                             }
 
-                            let mut number = segment_template.startNumber.unwrap_or(1) as i64;
+                            let number = segment_template.startNumber.unwrap_or(1) as i64;
                             let total_number =
                                 number + (period_duration_secs / segment_duration).round() as i64;
 
@@ -403,7 +403,7 @@ pub(crate) async fn push_segments(
                             //     }
                             // }
 
-                            for _ in 1..=total_number {
+                            for number in segment_template.startNumber.unwrap_or(1) as i64..=total_number {
                                 template.insert("Number", number.to_string());
 
                                 stream.segments.push(Segment {
@@ -411,8 +411,6 @@ pub(crate) async fn push_segments(
                                     uri: base_url.join(&template.resolve(&media))?.to_string(),
                                     ..Default::default()
                                 });
-
-                                number += 1;
                             }
                         }
                     } else if let Some(segment_base) = &representation.SegmentBase {

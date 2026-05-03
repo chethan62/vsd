@@ -45,7 +45,7 @@ pub fn parse(data: &[u8]) -> Result<HashSet<KeyId>> {
         bail!("PSSH box extra data after playready object records.");
     }
 
-    Ok(kids.into_iter().map(|x| KeyId(x)).collect())
+    Ok(kids.into_iter().map(KeyId).collect())
 }
 
 #[derive(Deserialize)]

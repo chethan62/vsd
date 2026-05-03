@@ -131,14 +131,13 @@ impl<'a> Cookie<'a> {
         if !self.path.is_empty() {
             h.push_str(&format!("; Path={}", self.path));
         }
-        if self.expires > 0 {
-            if let Some(dt) = Utc.timestamp_opt(self.expires, 0).single() {
+        if self.expires > 0
+            && let Some(dt) = Utc.timestamp_opt(self.expires, 0).single() {
                 h.push_str(&format!(
                     "; Expires={}",
                     dt.format("%a, %d %b %Y %H:%M:%S GMT")
                 ));
             }
-        }
         if self.secure {
             h.push_str("; Secure");
         }
@@ -237,9 +236,9 @@ impl<'a> From<&'a Vec<BrowserCookie>> for Cookies<'a> {
 }
 
 #[cfg(feature = "capture")]
-impl<'a> Into<Vec<CookieParam>> for Cookies<'a> {
-    fn into(self) -> Vec<CookieParam> {
-        self.0
+impl<'a> From<Cookies<'a>> for Vec<CookieParam> {
+    fn from(val: Cookies<'a>) -> Self {
+        val.0
             .into_iter()
             .map(|c| CookieParam {
                 name: c.name.to_owned(),

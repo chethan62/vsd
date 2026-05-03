@@ -5,7 +5,7 @@ use crate::{
 use anyhow::{Result, bail};
 use colored::Colorize;
 use log::{debug, info, warn};
-use std::{ffi::OsStr, path::PathBuf, process::Stdio, sync::atomic::Ordering};
+use std::{ffi::OsStr, path::{Path, PathBuf}, process::Stdio, sync::atomic::Ordering};
 use tokio::{fs, process::Command};
 
 pub struct Streams(pub Vec<Stream>);
@@ -17,7 +17,7 @@ pub struct Stream {
 }
 
 impl Streams {
-    pub async fn mux(&self, ffmpeg: &PathBuf, output: &PathBuf, subs_codec: &str) -> Result<()> {
+    pub async fn mux(&self, ffmpeg: &PathBuf, output: &Path, subs_codec: &str) -> Result<()> {
         let sub_streams_present = self
             .0
             .iter()

@@ -192,10 +192,8 @@ async fn download_subtitle_stream(
             results[i] = Some(bytes);
         }
 
-        for result in results {
-            if let Some(mut bytes) = result {
-                data.append(&mut bytes);
-            }
+        for mut bytes in results.into_iter().flatten() {
+            data.append(&mut bytes);
         }
 
         pb_handle.abort();
