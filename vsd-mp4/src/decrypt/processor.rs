@@ -53,15 +53,14 @@ impl CencDecryptingProcessor {
         DecryptionSession::new(init_data, &self.keys)
     }
 
-    pub fn decrypt(&self, input_data: &mut Vec<u8>, init_data: Option<&[u8]>) -> Result<()> {
+    pub fn decrypt(&self, mut input_data: Vec<u8>, init_data: Option<&[u8]>) -> Result<Vec<u8>> {
         if let Some(init) = init_data {
-            self.session(init)?.decrypt(input_data)
+            self.session(init)?.decrypt(&mut input_data)?;
         } else if !input_data.is_empty() {
             let init: Vec<u8> = input_data[..input_data.len().min(1000)].to_vec();
-            self.session(&init)?.decrypt(input_data)
-        } else {
-            Ok(())
+            self.session(&init)?.decrypt(&mut input_data)?;
         }
+        Ok(input_data)
     }
 }
 
