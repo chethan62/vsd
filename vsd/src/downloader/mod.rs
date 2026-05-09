@@ -204,7 +204,7 @@ impl Downloader {
         Ok(())
     }
 
-    pub(crate) async fn pssh_playlist(self) -> Result<HashSet<Vec<u8>>> {
+    pub(crate) async fn pssh_data(self) -> Result<HashSet<Vec<u8>>> {
         let pl = self
             .fetch_playlist()
             .await?
@@ -219,18 +219,15 @@ impl Downloader {
 
         let mut pssh_data = HashSet::new();
         for stream in pl.streams {
-            let Some(init_seg) = stream
+            let Some(bytes) = stream
                 .fetch_init(&self.client, &stream.uri.parse()?, &self.query)
                 .await?
             else {
                 continue;
             };
-            PsshBox::from_init(&init_seg)?
-                .data
-                .into_iter()
-                .for_each(|x| {
-                    let _ = pssh_data.insert(x.data);
-                });
+            PsshBox::from_init(&bytes)?.data.into_iter().for_each(|x| {
+                let _ = pssh_data.insert(x.data);
+            });
         }
         Ok(pssh_data)
     }

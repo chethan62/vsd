@@ -1,3 +1,4 @@
+use crate::Downloader;
 use anyhow::{Result, bail};
 use base64::Engine;
 use clap::Args;
@@ -14,12 +15,10 @@ use std::{
 };
 use vsd_mp4::pssh::{PsshBox, SystemId};
 
-use crate::Downloader;
-
 /// Request content keys from a license server.
 #[derive(Args, Clone, Debug)]
 pub struct License {
-    /// HTTP(S):// | INIT.mp4 | PSSH_BASE64
+    /// https://.. | video-init.mp4 | pssh-data (base64)
     #[arg(required = true)]
     input: String,
 
@@ -33,7 +32,7 @@ pub struct License {
     #[arg(long, value_name = "PRD", help_heading = "Playready Options")]
     playready_device: Option<PathBuf>,
 
-    /// Playready license server URL.
+    /// Playready license server url.
     #[arg(long, value_name = "URL", help_heading = "Playready Options")]
     playready_url: Option<Url>,
 
@@ -45,7 +44,7 @@ pub struct License {
     #[arg(long, value_name = "WVD", help_heading = "Widevine Options")]
     widevine_device: Option<PathBuf>,
 
-    /// Widevine license server URL.
+    /// Widevine license server url.
     #[arg(long, value_name = "URL", help_heading = "Widevine Options")]
     widevine_url: Option<Url>,
 
@@ -98,13 +97,11 @@ impl License {
                     let _ = pssh_data.insert(x.data);
                 });
         } else if let Ok(url) = self.input.parse::<Url>() {
-            pssh_data = Downloader::new(url.as_str(), &client)
-                .pssh_playlist()
-                .await?;
+            pssh_data = Downloader::new(url.as_str(), &client).pssh_data().await?;
         } else if let Ok(data) = base64::engine::general_purpose::STANDARD.decode(&self.input) {
             pssh_data.insert(data);
         } else {
-            bail!("Unable to determine the INPUT type.");
+            bail!("Unable to determine the input type.");
         }
 
         for pssh in pssh_data {
@@ -119,7 +116,7 @@ impl License {
                     let Some(license_url) = &self.playready_url else {
                         bail!("Playready license url not provided.");
                     };
-                    println!(
+                    info!(
                         "DrmPsh [{}] {}",
                         "prd".magenta(),
                         base64::engine::general_purpose::STANDARD.encode(&pssh)
@@ -150,7 +147,7 @@ impl License {
                     let keys = session.get_keys_from_challenge_response(&data)?;
 
                     for (kid, key) in &keys {
-                        println!("DrmKey [{}] {}:{}", "prd".magenta(), kid, key);
+                        info!("DrmKey [{}] {}:{}", "prd".magenta(), kid, key);
                     }
                 }
                 SystemId::WideVine => {
@@ -163,7 +160,7 @@ impl License {
                     let Some(license_url) = &self.widevine_url else {
                         bail!("Widevine license url not provided.");
                     };
-                    println!(
+                    info!(
                         "DrmPsh [{}] {}",
                         "wvd".magenta(),
                         base64::engine::general_purpose::STANDARD.encode(&pssh)
