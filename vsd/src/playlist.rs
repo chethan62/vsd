@@ -6,7 +6,7 @@ use crate::{
 };
 use anyhow::Result;
 use colored::Colorize;
-use log::info;
+use log::{debug, info};
 use reqwest::{
     Client, Url,
     header::{self, HeaderValue},
@@ -240,12 +240,21 @@ impl MediaPlaylist {
         };
 
         let url = base_url.join(&map.uri)?;
-        let mut request = client.get(url).query(query);
+        let mut request = client.get(url.clone()).query(query);
 
         if let Some(range) = &map.range {
             request = request.header(header::RANGE, range);
         }
 
+        debug!(
+            "Fetching {} (init@{})",
+            url,
+            map.range
+                .as_ref()
+                .map(|x| format!("{}-{}", x.start, x.end))
+                .as_deref()
+                .unwrap_or("full-range")
+        );
         let response = request.send().await?;
         let bytes = utils::fetch_bytes(response).await?;
         Ok(Some(bytes))

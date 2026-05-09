@@ -103,23 +103,14 @@ async fn download_subtitle_stream(
 
     let base_url = base_url.clone().unwrap_or(stream.uri.parse()?);
     let ext = stream.extension();
-    let segment = &stream.segments[0];
     let mut data = Vec::new();
     let mut temp_file = stream.path(directory);
 
-    if let Some(map) = &segment.map {
-        let url = base_url.join(&map.uri)?;
-        let mut request = client.get(url).query(query);
-
-        if let Some(range) = &map.range {
-            request = request.header(header::RANGE, range);
-        }
-
-        let response = request.send().await?;
-        let mut bytes = utils::fetch_bytes(response).await?;
+    if let Some(mut bytes) = stream.fetch_init(client, &base_url, query).await? {
         data.append(&mut bytes);
     }
 
+    let segment = &stream.segments[0];
     let url = base_url.join(&segment.uri)?;
     let mut request = client.get(url).query(query);
 

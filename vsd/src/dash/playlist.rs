@@ -15,6 +15,7 @@ use crate::{
 };
 use anyhow::{Result, anyhow, bail};
 use dash_mpd::MPD;
+use log::debug;
 use reqwest::{Client, Url, header};
 use std::collections::HashMap;
 use vsd_mp4::boxes::SidxBox;
@@ -403,7 +404,9 @@ pub(crate) async fn push_segments(
                             //     }
                             // }
 
-                            for number in segment_template.startNumber.unwrap_or(1) as i64..=total_number {
+                            for number in
+                                segment_template.startNumber.unwrap_or(1) as i64..=total_number
+                            {
                                 template.insert("Number", number.to_string());
 
                                 stream.segments.push(Segment {
@@ -432,6 +435,10 @@ pub(crate) async fn push_segments(
                         }
 
                         if let Some(index_range) = parse_range(&segment_base.indexRange) {
+                            debug!(
+                                "Fetching {} (sidx@{}-{})",
+                                base_url, index_range.start, index_range.end
+                            );
                             let request = client
                                 .get(base_url.as_str())
                                 .query(query)
