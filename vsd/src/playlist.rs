@@ -412,7 +412,7 @@ impl Display for MediaPlaylist {
             MediaType::Subtitles => {
                 write!(
                     f,
-                    "{:>9} | {:>9} | {:>10}",
+                    "{:>9} | {:>9} | {:>10} |",
                     self.fmt_language(),
                     "?KiB",
                     self.fmt_codecs()
