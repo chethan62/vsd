@@ -1,6 +1,6 @@
 use crate::{
     downloader::{
-        MAX_THREADS, STREAM_DL_IDX,
+        MAX_THREADS, NO_RESUME, RUNNING, STREAM_DL_IDX,
         mux::{Stream, Streams},
     },
     playlist::{MediaPlaylist, MediaType},
@@ -61,21 +61,23 @@ pub async fn download_subtitle_streams(
     let total = streams.len();
 
     for stream in streams {
-        if stream.media_type == MediaType::Subtitles {
-            download_subtitle_stream(
-                client,
-                stream,
-                base_url,
-                query,
-                directory,
-                temp_files,
-                Progress::new(
-                    &format!("{}/{}", STREAM_DL_IDX.fetch_add(1, Ordering::SeqCst), total),
-                    stream.segments.len(),
-                ),
-            )
-            .await?;
+        if stream.media_type != MediaType::Subtitles {
+            continue;
         }
+
+        download_subtitle_stream(
+            client,
+            stream,
+            base_url,
+            query,
+            directory,
+            temp_files,
+            Progress::new(
+                &format!("{}/{}", STREAM_DL_IDX.fetch_add(1, Ordering::SeqCst), total),
+                stream.segments.len(),
+            ),
+        )
+        .await?;
     }
 
     Ok(())
@@ -131,7 +133,22 @@ async fn download_subtitle_stream(
         media_type: stream.media_type.clone(),
         path: temp_file.clone(),
     });
-    info!("Saving [{}] {}", "sub".green(), temp_file.to_string_lossy());
+
+    if temp_file.exists() && !NO_RESUME.load(Ordering::SeqCst) {
+        info!(
+            "Saving [{}] {} (already downloaded)",
+            stream.media_type.to_string().green(),
+            temp_file.with_extension("").to_string_lossy()
+        );
+        return Ok(());
+    } else {
+        info!(
+            "Saving [{}] {}",
+            stream.media_type.to_string().green(),
+            temp_file.with_extension("").to_string_lossy()
+        );
+    }
+
     pb.update(size);
 
     let remaining = &stream.segments[1..];
@@ -143,6 +160,10 @@ async fn download_subtitle_stream(
         let mut results = vec![None; remaining.len()];
 
         for (i, segment) in remaining.iter().enumerate() {
+            if !RUNNING.load(Ordering::SeqCst) {
+                break;
+            }
+
             while set.len() >= max_threads {
                 if let Some(Ok(result)) = set.join_next().await {
                     let (i, bytes) = match result {
@@ -191,6 +212,11 @@ async fn download_subtitle_stream(
     }
 
     pb.finish();
+
+    if !RUNNING.load(Ordering::SeqCst) {
+        warn!("Download interrupted.");
+        std::process::exit(0);
+    }
 
     let output = match codec {
         SubtitleType::Mp4Vtt => {

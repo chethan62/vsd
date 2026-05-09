@@ -46,35 +46,13 @@ pub async fn download_streams(
             continue;
         }
 
-        info!(
-            "DownLD [{}] {}",
-            stream.media_type.to_string().green(),
-            stream.display().cyan(),
-        );
-
-        if stream.segments.is_empty() {
-            warn!("Stream skipped because no segments were found.");
-            continue;
-        }
-
-        let temp_file = stream.path(directory);
-        temp_files.0.push(Stream {
-            language: stream.language.clone(),
-            media_type: stream.media_type.clone(),
-            path: temp_file.clone(),
-        });
-        info!(
-            "Saving [{}] {}",
-            stream.media_type.to_string().green(),
-            temp_file.with_extension("").to_string_lossy()
-        );
-
         download_stream(
             client,
             stream,
             base_url,
             query,
-            &temp_file,
+            directory,
+            temp_files,
             keys,
             Progress::new(
                 &format!("{}/{}", STREAM_DL_IDX.fetch_add(1, Ordering::SeqCst), total),
@@ -93,10 +71,44 @@ async fn download_stream(
     stream: &MediaPlaylist,
     base_url: &Option<Url>,
     query: &Vec<(String, String)>,
-    temp_file: &PathBuf,
+    directory: Option<&PathBuf>,
+    temp_files: &mut Streams,
     keys: &HashMap<String, String>,
     pb: Progress,
 ) -> Result<()> {
+    info!(
+        "DownLD [{}] {}",
+        stream.media_type.to_string().green(),
+        stream.display().cyan(),
+    );
+
+    if stream.segments.is_empty() {
+        warn!("Stream skipped because no segments were found.");
+        return Ok(());
+    }
+
+    let temp_file = stream.path(directory);
+    temp_files.0.push(Stream {
+        language: stream.language.clone(),
+        media_type: stream.media_type.clone(),
+        path: temp_file.clone(),
+    });
+
+    if temp_file.exists() && !NO_RESUME.load(Ordering::SeqCst) {
+        info!(
+            "Saving [{}] {} (already downloaded)",
+            stream.media_type.to_string().green(),
+            temp_file.with_extension("").to_string_lossy()
+        );
+        return Ok(());
+    } else {
+        info!(
+            "Saving [{}] {}",
+            stream.media_type.to_string().green(),
+            temp_file.with_extension("").to_string_lossy()
+        );
+    }
+
     let base_url = base_url.clone().unwrap_or(stream.uri.parse()?);
     let ext = stream.extension();
     let pb_handle = pb.spawn();
@@ -326,13 +338,10 @@ async fn download_stream(
 
             if path.exists() {
                 io::copy(&mut File::open(&path).await?, &mut outfile).await?;
-                // trace!("Deleting '{}' file.", path.to_string_lossy());
-                // fs::remove_file(&path).await?;
             }
         }
 
         debug!("Deleting '{}' directory.", temp_dir.to_string_lossy());
-        // tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         fs::remove_dir_all(&temp_dir).await?;
     }
     Ok(())
