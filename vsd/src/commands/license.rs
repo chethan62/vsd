@@ -137,11 +137,12 @@ impl License {
                         .await?;
                     let status = response.status();
 
-                    if status.is_client_error() || status.is_server_error() {
+                    if !status.is_success() {
                         bail!(
-                            "Playready license request failed ({}): '{}'",
+                            "{} request failed ({}): '{}'",
+                            license_url,
                             status,
-                            response.text().await?
+                            response.text().await?,
                         );
                     }
 
@@ -181,11 +182,12 @@ impl License {
                         .await?;
                     let status = response.status();
 
-                    if status.is_client_error() || status.is_server_error() {
+                    if !status.is_success() {
                         bail!(
-                            "Widevine license request failed ({}): '{}'",
+                            "{} request failed ({}): '{}'",
+                            license_url,
                             status,
-                            response.text().await?
+                            response.text().await?,
                         );
                     }
 
