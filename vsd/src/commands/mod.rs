@@ -53,7 +53,7 @@ pub struct Args {
     #[command(subcommand)]
     pub command: Commands,
 
-    /// When to use colored output.
+    /// Enable colored output.
     #[arg(long, global = true, help_heading = "Global Options", default_value_t = ColorChoice::Auto)]
     pub color: ColorChoice,
 
@@ -67,9 +67,7 @@ pub struct Args {
     )]
     quiet: bool,
 
-    /// Increase verbosity: `-v` (debug), `-vv` (trace).
-    ///
-    /// The default log level is `info`.
+    /// Enable more detailed logging. Use -v (debug) and -vv (trace).
     #[arg(short, long, global = true, help_heading = "Global Options", action = ArgAction::Count)]
     verbose: u8,
 }
