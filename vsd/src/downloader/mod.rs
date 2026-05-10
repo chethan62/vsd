@@ -117,6 +117,7 @@ impl Downloader {
             return self;
         }
         self.query = query
+            .trim_start_matches('?')
             .split('&')
             .filter_map(|x| {
                 if let Some((key, value)) = x.split_once('=') {

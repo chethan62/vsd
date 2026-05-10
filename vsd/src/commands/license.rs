@@ -18,7 +18,7 @@ use vsd_mp4::pssh::{PsshBox, SystemId};
 /// Request content keys from a license server.
 #[derive(Args, Clone, Debug)]
 pub struct License {
-    /// https://.. | video-init.mp4 | pssh-data (base64)
+    /// https://.. (playlist) | video-init.mp4 | pssh-data (base64)
     #[arg(required = true)]
     input: String,
 

@@ -23,7 +23,7 @@ Requires any one of these browsers:\n\n\
 - [chrome](https://www.google.com/chrome)\n\
 - [chromium](https://www.chromium.org/getting-involved/download-chromium)\n\n\
 This command launches an automated browser instance and listen on network requests. \
-Behavior may vary, and it may not work as expected on all websites. \
+Behavior may vary and it may not work as expected on all websites. \
 This is equivalent to manually doing:\n\n\
 Inspect -> Network -> Fetch/XHR -> Filter by extension -> Copy as cURL (bash)")]
 pub struct Capture {

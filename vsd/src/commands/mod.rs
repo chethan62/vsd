@@ -57,7 +57,7 @@ pub struct Args {
     #[arg(long, global = true, help_heading = "Global Options", default_value_t = ColorChoice::Auto)]
     pub color: ColorChoice,
 
-    /// Suppress all output except errors.
+    /// Disable all output except errors.
     #[arg(
         short,
         long,
@@ -67,7 +67,7 @@ pub struct Args {
     )]
     quiet: bool,
 
-    /// Enable more detailed logging. Use -v (debug) and -vv (trace).
+    /// Enable more detailed logging. Use -v (debug) or -vv (trace).
     #[arg(short, long, global = true, help_heading = "Global Options", action = ArgAction::Count)]
     verbose: u8,
 }

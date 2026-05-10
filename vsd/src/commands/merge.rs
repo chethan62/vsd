@@ -10,18 +10,18 @@ use tokio::{
 /// Merge multiple media segments into a single file.
 #[derive(Args, Clone, Debug)]
 pub struct Merge {
-    /// Glob patterns for input files (e.g., `*.ts`, `segment_*.m4s`).
+    /// List of input files e.g. *.ts, segment_*.m4s, etc.
     #[arg(required = true)]
     input: Vec<String>,
 
-    /// Destination path for the merged output file.
+    /// Output file path for the merged file.
     #[arg(short, long, required = true)]
     output: PathBuf,
 
     /// Merge strategy to use.
     ///
-    /// `binary` performs a raw byte concatenation, while `ffmpeg` uses
-    /// ffmpeg's concat demuxer for container-aware merging.
+    /// binary: raw byte concatenation.
+    /// ffmpeg: use concat demuxer for container aware merging.
     #[arg(short = 't', long = "type", value_enum, default_value_t = MergeType::Binary)]
     typ: MergeType,
 }

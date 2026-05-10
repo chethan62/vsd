@@ -4,23 +4,22 @@ use std::path::PathBuf;
 use tokio::fs;
 use vsd_mp4::text::{Mp4TtmlParser, Mp4VttParser};
 
-/// Extract subtitles from a fragmented MP4 file.
+/// Extract subtitles from a fragmented mp4 file.
 #[derive(Args, Clone, Debug)]
 pub struct Extract {
-    /// Path to an MP4 file containing WVTT (WebVTT) or STPP (TTML) subtitle boxes.
-    /// For fragmented MP4 files split across multiple segments, use the `merge`
-    /// sub-command first to combine them into a single file.
+    /// Fragmented mp4 file path containing either wvtt (webvtt) or stpp (ttml) boxes.
+    ///
+    /// For multiple segments, use merge sub-command to combine them into a single file first.
     #[arg(required = true)]
     input: PathBuf,
 
-    /// Output subtitle format.
+    /// Codec for output subtitles.
     #[arg(short, long, value_enum, default_value_t = Codec::Webvtt)]
     codec: Codec,
 
-    /// Destination file path for extracted subtitles.
+    /// Output file path for extracted subtitles.
     ///
-    /// If `provided`, the codec is inferred from the file extension (`.srt` or `.vtt`).
-    /// If `omitted`, subtitles are printed to stdout.
+    /// The codec is inferred from the file extension (.srt or .vtt).
     #[arg(short, long, value_name = "PATH")]
     output: Option<PathBuf>,
 }
@@ -41,7 +40,9 @@ impl Extract {
         } else if let Ok(ttml) = Mp4TtmlParser::from_init(&data) {
             subtitles = ttml.parse(&data)?;
         } else {
-            bail!("Unable to determine the subtitle codec: neither WVTT nor STPP box was found.");
+            bail!(
+                "Unable to determine the subtitle codec because neither wvtt nor stpp boxes were found."
+            );
         }
 
         if let Some(path) = self.output {

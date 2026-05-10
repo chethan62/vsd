@@ -12,45 +12,33 @@ use tokio::fs;
 /// Download streams from DASH or HLS playlist.
 #[derive(Args, Clone, Debug)]
 pub struct Save {
-    /// HTTP(S):// | .M3U8 | .MPD
+    /// https://.. (playlist) | .m3u8 | .mpd
     #[arg(required = true)]
     pub input: String,
 
-    /// Base URL for resolving relative segment paths.
-    ///
-    /// Required for local playlist files. For remote playlists,
-    /// the final redirected URL is used by default.
-    #[arg(long)]
+    /// Baseurl for resolving relative segment paths for local playlist.
+    #[arg(long, value_name = "URL")]
     pub base_url: Option<Url>,
 
-    /// Working directory for temporary segment files.
-    ///
-    /// Defaults to the current directory.
-    #[arg(short, long)]
+    /// Directory path for downloaded streams.
+    #[arg(short, long, value_name = "PATH")]
     pub directory: Option<PathBuf>,
 
-    /// Mux downloaded streams into a video container using ffmpeg (`.mp4`, `.mkv`, etc.).
+    /// Output file path for the muxed file using ffmpeg.
     ///
-    /// Overwrites existing files and deletes intermediate stream files after muxing.
-    #[arg(short, long)]
+    /// This will overwrite existing output file and delete downloaded streams.
+    #[arg(short, long, value_name = "PATH")]
     pub output: Option<PathBuf>,
 
-    /// Output parsed playlist metadata as JSON instead of downloading.
+    /// Output playlist metadata as json instead of downloading streams.
     #[arg(long)]
     pub parse: bool,
 
-    /// Subtitle codec to use when muxing with ffmpeg.
-    ///
-    /// Defaults to `mov_text` for `.mp4` containers, `copy` for others.
-    #[arg(
-        long,
-        value_name = "CODEC",
-        default_value = "copy",
-        hide_default_value = true
-    )]
+    /// Force a specific subtitle codec for muxing.
+    #[arg(long, value_name = "CODEC", default_value = "copy")]
     pub subs_codec: String,
 
-    /// Enable interactive stream selection with styled prompts.
+    /// Enable interactive stream selection menu with styled prompts.
     #[arg(
         short,
         long,
@@ -59,24 +47,24 @@ pub struct Save {
     )]
     pub interactive: bool,
 
-    /// Enable interactive stream selection with plain text prompts.
+    /// Enable interactive stream selection menu with plain text prompts.
     #[arg(short = 'I', long, help_heading = "Automation Options")]
     pub interactive_raw: bool,
 
-    /// Display all available streams without downloading.
+    /// List available streams without downloading them.
     #[arg(short, long, help_heading = "Automation Options")]
     pub list_streams: bool,
 
-    /// Stream selection filters for automatic mode.
+    /// Select streams using filters.
     #[arg(
         short,
         long,
         value_name = "STREAMS",
         help_heading = "Automation Options",
         default_value = "v=best:s=en",
-        long_help = "Stream selection filters for automatic mode.\n\n\
+        long_help = "Select streams using filters.\n\n\
         SYNTAX:\n\n\
-        `v={}:a={}:s={}` where `{}` (in priority order) can contain\n\n\
+        v={}:a={}:s={} where {} (in priority order) can contain:\n\n\
         |> all: select all streams.\n\
         |> skip: skip all streams or select inverter.\n\
         |> 1,2: indices obtained by --list-streams flag.\n\
@@ -90,7 +78,7 @@ pub struct Save {
     )]
     pub select_streams: String,
 
-    /// Path to a netscape cookie file for authenticated requests.
+    /// Cookies file path for requests (netscape cookie file).
     #[arg(long, value_name = "PATH", help_heading = "Client Options")]
     pub cookies: Option<PathBuf>,
 
@@ -100,31 +88,27 @@ pub struct Save {
     #[arg(short = 'H', long = "header", value_name = "KEY:VALUE", help_heading = "Client Options", value_parser = Self::parse_header)]
     pub headers: Vec<(HeaderName, HeaderValue)>,
 
-    /// Proxy server URL (HTTP, HTTPS, or SOCKS).
+    /// Proxy server url (http, https, or socks).
     #[arg(long, help_heading = "Client Options", value_parser = Self::parse_proxy)]
     pub proxy: Option<Proxy>,
 
     /// Additional query parameters for requests.
-    #[arg(long, help_heading = "Client Options")]
+    #[arg(long, value_name = "KEY=VALUE&…", help_heading = "Client Options")]
     pub query: Option<String>,
 
-    /// Decryption keys in `KID:KEY;…` hex format.
+    /// Decryption keys for drm protected content in hex format.
     #[arg(long, value_name = "KID:KEY;…", help_heading = "Decrypt Options", default_value = "", hide_default_value = true, value_parser = Self::parse_keys)]
     pub keys: HashMap<String, String>,
 
-    /// Skip decryption and download encrypted streams as-is.
-    ///
-    /// Ignores `--output` when enabled.
+    /// Disable decryption and download encrypted streams.
     #[arg(long, help_heading = "Decrypt Options")]
     pub no_decrypt: bool,
 
-    /// Skip segment merging and keep individual files.
-    ///
-    /// Ignores `--output` when enabled.
+    /// Disable segments merging.
     #[arg(long, help_heading = "Download Options")]
     pub no_merge: bool,
 
-    /// Disable resume and re-download all segments from scratch.
+    /// Disable resume and force re-downloading.
     #[arg(long, help_heading = "Download Options")]
     pub no_resume: bool,
 
@@ -132,7 +116,7 @@ pub struct Save {
     #[arg(long, help_heading = "Download Options", default_value_t = 10)]
     pub retries: u8,
 
-    /// Number of concurrent download threads (1–16).
+    /// Maximum number of concurrent download threads (1–16).
     #[arg(short, long, help_heading = "Download Options", default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=16))]
     pub threads: u8,
 }
