@@ -136,7 +136,7 @@ async fn download_subtitle_stream(
 
     if temp_file.exists() && !NO_RESUME.load(Ordering::SeqCst) {
         info!(
-            "Saving [{}] {} (already downloaded)",
+            "Saving [{}] {} (downloaded)",
             stream.media_type.to_string().green(),
             temp_file.to_string_lossy()
         );

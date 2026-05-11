@@ -123,7 +123,7 @@ pub async fn get_default_kids(
                 info!(
                     "DrmKid [{}] {}{}",
                     data.system_id.to_string().magenta(),
-                    kid.uuid(),
+                    kid.uuid().replace('-', ""),
                     if default_kids.contains(&kid.0) {
                         " (required)".bold().red()
                     } else {
