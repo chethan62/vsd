@@ -98,7 +98,7 @@ async fn download_stream(
         info!(
             "Saving [{}] {} (already downloaded)",
             stream.media_type.to_string().green(),
-            temp_file.with_extension("").to_string_lossy()
+            temp_file.to_string_lossy()
         );
         return Ok(());
     } else {
@@ -117,13 +117,13 @@ async fn download_stream(
     let mut auto_increment_iv = false;
     let mut decrypter = Decrypter::None;
 
-    let init_seg = stream
+    let init = stream
         .fetch_init(client, &base_url, query)
         .await?
         .map(Arc::new);
 
-    let default_kid = if let Some(init_seg) = &init_seg {
-        TencBox::from_init(init_seg)?.map(|x| x.default_kid_hex())
+    let default_kid = if let Some(init) = &init {
+        TencBox::from_init(init)?.map(|x| x.default_kid_hex())
     } else {
         stream.default_kid()
     };
@@ -132,6 +132,12 @@ async fn download_stream(
         fs::remove_dir_all(&temp_dir).await?;
     }
     fs::create_dir_all(&temp_dir).await?;
+
+    if let Some(init) = &init {
+        let mut f = File::create(temp_dir.join("init.mp4")).await?;
+        f.write_all(init).await?;
+        f.flush().await?;
+    }
 
     let max_threads = MAX_THREADS.load(Ordering::SeqCst) as usize;
     let mut set: JoinSet<Result<usize>> = JoinSet::new();
@@ -194,8 +200,8 @@ async fn download_stream(
                             );
 
                             let mut found = None;
-                            if let Some(init_seg) = &init_seg {
-                                for kid in PsshBox::from_init(init_seg)?
+                            if let Some(init) = &init {
+                                for kid in PsshBox::from_init(init)?
                                     .data
                                     .into_iter()
                                     .flat_map(|x| x.key_ids)
@@ -234,7 +240,7 @@ async fn download_stream(
             continue;
         }
 
-        let init_seg = init_seg.clone();
+        let init = init.clone();
         let decrypter = decrypter.clone();
         let url = base_url.join(&segment.uri)?;
         let mut request = client.get(url.clone()).query(query);
@@ -288,14 +294,9 @@ async fn download_stream(
                 bytes = bytes.split_off(8)
             }
 
-            let bytes = decrypter.decrypt(bytes, init_seg.as_deref().map(|x| x.as_ref()))?;
+            let bytes = decrypter.decrypt(bytes, init.as_deref().map(|x| x.as_ref()))?;
 
             let mut f = File::create(&temp_file).await?;
-
-            if let Some(init_seg) = &init_seg {
-                f.write_all(init_seg).await?;
-            }
-
             f.write_all(&bytes).await?;
             f.flush().await?;
             fs::rename(&temp_file, temp_file.with_extension("")).await?;
@@ -331,13 +332,18 @@ async fn download_stream(
             temp_file.to_string_lossy()
         );
 
-        let mut outfile = File::create(temp_file).await?;
+        let mut output = File::create(temp_file).await?;
+        let init_path = temp_dir.join("init.mp4");
+
+        if init_path.exists() {
+            io::copy(&mut File::open(&init_path).await?, &mut output).await?;
+        }
 
         for i in 0..stream.segments.len() {
             let path = temp_dir.join(format!("{}.{}", i, ext));
 
             if path.exists() {
-                io::copy(&mut File::open(&path).await?, &mut outfile).await?;
+                io::copy(&mut File::open(&path).await?, &mut output).await?;
             }
         }
 

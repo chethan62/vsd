@@ -27,7 +27,7 @@ Behavior may vary and it may not work as expected on all websites. \
 This is equivalent to manually doing:\n\n\
 Inspect -> Network -> Fetch/XHR -> Filter by extension -> Copy as cURL (bash)")]
 pub struct Capture {
-    /// HTTP(S)://
+    /// https://..
     #[arg(required = true)]
     input: String,
 
