@@ -17,7 +17,7 @@ This document contains cli reference for the `vsd` command-line program.
 
 ## `vsd`
 
-Download video streams served over HTTP from websites, DASH (.mpd) and HLS (.m3u8) playlists.
+Download streams from DASH and HLS playlists.
 
 ```
 vsd [OPTIONS] <COMMAND>
@@ -62,7 +62,7 @@ vsd capture [OPTIONS] <INPUT>
 
 **Arguments:**
 
-- `<INPUT>`: HTTP(S):// *(required)*
+- `<INPUT>`: https://.. *(required)*
 
 **Options:**
 
