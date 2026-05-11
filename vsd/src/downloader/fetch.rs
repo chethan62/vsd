@@ -44,7 +44,7 @@ impl FetchedPlaylist {
                 playlist_type: typ,
             })
         } else if let Ok(input) = input.parse::<Url>() {
-            debug!("Fetching {} (playlist)", input);
+            debug!("Fetching {} (master-playlist)", input);
             let response = client.get(input).query(query).send().await?;
 
             if let Some(content_type) = response.headers().get(header::CONTENT_TYPE) {
@@ -159,7 +159,7 @@ impl FetchedPlaylist {
                             data = base64::engine::general_purpose::STANDARD.decode(bs)?;
                         } else {
                             stream.uri = self.url.join(&stream.uri)?.to_string();
-                            debug!("Fetching {} (playlist)", stream.uri);
+                            debug!("Fetching {} (media-playlist)", stream.uri);
                             let response = client.get(&stream.uri).query(query).send().await?;
                             data = utils::fetch_bytes(response).await?;
                         }
