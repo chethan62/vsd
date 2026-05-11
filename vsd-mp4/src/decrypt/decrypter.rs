@@ -1,6 +1,6 @@
 use aes::{
     Aes128,
-    cipher::{BlockDecryptMut, KeyIvInit, StreamCipher},
+    cipher::{BlockModeDecrypt, KeyIvInit, StreamCipher},
 };
 
 use crate::boxes::{SencSample, SencSubsample};
@@ -90,7 +90,7 @@ impl Decrypter {
 
         // Trailing bytes (< 16) are left as-is
         Aes128Cbc::new((&self.key).into(), (&self.iv).into())
-            .decrypt_padded_mut::<cipher::block_padding::NoPadding>(&mut data[..blocks])
+            .decrypt_padded::<cipher::block_padding::NoPadding>(&mut data[..blocks])
             .unwrap();
     }
 

@@ -1,4 +1,4 @@
-use cipher::{BlockDecryptMut, KeyIvInit};
+use cipher::{BlockModeDecrypt, KeyIvInit};
 
 type Aes128Cbc = cbc::Decryptor<aes::Aes128>;
 
@@ -20,7 +20,7 @@ impl HlsAes128Decrypter {
     pub fn decrypt(&self, mut input: Vec<u8>) -> Vec<u8> {
         let slice_len = {
             let slice = Aes128Cbc::new((&self.key).into(), (&self.iv).into())
-                .decrypt_padded_mut::<cipher::block_padding::Pkcs7>(&mut input)
+                .decrypt_padded::<cipher::block_padding::Pkcs7>(&mut input)
                 .unwrap();
             slice.len()
         };
