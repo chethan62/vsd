@@ -78,18 +78,17 @@ impl Streams {
             }
         }
 
-        let has_vid = temp_files.iter().any(|x| x.media_type == MediaType::Video);
-        let has_aud = temp_files.iter().any(|x| x.media_type == MediaType::Audio);
+        args.extend_from_slice(&[
+            "-c:v".to_owned(),
+            "copy".to_owned(),
+            "-c:a".to_owned(),
+            "copy".to_owned(),
+        ]);
+
         let has_sub = temp_files
             .iter()
             .any(|x| x.media_type == MediaType::Subtitles);
 
-        if has_vid {
-            args.extend_from_slice(&["-c:v".to_owned(), "copy".to_owned()]);
-        }
-        if has_aud {
-            args.extend_from_slice(&["-c:a".to_owned(), "copy".to_owned()]);
-        }
         if has_sub {
             let codec = if subs_codec == "copy" {
                 match output.extension().and_then(|e| e.to_str()) {

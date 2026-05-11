@@ -419,7 +419,7 @@ impl Display for MediaPlaylist {
                 )?;
             }
             MediaType::Undefined => {
-                write!(f, "{:>9} | {:>9} | {:>10}", "?", "?", "?")?;
+                write!(f, "{:>9} | {:>9} | {:>10} |", "?", "?", "?")?;
             }
         }
         Ok(())
