@@ -145,7 +145,7 @@ async fn download_subtitle_stream(
         info!(
             "Saving [{}] {}",
             stream.media_type.to_string().green(),
-            temp_file.with_extension("").to_string_lossy()
+            temp_file.to_string_lossy()
         );
     }
 
