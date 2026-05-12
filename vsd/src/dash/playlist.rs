@@ -13,125 +13,148 @@ use crate::{
     },
     utils,
 };
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, bail};
 use dash_mpd::MPD;
 use log::debug;
 use reqwest::{Client, Url, header};
 use std::collections::HashMap;
 use vsd_mp4::boxes::SidxBox;
 
-pub(crate) fn parse_as_master(playlist: &MPD, base_url: &str) -> MasterPlaylist {
-    let mut streams = vec![];
-
-    if let Some(period) = playlist.periods.first() {
-        let period_index = 0;
-        for (adaptation_index, adaptation_set) in period.adaptations.iter().enumerate() {
-            for (representation_index, representation) in
-                adaptation_set.representations.iter().enumerate()
-            {
-                // https://dashif.org/codecs/introduction
-                let codecs = representation
-                    .codecs
-                    .clone()
-                    .or(adaptation_set.codecs.clone());
-
-                let mime_type = representation
-                    .mimeType
-                    .clone()
-                    .or(adaptation_set.mimeType.clone())
-                    .or(representation.contentType.clone())
-                    .or(adaptation_set.contentType.clone());
-
-                let mut media_type = if let Some(mime_type) = &mime_type {
-                    match mime_type.as_str() {
-                        "application/ttml+xml" | "application/x-sami" => MediaType::Subtitles,
-                        x if x.starts_with("audio") => MediaType::Audio,
-                        x if x.starts_with("text") => MediaType::Subtitles,
-                        x if x.starts_with("video") => MediaType::Video,
-                        _ => MediaType::Undefined,
-                    }
-                } else {
-                    MediaType::Undefined
-                };
-
-                if media_type == MediaType::Undefined
-                    && let Some(codecs) = &codecs
-                {
-                    media_type = match codecs.as_str() {
-                        "wvtt" | "stpp" => MediaType::Subtitles,
-                        x if x.starts_with("stpp.") => MediaType::Subtitles,
-                        _ => media_type,
-                    };
-                }
-
-                streams.push(MediaPlaylist {
-                    bandwidth: representation.bandwidth,
-                    channels: representation
-                        .AudioChannelConfiguration
-                        .first()
-                        .and_then(|x| x.value.as_ref().map(|y| y.parse::<f32>().ok()))
-                        .flatten()
-                        .or(adaptation_set
-                            .AudioChannelConfiguration
-                            .first()
-                            .and_then(|x| x.value.as_ref().map(|y| y.parse::<f32>().ok()))
-                            .flatten()),
-                    codecs,
-                    extension: mime_type
-                        .as_ref()
-                        .and_then(|x| x.split_once('/').map(|x| x.1.to_owned())),
-                    frame_rate: if representation.frameRate.is_some() {
-                        parse_frame_rate(&representation.frameRate)
-                    } else if adaptation_set.frameRate.is_some() {
-                        parse_frame_rate(&adaptation_set.frameRate)
-                    } else {
-                        None
-                    },
-                    id: utils::gen_id(
-                        base_url,
-                        &DashUrl::new(period_index, adaptation_index, representation_index)
-                            .to_string(),
-                    ),
-                    i_frame: false, // Cannot be comment here
-                    language: adaptation_set.lang.clone(),
-                    live: if let Some(mpdtype) = &playlist.mpdtype {
-                        mpdtype == "dynamic"
-                    } else {
-                        false
-                    },
-                    media_sequence: 0,
-                    media_type,
-                    playlist_type: PlaylistType::Dash,
-                    resolution: if let (Some(width), Some(height)) =
-                        (representation.width, representation.height)
-                    {
-                        Some((width, height))
-                    } else {
-                        None
-                    },
-                    segments: Vec::new(), // Cannot be comment here
-                    uri: DashUrl::new(period_index, adaptation_index, representation_index)
-                        .to_string(),
-                });
+fn parse_frame_rate(frame_rate: &str) -> Option<f32> {
+    if frame_rate.contains('/') {
+        frame_rate.split_once('/').and_then(|(x, y)| {
+            if let (Ok(x), Ok(y)) = (x.parse::<f32>(), y.parse::<f32>()) {
+                Some(x / y)
+            } else {
+                None
             }
-        }
-    }
-
-    MasterPlaylist {
-        playlist_type: PlaylistType::Dash,
-        uri: base_url.to_owned(),
-        streams,
+        })
+    } else {
+        frame_rate.parse::<f32>().ok()
     }
 }
 
+fn parse_range(range: &Option<String>) -> Option<Range> {
+    range.as_ref().and_then(|range| {
+        range.split_once('-').and_then(|(x, y)| {
+            if let (Ok(x), Ok(y)) = (x.parse::<u64>(), y.parse::<u64>()) {
+                Some(Range { end: y, start: x })
+            } else {
+                None
+            }
+        })
+    })
+}
+
+pub(crate) fn parse_as_master(base_url: &str, mpd: &MPD) -> MasterPlaylist {
+    let mut playlist = MasterPlaylist {
+        playlist_type: PlaylistType::Dash,
+        streams: Vec::new(),
+        uri: base_url.to_string(),
+    };
+
+    let Some(period) = mpd.periods.first() else {
+        return playlist;
+    };
+
+    for (adaptation_index, adaptation_set) in period.adaptations.iter().enumerate() {
+        for (representation_index, representation) in
+            adaptation_set.representations.iter().enumerate()
+        {
+            let codecs = representation
+                .codecs
+                .clone()
+                .or(adaptation_set.codecs.clone());
+
+            let mime_type = representation
+                .mimeType
+                .clone()
+                .or(adaptation_set.mimeType.clone())
+                .or(representation.contentType.clone())
+                .or(adaptation_set.contentType.clone());
+
+            let mut media_type = if let Some(mime_type) = &mime_type {
+                match mime_type.as_str() {
+                    "application/ttml+xml" | "application/x-sami" => MediaType::Subtitles,
+                    x if x.starts_with("audio") => MediaType::Audio,
+                    x if x.starts_with("text") => MediaType::Subtitles,
+                    x if x.starts_with("video") => MediaType::Video,
+                    _ => MediaType::Undefined,
+                }
+            } else {
+                MediaType::Undefined
+            };
+
+            if media_type == MediaType::Undefined
+                && let Some(codecs) = &codecs
+            {
+                media_type = match codecs.as_str() {
+                    "wvtt" | "stpp" => MediaType::Subtitles,
+                    x if x.starts_with("stpp.") => MediaType::Subtitles,
+                    _ => media_type,
+                };
+            }
+
+            playlist.streams.push(MediaPlaylist {
+                bandwidth: representation.bandwidth,
+                channels: representation
+                    .AudioChannelConfiguration
+                    .first()
+                    .and_then(|x| x.value.as_ref().and_then(|y| y.parse::<f32>().ok()))
+                    .or(adaptation_set
+                        .AudioChannelConfiguration
+                        .first()
+                        .and_then(|x| x.value.as_ref().and_then(|y| y.parse::<f32>().ok()))),
+                codecs,
+                extension: mime_type
+                    .as_ref()
+                    .and_then(|x| x.split_once('/').map(|(_, y)| y.to_owned())),
+                frame_rate: representation
+                    .frameRate
+                    .as_ref()
+                    .and_then(|x| parse_frame_rate(x))
+                    .or(adaptation_set
+                        .frameRate
+                        .as_ref()
+                        .and_then(|x| parse_frame_rate(x))),
+                id: utils::gen_id(
+                    base_url,
+                    &DashUrl::new(0, adaptation_index, representation_index).to_string(),
+                ),
+                i_frame: false,
+                language: adaptation_set.lang.clone(),
+                live: mpd
+                    .mpdtype
+                    .as_ref()
+                    .map(|x| x == "dynamic")
+                    .unwrap_or(false),
+                media_sequence: 0,
+                media_type,
+                playlist_type: PlaylistType::Dash,
+                resolution: if let (Some(width), Some(height)) =
+                    (representation.width, representation.height)
+                {
+                    Some((width, height))
+                } else {
+                    None
+                },
+                segments: Vec::new(),
+                uri: DashUrl::new(0, adaptation_index, representation_index).to_string(),
+            });
+        }
+    }
+
+    playlist
+}
+
 pub(crate) async fn push_segments(
-    playlist: &MPD,
-    stream: &mut MediaPlaylist,
     client: &Client,
     base_url: &str,
     query: &Vec<(String, String)>,
+    playlist: &MPD,
+    stream: &mut MediaPlaylist,
 ) -> Result<()> {
-    let location = stream.uri.parse::<DashUrl>().map_err(|x| anyhow!(x))?;
+    let location = stream.uri.parse::<DashUrl>().unwrap();
 
     for period in playlist.periods.iter() {
         for (adaptation_index, adaptation_set) in period.adaptations.iter().enumerate() {
@@ -151,7 +174,7 @@ pub(crate) async fn push_segments(
                         period_duration_secs = duration.as_secs_f32();
                     }
 
-                    let mut base_url = base_url.parse::<Url>().unwrap();
+                    let mut base_url = base_url.parse::<Url>()?;
 
                     if let Some(mpd_baseurl) = playlist.base_url.first().map(|x| x.base.as_ref()) {
                         base_url = base_url.join(mpd_baseurl)?;
@@ -444,7 +467,7 @@ pub(crate) async fn push_segments(
                                 .query(query)
                                 .header(header::RANGE, &index_range);
                             let response = request.send().await?;
-                            let bytes = response.bytes().await?;
+                            let bytes = utils::fetch_bytes(response).await?;
 
                             if let Some(init_map) = &mut init_map {
                                 init_map.range = Some(Range {
@@ -539,34 +562,4 @@ pub(crate) async fn push_segments(
 
     stream.uri = base_url.to_owned();
     Ok(())
-}
-
-fn parse_frame_rate(frame_rate: &Option<String>) -> Option<f32> {
-    frame_rate.as_ref().and_then(|frame_rate| {
-        if frame_rate.contains('/') {
-            if let Some((Some(upper), Some(lower))) = frame_rate
-                .split_once('/')
-                .map(|(x, y)| (x.parse::<f32>().ok(), y.parse::<f32>().ok()))
-            {
-                Some(upper / lower)
-            } else {
-                panic!("could'nt parse \"{frame_rate}\" frame rate");
-            }
-        } else {
-            frame_rate.parse::<f32>().ok()
-        }
-    })
-}
-
-fn parse_range(range: &Option<String>) -> Option<Range> {
-    range.as_ref().map(|range| {
-        if let Some((Some(start), Some(end))) = range
-            .split_once('-')
-            .map(|(x, y)| (x.parse::<u64>().ok(), y.parse::<u64>().ok()))
-        {
-            Range { start, end }
-        } else {
-            panic!("could'nt parse \"{range}\" range");
-        }
-    })
 }

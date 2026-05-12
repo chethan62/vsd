@@ -88,7 +88,7 @@ impl FetchedPlaylist {
                 let xml = String::from_utf8_lossy(&self.data);
                 let mpd = dash_mpd::parse(&xml)
                     .map_err(|e| anyhow!("Failed to parse DASH playlist: {e}"))?;
-                crate::dash::parse_as_master(&mpd, self.url.as_ref())
+                crate::dash::parse_as_master(self.url.as_ref(), &mpd)
                     .sort_streams()
                     .list_streams();
             }
@@ -124,15 +124,15 @@ impl FetchedPlaylist {
                     .map_err(|e| anyhow!("Failed to parse DASH playlist: {e}"))?;
 
                 let mut playlist = if parse_everything {
-                    crate::dash::parse_as_master(&mpd, self.url.as_str())
+                    crate::dash::parse_as_master(self.url.as_str(), &mpd)
                 } else {
-                    crate::dash::parse_as_master(&mpd, self.url.as_str())
+                    crate::dash::parse_as_master(self.url.as_str(), &mpd)
                         .sort_streams()
                         .select_streams(&mut select_opts, interaction)?
                 };
 
                 for stream in &mut playlist.streams {
-                    crate::dash::push_segments(&mpd, stream, client, self.url.as_str(), query)
+                    crate::dash::push_segments(client, self.url.as_str(), query, &mpd, stream)
                         .await?;
                 }
 
