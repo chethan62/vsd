@@ -1,5 +1,5 @@
-use super::{Template, parse_range};
 use crate::{
+    dash::{Template, parse_range},
     playlist::{Map, Range, Segment},
     utils,
 };
@@ -10,7 +10,7 @@ use reqwest::{Client, Url, header};
 use vsd_mp4::boxes::SidxBox;
 
 /// Build a Map (init segment locator) from a dash-mpd Initialization element.
-pub(super) fn build_init_map(
+pub fn build_init_map(
     initialization: &dash_mpd::Initialization,
     base_url: &Url,
     template: &Template,
@@ -32,19 +32,13 @@ pub(super) fn build_init_map(
 // ─── SegmentList ────────────────────────────────────────────────────────────
 
 /// Process a SegmentList element (from AdaptationSet or Representation level).
-/// Populates segments and returns the init map if present.
-pub(super) fn process_segment_list(
+pub fn process_segment_list(
     segment_list: &dash_mpd::SegmentList,
     base_url: &Url,
     template: &Template,
     has_base_url: bool,
-) -> Result<(Vec<Segment>, Option<Map>)> {
+) -> Result<Vec<Segment>> {
     let mut segments = Vec::new();
-    let mut init_map = None;
-
-    if let Some(initialization) = &segment_list.Initialization {
-        init_map = Some(build_init_map(initialization, base_url, template)?);
-    }
 
     for segment_url in &segment_list.segment_urls {
         // We are ignoring SegmentURL@indexRange
@@ -65,13 +59,19 @@ pub(super) fn process_segment_list(
         }
     }
 
-    Ok((segments, init_map))
+    if let Some(first) = segments.first_mut() {
+        if let Some(initialization) = &segment_list.Initialization {
+            first.map = Some(build_init_map(initialization, base_url, template)?);
+        }
+    }
+
+    Ok(segments)
 }
 
 // ─── SegmentTemplate + SegmentTimeline ──────────────────────────────────────
 
 /// Process SegmentTemplate with an explicit SegmentTimeline.
-pub(super) fn process_segment_timeline(
+pub fn process_segment_timeline(
     segment_timeline: &dash_mpd::SegmentTimeline,
     tmpl_media: &str,
     tmpl_start_number: u64,
@@ -128,9 +128,7 @@ pub(super) fn process_segment_timeline(
 
                 segments.push(Segment {
                     duration: (s.d as f64 / timescale) as f32,
-                    uri: base_url
-                        .join(&template.resolve(&media))?
-                        .to_string(),
+                    uri: base_url.join(&template.resolve(&media))?.to_string(),
                     ..Default::default()
                 });
 
@@ -147,7 +145,7 @@ pub(super) fn process_segment_timeline(
 // ─── SegmentTemplate@duration ───────────────────────────────────────────────
 
 /// Process SegmentTemplate with @duration (simple segment numbering).
-pub(super) fn process_segment_template_duration(
+pub fn process_segment_template_duration(
     tmpl_media: &str,
     tmpl_start_number: u64,
     tmpl_timescale: u64,
@@ -180,19 +178,14 @@ pub(super) fn process_segment_template_duration(
 // ─── SegmentBase@indexRange ─────────────────────────────────────────────────
 
 /// Process SegmentBase with @indexRange (fetch SIDX box for byte ranges).
-pub(super) async fn process_segment_base(
+pub async fn process_segment_base(
     segment_base: &dash_mpd::SegmentBase,
     base_url: &Url,
     template: &Template,
     client: &Client,
     query: &[(String, String)],
-) -> Result<(Vec<Segment>, Option<Map>)> {
+) -> Result<Vec<Segment>> {
     let mut segments = Vec::new();
-    let mut init_map = None;
-
-    if let Some(initialization) = &segment_base.Initialization {
-        init_map = Some(build_init_map(initialization, base_url, template)?);
-    }
 
     if let Some(index_range) = parse_range(&segment_base.indexRange) {
         debug!(
@@ -205,13 +198,6 @@ pub(super) async fn process_segment_base(
             .header(header::RANGE, &index_range);
         let response = request.send().await?;
         let bytes = utils::fetch_bytes(response).await?;
-
-        if let Some(init_map) = &mut init_map {
-            init_map.range = Some(Range {
-                end: index_range.end,
-                start: 0,
-            })
-        }
 
         for range in SidxBox::from_init(&bytes, index_range.start)?
             .map(|x| x.ranges)
@@ -226,14 +212,31 @@ pub(super) async fn process_segment_base(
                 ..Default::default()
             });
         }
+
+        // Init map covers bytes 0 through end of SIDX
+        if let Some(first) = segments.first_mut() {
+            if let Some(initialization) = &segment_base.Initialization {
+                let mut map = build_init_map(initialization, base_url, template)?;
+                map.range = Some(Range {
+                    end: index_range.end,
+                    start: 0,
+                });
+                first.map = Some(map);
+            }
+        }
     } else {
         segments.push(Segment {
             uri: base_url.to_string(),
+            map: segment_base
+                .Initialization
+                .as_ref()
+                .map(|init| build_init_map(init, base_url, template))
+                .transpose()?,
             ..Default::default()
         });
     }
 
-    Ok((segments, init_map))
+    Ok(segments)
 }
 
 // ─── SegmentTemplate init resolution ────────────────────────────────────────
@@ -241,16 +244,14 @@ pub(super) async fn process_segment_base(
 /// Resolve initialization for SegmentTemplate addressing modes.
 /// Checks @initialization attribute first, then <Initialization> child element,
 /// merging from Representation and AdaptationSet levels.
-pub(super) fn resolve_segment_template_init(
+pub fn resolve_segment_template_init(
     repr_tmpl: Option<&SegmentTemplate>,
     adapt_tmpl: Option<&SegmentTemplate>,
     base_url: &Url,
     template: &Template,
 ) -> Result<Option<Map>> {
     // Try @initialization attribute
-    let tmpl_initialization = merge_tmpl_field(repr_tmpl, adapt_tmpl, |t| {
-        t.initialization.clone()
-    });
+    let tmpl_initialization = merge_tmpl_field(repr_tmpl, adapt_tmpl, |t| t.initialization.clone());
 
     if let Some(initialization) = tmpl_initialization {
         return Ok(Some(Map {
@@ -275,7 +276,7 @@ pub(super) fn resolve_segment_template_init(
 
 /// Resolve merged SegmentTemplate field: uses Representation's value if present,
 /// else falls back to AdaptationSet's value.
-pub(super) fn merge_tmpl_field<T: Clone>(
+pub fn merge_tmpl_field<T: Clone>(
     repr_tmpl: Option<&SegmentTemplate>,
     adapt_tmpl: Option<&SegmentTemplate>,
     getter: fn(&SegmentTemplate) -> Option<T>,
