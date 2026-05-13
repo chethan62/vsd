@@ -1,129 +1,60 @@
 use crate::{playlist, utils};
 
 pub(crate) fn parse_as_master(
-    playlist: &m3u8_rs::MasterPlaylist,
     base_url: &str,
+    m3u8: &m3u8_rs::MasterPlaylist,
 ) -> playlist::MasterPlaylist {
     let mut streams = Vec::new();
 
-    for stream in &playlist.variants {
+    for stream in &m3u8.variants {
         streams.push(playlist::MediaPlaylist {
             bandwidth: Some(stream.bandwidth),
-            channels: None,
             codecs: stream.codecs.to_owned(),
-            extension: Some("ts".to_owned()), // Cannot be comment here
+            extension: Some("ts".to_owned()),
             frame_rate: stream.frame_rate.map(|x| x as f32),
             id: utils::gen_id(base_url, &stream.uri),
             i_frame: stream.is_i_frame,
-            language: None,
-            live: false, // Cannot be comment here
-            media_sequence: 0,
             media_type: playlist::MediaType::Video,
             playlist_type: playlist::PlaylistType::Hls,
-            resolution: if let Some(m3u8_rs::Resolution { width, height }) = stream.resolution {
-                Some((width, height))
-            } else {
-                None
-            },
-            segments: Vec::new(), // Cannot be comment here
+            resolution: stream.resolution.map(|r| (r.width, r.height)),
             uri: stream.uri.to_owned(),
+            ..Default::default()
         });
     }
 
-    for alternative_stream in &playlist.alternatives {
-        if let Some(uri) = &alternative_stream.uri {
-            match alternative_stream.media_type {
-                m3u8_rs::AlternativeMediaType::Video => streams.push(playlist::MediaPlaylist {
-                    bandwidth: None, // Cannot be comment here
-                    channels: None,
-                    codecs: None,                     // Cannot be comment here
-                    extension: Some("ts".to_owned()), // Cannot be comment here
-                    frame_rate: None,                 // Cannot be comment here
-                    id: utils::gen_id(base_url, uri),
-                    i_frame: false, // Cannot be comment here
-                    language: None,
-                    live: false, // Cannot be comment here
-                    media_sequence: 0,
-                    media_type: playlist::MediaType::Video,
-                    playlist_type: playlist::PlaylistType::Hls,
-                    resolution: None,     // Cannot be comment here
-                    segments: Vec::new(), // Cannot be comment here
-                    uri: uri.to_owned(),
-                }),
+    for alt in &m3u8.alternatives {
+        let Some(uri) = &alt.uri else {
+            continue;
+        };
 
-                m3u8_rs::AlternativeMediaType::Audio => streams.push(playlist::MediaPlaylist {
-                    bandwidth: None, // Cannot be comment here
-                    channels: alternative_stream
-                        .channels
-                        .as_ref()
-                        .map(|x| x.parse::<f32>().unwrap()),
-                    codecs: None,                     // Cannot be comment here
-                    extension: Some("ts".to_owned()), // Cannot be comment here
-                    frame_rate: None,
-                    id: utils::gen_id(base_url, uri),
-                    i_frame: false,
-                    language: alternative_stream
-                        .language
-                        .to_owned()
-                        .or(alternative_stream.assoc_language.to_owned()),
-                    live: false, // Cannot be comment here
-                    media_sequence: 0,
-                    media_type: playlist::MediaType::Audio,
-                    playlist_type: playlist::PlaylistType::Hls,
-                    resolution: None,
-                    segments: Vec::new(), // Cannot be comment here
-                    uri: uri.to_owned(),
-                }),
-
+        streams.push(playlist::MediaPlaylist {
+            bandwidth: alt.other_attributes.as_ref().and_then(|x| {
+                x.get("BANDWIDTH")
+                    .and_then(|x| x.as_str().parse::<u64>().ok())
+            }),
+            channels: alt.channels.as_ref().and_then(|x| x.parse::<f32>().ok()),
+            codecs: alt
+                .other_attributes
+                .as_ref()
+                .and_then(|x| x.get("CODECS").map(|x| x.as_str().to_owned())),
+            extension: match alt.media_type {
                 m3u8_rs::AlternativeMediaType::ClosedCaptions
-                | m3u8_rs::AlternativeMediaType::Subtitles => {
-                    streams.push(playlist::MediaPlaylist {
-                        bandwidth: None,
-                        channels: None,
-                        codecs: None,                      // Cannot be comment here
-                        extension: Some("vtt".to_owned()), // Cannot be comment here
-                        frame_rate: None,
-                        id: utils::gen_id(base_url, uri),
-                        i_frame: false,
-                        language: alternative_stream
-                            .language
-                            .to_owned()
-                            .or(alternative_stream.assoc_language.to_owned()),
-                        live: false, // Cannot be comment here
-                        media_sequence: 0,
-                        media_type: playlist::MediaType::Subtitles,
-                        playlist_type: playlist::PlaylistType::Hls,
-                        resolution: None,
-                        segments: Vec::new(), // Cannot be comment here
-                        uri: uri.to_owned(),
-                    })
-                }
-
-                m3u8_rs::AlternativeMediaType::Other(_) => streams.push(playlist::MediaPlaylist {
-                    bandwidth: None,
-                    channels: alternative_stream
-                        .channels
-                        .as_ref()
-                        .map(|x| x.parse::<f32>().unwrap()),
-                    codecs: None,     // Cannot be comment here
-                    extension: None,  // Cannot be comment here
-                    frame_rate: None, // Cannot be comment here
-                    id: utils::gen_id(base_url, uri),
-                    i_frame: false, // Cannot be comment here
-                    language: alternative_stream
-                        .language
-                        .to_owned()
-                        .or(alternative_stream.assoc_language.to_owned()),
-                    live: false, // Cannot be comment here
-                    media_sequence: 0,
-                    media_type: playlist::MediaType::Undefined,
-                    playlist_type: playlist::PlaylistType::Hls,
-                    resolution: None,     // Cannot be comment here
-                    segments: Vec::new(), // Cannot be comment here
-                    uri: uri.to_owned(),
-                }),
-            }
-        }
+                | m3u8_rs::AlternativeMediaType::Subtitles => Some("vtt".to_owned()),
+                _ => Some("ts".to_owned()),
+            },
+            id: utils::gen_id(base_url, uri),
+            language: alt.language.clone().or(alt.assoc_language.clone()),
+            media_type: match alt.media_type {
+                m3u8_rs::AlternativeMediaType::Audio => playlist::MediaType::Audio,
+                m3u8_rs::AlternativeMediaType::ClosedCaptions
+                | m3u8_rs::AlternativeMediaType::Subtitles => playlist::MediaType::Subtitles,
+                m3u8_rs::AlternativeMediaType::Other(_) => playlist::MediaType::Undefined,
+                m3u8_rs::AlternativeMediaType::Video => playlist::MediaType::Video,
+            },
+            playlist_type: playlist::PlaylistType::Hls,
+            uri: uri.to_owned(),
+            ..Default::default()
+        });
     }
 
     playlist::MasterPlaylist {
@@ -131,6 +62,16 @@ pub(crate) fn parse_as_master(
         uri: base_url.to_owned(),
         streams,
     }
+}
+
+fn parse_byte_range(br: &m3u8_rs::ByteRange, next_byte: &mut u64) -> playlist::Range {
+    let (start, end) = if let Some(offset) = br.offset {
+        (offset, offset + br.length - 1)
+    } else {
+        (*next_byte, *next_byte + br.length - 1)
+    };
+    *next_byte = end + 1;
+    playlist::Range { start, end }
 }
 
 pub(crate) fn push_segments(
@@ -141,43 +82,21 @@ pub(crate) fn push_segments(
     stream.live = !playlist.end_list;
     stream.media_sequence = playlist.media_sequence;
 
-    let mut previous_byterange_end = 0;
+    let mut next_byte: u64 = 0;
 
     for segment in &playlist.segments {
         let map = segment.map.as_ref().map(|x| playlist::Map {
             uri: x.uri.to_owned(),
-            range: x.byte_range.as_ref().map(|x| {
-                let offset = x.offset.unwrap_or(0);
-
-                let (start, end) = if offset == 0 {
-                    (
-                        previous_byterange_end,
-                        (previous_byterange_end + x.length) - 1,
-                    )
-                } else {
-                    (x.length, (x.length + offset) - 1)
-                };
-
-                previous_byterange_end = end;
-                playlist::Range { start, end }
-            }),
+            range: x
+                .byte_range
+                .as_ref()
+                .map(|br| parse_byte_range(br, &mut next_byte)),
         });
 
-        let range = segment.byte_range.as_ref().map(|x| {
-            let offset = x.offset.unwrap_or(0);
-
-            let (start, end) = if offset == 0 {
-                (
-                    previous_byterange_end,
-                    (previous_byterange_end + x.length) - 1,
-                )
-            } else {
-                (x.length, (x.length + offset) - 1)
-            };
-
-            previous_byterange_end = end;
-            playlist::Range { start, end }
-        });
+        let range = segment
+            .byte_range
+            .as_ref()
+            .map(|br| parse_byte_range(br, &mut next_byte));
 
         stream.segments.push(playlist::Segment {
             duration: segment.duration,

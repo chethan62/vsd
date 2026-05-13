@@ -96,7 +96,7 @@ impl FetchedPlaylist {
                 .map_err(|e| anyhow!("Failed to parse HLS playlist: {e}"))?
             {
                 m3u8_rs::Playlist::MasterPlaylist(m3u8) => {
-                    crate::hls::parse_as_master(&m3u8, self.url.as_ref())
+                    crate::hls::parse_as_master(self.url.as_str(), &m3u8)
                         .sort_streams()
                         .list_streams()
                 }
@@ -141,11 +141,11 @@ impl FetchedPlaylist {
             PlaylistType::Hls => match m3u8_rs::parse_playlist_res(&self.data)
                 .map_err(|e| anyhow!("Failed to parse HLS playlist: {e}"))?
             {
-                m3u8_rs::Playlist::MasterPlaylist(playlist) => {
+                m3u8_rs::Playlist::MasterPlaylist(m3u8) => {
                     let mut playlist = if parse_everything {
-                        crate::hls::parse_as_master(&playlist, self.url.as_str())
+                        crate::hls::parse_as_master(self.url.as_str(), &m3u8)
                     } else {
-                        crate::hls::parse_as_master(&playlist, self.url.as_str())
+                        crate::hls::parse_as_master(self.url.as_str(), &m3u8)
                             .sort_streams()
                             .select_streams(&mut select_opts, interaction)?
                     };
