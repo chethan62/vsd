@@ -1,7 +1,7 @@
 use crate::{
     downloader::{
         MAX_RETRIES, MAX_THREADS, NO_RESUME, RUNNING, SKIP_DECRYPT, SKIP_MERGE, STREAM_DL_IDX,
-        encryption::Decrypter,
+        enc::Decrypter,
         mux::{Stream, Streams},
     },
     playlist::{KeyMethod, MediaPlaylist, MediaType},

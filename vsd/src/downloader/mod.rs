@@ -1,4 +1,4 @@
-mod encryption;
+mod enc;
 mod fetch;
 mod mux;
 mod stream;
@@ -248,10 +248,9 @@ impl Downloader {
         let mut streams = pl.streams;
 
         if !SKIP_DECRYPT.load(Ordering::SeqCst) {
-            encryption::check_unsupported_enc(&streams)?;
-            let default_kids =
-                encryption::get_default_kids(&streams, &self.client, &self.query).await?;
-            encryption::check_keys_exist(&self.keys, &default_kids)?;
+            enc::check_unsupported_enc(&streams)?;
+            let default_kids = enc::get_default_kids(&streams, &self.client, &self.query).await?;
+            enc::check_keys_exist(&self.keys, &default_kids)?;
         }
 
         for stream in &mut streams {
