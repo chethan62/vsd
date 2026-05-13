@@ -49,7 +49,7 @@ pub struct Segment {
     pub uri: String,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub struct Key {
     pub default_kid: Option<String>,
     pub key_format: Option<String>,
@@ -86,10 +86,11 @@ pub enum PlaylistType {
     Hls,
 }
 
-#[derive(Clone, PartialEq, Serialize)]
+#[derive(Clone, Default, PartialEq, Serialize)]
 pub enum KeyMethod {
     Aes128,
     Cenc,
+    #[default]
     None,
     Other(String),
     SampleAes,

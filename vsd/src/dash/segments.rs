@@ -2,48 +2,46 @@ use crate::{
     dash::{
         Template,
         addressing::{
-            process_segment_base, process_segment_list, process_segment_template_duration,
-            process_segment_template_init, process_segment_timeline,
+            resolve_segment_base, resolve_segment_list, resolve_segment_template_duration,
+            resolve_segment_template_init, resolve_segment_timeline,
         },
         parse_locator,
     },
     playlist::{Key, KeyMethod, MediaPlaylist, Segment},
 };
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, bail};
 use dash_mpd::{AdaptationSet, MPD, Representation};
+use log::debug;
 use reqwest::{Client, Url};
 
-pub(crate) async fn push_segments(
+pub async fn push_segments(
     client: &Client,
     base_url: &str,
     query: &[(String, String)],
     mpd: &MPD,
     stream: &mut MediaPlaylist,
 ) -> Result<()> {
-    let (loc_adaptation, loc_representation) = parse_locator(&stream.uri)
-        .ok_or_else(|| anyhow!("invalid dash locator: {}", stream.uri))?;
+    let Some((a_idx, r_idx)) = parse_locator(&stream.uri) else {
+        bail!("Incorrect dash locator: '{}'.", stream.uri);
+    };
 
-    let mut all_segments: Vec<Segment> = Vec::new();
-    let mut first_drm: Option<Key> = None;
+    let mut all_segments = Vec::new();
     let mut resolved_base_url = None;
 
     for period in &mpd.periods {
-        let Some(adaptation_set) = period.adaptations.get(loc_adaptation) else {
+        let Some(adaptation_set) = period.adaptations.get(a_idx) else {
             continue;
         };
-        let Some(representation) = adaptation_set.representations.get(loc_representation) else {
+        let Some(representation) = adaptation_set.representations.get(r_idx) else {
             continue;
         };
 
-        // Resolve period duration (period-level overrides mpd-level)
         let period_duration_secs = period
             .duration
             .as_ref()
             .or(mpd.mediaPresentationDuration.as_ref())
             .map(|d| d.as_secs_f64())
             .unwrap_or(0.0);
-
-        // Resolve base URL hierarchy: mpd → period → adaptation → representation
         let mut base_url = base_url.parse::<Url>()?;
 
         for url in [
@@ -58,10 +56,9 @@ pub(crate) async fn push_segments(
             base_url = base_url.join(url)?;
         }
 
-        // Build template variables
         let mut template = Template::new();
         let Some(rid) = representation.id.clone() else {
-            bail!("Missing @id on Representation node.");
+            bail!("Missing @id attribute on Representation node.");
         };
         template.insert("RepresentationID", rid);
 
@@ -80,25 +77,21 @@ pub(crate) async fn push_segments(
         )
         .await?;
 
-        // Keep DRM from the first period that has it
-        if first_drm.is_none() {
+        if let Some(first) = stream.segments.get_mut(0) {
             let cp = representation
                 .ContentProtection
                 .iter()
                 .chain(adaptation_set.ContentProtection.iter());
-
             let has_encryption = cp.clone().any(|c| c.value.is_some());
 
             if has_encryption {
-                first_drm = Some(Key {
+                first.key = Some(Key {
                     default_kid: cp
                         .clone()
                         .find_map(|c| c.default_KID.clone())
-                        .map(|k| k.to_lowercase()),
-                    iv: None,
-                    key_format: None,
+                        .map(|k| k.replace('-', "").to_lowercase()),
                     method: KeyMethod::Cenc,
-                    uri: None,
+                    ..Default::default()
                 });
             }
         }
@@ -111,14 +104,10 @@ pub(crate) async fn push_segments(
     }
 
     if all_segments.is_empty() {
-        bail!("no usable addressing mode identified for representation.");
+        bail!("No usable addressing mode identified for Representation node.");
     }
 
     stream.segments = all_segments;
-
-    if let Some(first_segment) = stream.segments.get_mut(0) {
-        first_segment.key = first_drm;
-    }
 
     if let Some(base_url) = resolved_base_url {
         stream.uri = base_url.to_string();
@@ -148,7 +137,8 @@ async fn resolve_segments(
 ) -> Result<Vec<Segment>> {
     // (1) AdaptationSet > SegmentList
     if let Some(segment_list) = &adaptation_set.SegmentList {
-        return process_segment_list(
+        debug!("Using (1) AdaptationSet > SegmentList addressing mode.");
+        return resolve_segment_list(
             segment_list,
             base_url,
             template,
@@ -158,7 +148,8 @@ async fn resolve_segments(
 
     // (2) Representation > SegmentList
     if let Some(segment_list) = &representation.SegmentList {
-        return process_segment_list(
+        debug!("Using (2) Representation > SegmentList addressing mode.");
+        return resolve_segment_list(
             segment_list,
             base_url,
             template,
@@ -171,7 +162,7 @@ async fn resolve_segments(
     let at = adaptation_set.SegmentTemplate.as_ref();
 
     if rt.is_some() || at.is_some() {
-        let init = process_segment_template_init(rt, at, base_url, template)?;
+        let init = resolve_segment_template_init(rt, at, base_url, template)?;
 
         let media = rt
             .and_then(|t| t.media.clone())
@@ -191,10 +182,12 @@ async fn resolve_segments(
 
         // (3) SegmentTemplate + SegmentTimeline
         if let Some(segment_timeline) = segment_timeline {
+            debug!("Using (3) SegmentTemplate + SegmentTimeline addressing mode.");
+
             let Some(media) = media.as_ref() else {
                 bail!("Missing @media attribute on SegmentTimeline.");
             };
-            let mut segments = process_segment_timeline(
+            let mut segments = resolve_segment_timeline(
                 segment_timeline,
                 base_url,
                 template,
@@ -213,11 +206,13 @@ async fn resolve_segments(
 
         // (4) SegmentTemplate@duration
         if let Some(media) = media.as_ref() {
+            debug!("Using (4) SegmentTemplate@duration addressing mode.");
+
             let Some(duration) = rt.and_then(|t| t.duration).or(at.and_then(|t| t.duration)) else {
                 bail!("Missing @duration attribute on SegmentTemplate@duration.");
             };
 
-            let mut segments = process_segment_template_duration(
+            let mut segments = resolve_segment_template_duration(
                 base_url,
                 template,
                 period_duration_secs,
@@ -240,11 +235,13 @@ async fn resolve_segments(
 
     // (5) SegmentBase@indexRange
     if let Some(segment_base) = &representation.SegmentBase {
-        return process_segment_base(segment_base, base_url, template, client, query).await;
+        debug!("Using (5) SegmentBase@indexRange addressing mode.");
+        return resolve_segment_base(segment_base, base_url, template, client, query).await;
     }
 
     // (6) Plain BaseURL
     if !representation.BaseURL.is_empty() {
+        debug!("Using (6) Plain BaseURL addressing mode.");
         return Ok(vec![Segment {
             duration: period_duration_secs as f32,
             uri: base_url.to_string(),

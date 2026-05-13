@@ -24,7 +24,7 @@ pub fn parse_init(
     })
 }
 
-pub fn process_segment_list(
+pub fn resolve_segment_list(
     segment_list: &dash_mpd::SegmentList,
     base_url: &Url,
     template: &Template,
@@ -58,7 +58,7 @@ pub fn process_segment_list(
     Ok(segments)
 }
 
-pub fn process_segment_template_init(
+pub fn resolve_segment_template_init(
     rt: Option<&SegmentTemplate>,
     at: Option<&SegmentTemplate>,
     base_url: &Url,
@@ -88,7 +88,7 @@ pub fn process_segment_template_init(
     Ok(None)
 }
 
-pub fn process_segment_timeline(
+pub fn resolve_segment_timeline(
     segment_timeline: &dash_mpd::SegmentTimeline,
     base_url: &Url,
     template: &mut Template,
@@ -159,7 +159,7 @@ pub fn process_segment_timeline(
     Ok(segments)
 }
 
-pub fn process_segment_template_duration(
+pub fn resolve_segment_template_duration(
     base_url: &Url,
     template: &mut Template,
     period_duration_secs: f64,
@@ -187,7 +187,7 @@ pub fn process_segment_template_duration(
     Ok(segments)
 }
 
-pub async fn process_segment_base(
+pub async fn resolve_segment_base(
     segment_base: &dash_mpd::SegmentBase,
     base_url: &Url,
     template: &Template,
