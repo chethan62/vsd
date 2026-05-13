@@ -4,8 +4,9 @@ use crate::{
     utils,
 };
 use dash_mpd::MPD;
+use reqwest::Url;
 
-pub fn parse_as_master(base_url: &str, mpd: &MPD) -> MasterPlaylist {
+pub fn parse_as_master(base_url: &Url, mpd: &MPD) -> MasterPlaylist {
     let mut playlist = MasterPlaylist {
         playlist_type: PlaylistType::Dash,
         streams: Vec::new(),
@@ -74,7 +75,7 @@ pub fn parse_as_master(base_url: &str, mpd: &MPD) -> MasterPlaylist {
                             .as_ref()
                             .and_then(|x| parse_frame_rate(x))
                     }),
-                id: utils::gen_id(base_url, &locator),
+                id: utils::gen_id(base_url.as_str(), &locator),
                 i_frame: false,
                 language: adaptation_set.lang.clone(),
                 live: mpd

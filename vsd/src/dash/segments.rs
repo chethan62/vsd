@@ -16,7 +16,7 @@ use reqwest::{Client, Url};
 
 pub async fn push_segments(
     client: &Client,
-    base_url: &str,
+    base_url: &Url,
     query: &[(String, String)],
     mpd: &MPD,
     stream: &mut MediaPlaylist,
@@ -45,8 +45,13 @@ pub async fn push_segments(
         } else if let Some(ast) = mpd.availabilityStartTime {
             // For dynamic MPDs without explicit duration, derive from wall clock
             let now = chrono::Utc::now();
-            let period_start = period.start.as_ref().map(|d| d.as_secs_f64()).unwrap_or(0.0);
-            let total_elapsed = ((now - ast).num_milliseconds() as f64 / 1000.0 - period_start).max(0.0);
+            let period_start = period
+                .start
+                .as_ref()
+                .map(|d| d.as_secs_f64())
+                .unwrap_or(0.0);
+            let total_elapsed =
+                ((now - ast).num_milliseconds() as f64 / 1000.0 - period_start).max(0.0);
             let window = mpd
                 .timeShiftBufferDepth
                 .as_ref()
@@ -57,7 +62,7 @@ pub async fn push_segments(
         } else {
             (0.0, 0.0)
         };
-        let mut base_url = base_url.parse::<Url>()?;
+        let mut base_url = base_url.clone();
 
         for url in [
             mpd.base_url.first().map(|x| x.base.as_ref()),
@@ -225,8 +230,8 @@ async fn resolve_segments(
 
             // For dynamic MPDs, offset start_number past expired segments
             let segment_duration_secs = duration / timescale as f64;
-            let start_number = start_number
-                + (dynamic_time_offset / segment_duration_secs).floor() as u64;
+            let start_number =
+                start_number + (dynamic_time_offset / segment_duration_secs).floor() as u64;
 
             let mut segments = resolve_segment_template_duration(
                 base_url,

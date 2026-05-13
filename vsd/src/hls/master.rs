@@ -1,6 +1,7 @@
 use crate::{playlist, utils};
+use reqwest::Url;
 
-pub fn parse_as_master(base_url: &str, m3u8: &m3u8_rs::MasterPlaylist) -> playlist::MasterPlaylist {
+pub fn parse_as_master(base_url: &Url, m3u8: &m3u8_rs::MasterPlaylist) -> playlist::MasterPlaylist {
     let mut streams = Vec::new();
 
     for stream in &m3u8.variants {
@@ -9,7 +10,7 @@ pub fn parse_as_master(base_url: &str, m3u8: &m3u8_rs::MasterPlaylist) -> playli
             codecs: stream.codecs.to_owned(),
             extension: Some("ts".to_owned()),
             frame_rate: stream.frame_rate.map(|x| x as f32),
-            id: utils::gen_id(base_url, &stream.uri),
+            id: utils::gen_id(base_url.as_str(), &stream.uri),
             i_frame: stream.is_i_frame,
             media_type: playlist::MediaType::Video,
             playlist_type: playlist::PlaylistType::Hls,
@@ -39,7 +40,7 @@ pub fn parse_as_master(base_url: &str, m3u8: &m3u8_rs::MasterPlaylist) -> playli
                 | m3u8_rs::AlternativeMediaType::Subtitles => Some("vtt".to_owned()),
                 _ => Some("ts".to_owned()),
             },
-            id: utils::gen_id(base_url, uri),
+            id: utils::gen_id(base_url.as_str(), uri),
             language: alt.language.clone().or(alt.assoc_language.clone()),
             media_type: match alt.media_type {
                 m3u8_rs::AlternativeMediaType::Audio => playlist::MediaType::Audio,
@@ -56,7 +57,7 @@ pub fn parse_as_master(base_url: &str, m3u8: &m3u8_rs::MasterPlaylist) -> playli
 
     playlist::MasterPlaylist {
         playlist_type: playlist::PlaylistType::Hls,
-        uri: base_url.to_owned(),
+        uri: base_url.to_string(),
         streams,
     }
 }

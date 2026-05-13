@@ -88,7 +88,7 @@ impl FetchedPlaylist {
                 let xml = String::from_utf8_lossy(&self.data);
                 let mpd = dash_mpd::parse(&xml)
                     .map_err(|e| anyhow!("Failed to parse DASH playlist: {e}"))?;
-                crate::dash::parse_as_master(self.url.as_ref(), &mpd)
+                crate::dash::parse_as_master(&self.url, &mpd)
                     .sort_streams()
                     .list_streams();
             }
@@ -96,7 +96,7 @@ impl FetchedPlaylist {
                 .map_err(|e| anyhow!("Failed to parse HLS playlist: {e}"))?
             {
                 m3u8_rs::Playlist::MasterPlaylist(m3u8) => {
-                    crate::hls::parse_as_master(self.url.as_str(), &m3u8)
+                    crate::hls::parse_as_master(&self.url, &m3u8)
                         .sort_streams()
                         .list_streams()
                 }
@@ -112,7 +112,7 @@ impl FetchedPlaylist {
     pub async fn as_master_playlist(
         &self,
         client: &Client,
-        query: &Vec<(String, String)>,
+        query: &[(String, String)],
         mut select_opts: SelectOptions,
         interaction: Interaction,
         parse_everything: bool,
@@ -124,16 +124,15 @@ impl FetchedPlaylist {
                     .map_err(|e| anyhow!("Failed to parse DASH playlist: {e}"))?;
 
                 let mut playlist = if parse_everything {
-                    crate::dash::parse_as_master(self.url.as_str(), &mpd)
+                    crate::dash::parse_as_master(&self.url, &mpd)
                 } else {
-                    crate::dash::parse_as_master(self.url.as_str(), &mpd)
+                    crate::dash::parse_as_master(&self.url, &mpd)
                         .sort_streams()
                         .select_streams(&mut select_opts, interaction)?
                 };
 
                 for stream in &mut playlist.streams {
-                    crate::dash::push_segments(client, self.url.as_str(), query, &mpd, stream)
-                        .await?;
+                    crate::dash::push_segments(client, &self.url, query, &mpd, stream).await?;
                 }
 
                 Ok(playlist)
@@ -143,9 +142,9 @@ impl FetchedPlaylist {
             {
                 m3u8_rs::Playlist::MasterPlaylist(m3u8) => {
                     let mut playlist = if parse_everything {
-                        crate::hls::parse_as_master(self.url.as_str(), &m3u8)
+                        crate::hls::parse_as_master(&self.url, &m3u8)
                     } else {
-                        crate::hls::parse_as_master(self.url.as_str(), &m3u8)
+                        crate::hls::parse_as_master(&self.url, &m3u8)
                             .sort_streams()
                             .select_streams(&mut select_opts, interaction)?
                     };
