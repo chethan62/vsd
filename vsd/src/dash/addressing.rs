@@ -83,8 +83,8 @@ pub fn process_segment_timeline(
             segment_time = t;
         }
 
-        template.insert("Time", segment_time.to_string());
-        template.insert("Number", number.to_string());
+        template.insert("Time", segment_time);
+        template.insert("Number", number);
 
         segments.push(Segment {
             duration: (s.d as f64 / timescale) as f32,
@@ -115,8 +115,8 @@ pub fn process_segment_timeline(
 
                 segment_time += s.d;
 
-                template.insert("Time", segment_time.to_string());
-                template.insert("Number", number.to_string());
+                template.insert("Time", segment_time);
+                template.insert("Number", number);
 
                 segments.push(Segment {
                     duration: (s.d as f64 / timescale) as f32,
@@ -155,7 +155,7 @@ pub fn process_segment_template_duration(
     let segment_count = (period_duration_secs / segment_duration).ceil() as i64;
 
     for number in start_number..start_number + segment_count {
-        template.insert("Number", number.to_string());
+        template.insert("Number", number);
 
         segments.push(Segment {
             duration: segment_duration as f32,

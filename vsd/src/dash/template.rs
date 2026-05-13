@@ -5,12 +5,14 @@ pub struct Template {
 }
 
 impl Template {
-    pub fn new(vars: HashMap<String, String>) -> Self {
-        Self { vars }
+    pub fn new() -> Self {
+        Self {
+            vars: HashMap::new(),
+        }
     }
 
-    pub fn insert(&mut self, var: &str, val: String) {
-        self.vars.insert(var.to_owned(), val);
+    pub fn insert<T: ToString>(&mut self, var: &str, val: T) {
+        let _ = self.vars.insert(var.to_owned(), val.to_string());
     }
 
     pub fn resolve(&self, template: &str) -> String {

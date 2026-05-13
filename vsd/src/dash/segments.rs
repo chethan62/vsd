@@ -13,7 +13,6 @@ use crate::{
 use anyhow::{Result, anyhow, bail};
 use dash_mpd::{AdaptationSet, MPD, Representation};
 use reqwest::{Client, Url};
-use std::collections::HashMap;
 
 pub(crate) async fn push_segments(
     client: &Client,
@@ -61,19 +60,18 @@ pub(crate) async fn push_segments(
         }
 
         // Build template variables
-        let rid = representation
-            .id
-            .as_ref()
-            .ok_or_else(|| anyhow!("missing @id on representation node."))?
-            .to_owned();
+        let mut template = Template::new();
+        template.insert(
+            "RepresentationID",
+            representation
+                .id
+                .clone()
+                .ok_or_else(|| anyhow!("Missing @id on representation node."))?,
+        );
 
-        let mut template_vars = HashMap::from([("RepresentationID".to_owned(), rid)]);
-
-        if let Some(bandwidth) = &representation.bandwidth {
-            template_vars.insert("Bandwidth".to_owned(), bandwidth.to_string());
+        if let Some(bandwidth) = representation.bandwidth {
+            template.insert("Bandwidth", bandwidth);
         }
-
-        let mut template = Template::new(template_vars);
 
         let segments = resolve_segments(
             client,
