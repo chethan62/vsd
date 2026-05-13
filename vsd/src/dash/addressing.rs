@@ -3,7 +3,7 @@ use crate::{
     playlist::{Map, Range, Segment},
     utils,
 };
-use anyhow::Result;
+use anyhow::{Result, bail};
 use dash_mpd::SegmentTemplate;
 use log::debug;
 use reqwest::{Client, Url, header};
@@ -51,10 +51,8 @@ pub fn process_segment_list(
         }
     }
 
-    if let (Some(first), Some(initialization)) =
-        (segments.first_mut(), &segment_list.Initialization)
-    {
-        first.map = Some(parse_init(initialization, base_url, template)?);
+    if let (Some(first), Some(init)) = (segments.first_mut(), &segment_list.Initialization) {
+        first.map = Some(parse_init(init, base_url, template)?);
     }
 
     Ok(segments)
@@ -167,9 +165,6 @@ pub fn process_segment_template_duration(
     Ok(segments)
 }
 
-// ─── SegmentBase@indexRange ─────────────────────────────────────────────────
-
-/// Process SegmentBase with @indexRange (fetch SIDX box for byte ranges).
 pub async fn process_segment_base(
     segment_base: &dash_mpd::SegmentBase,
     base_url: &Url,
@@ -185,16 +180,16 @@ pub async fn process_segment_base(
             base_url, index_range.start, index_range.end
         );
         let request = client
-            .get(base_url.as_str())
+            .get(base_url.clone())
             .query(query)
             .header(header::RANGE, &index_range);
         let response = request.send().await?;
         let bytes = utils::fetch_bytes(response).await?;
+        let Some(sidx) = SidxBox::from_init(&bytes, index_range.start)? else {
+            bail!("Missing sidx box in initialization.");
+        };
 
-        for range in SidxBox::from_init(&bytes, index_range.start)?
-            .map(|x| x.ranges)
-            .unwrap_or_default()
-        {
+        for range in sidx.ranges {
             segments.push(Segment {
                 range: Some(Range {
                     end: range.end,
@@ -205,25 +200,22 @@ pub async fn process_segment_base(
             });
         }
 
-        // Init map covers bytes 0 through end of SIDX
-        if let Some(first) = segments.first_mut() {
-            if let Some(initialization) = &segment_base.Initialization {
-                let mut map = parse_init(initialization, base_url, template)?;
-                map.range = Some(Range {
-                    end: index_range.end,
-                    start: 0,
-                });
-                first.map = Some(map);
-            }
+        if let (Some(first), Some(init)) = (segments.first_mut(), &segment_base.Initialization) {
+            let mut map = parse_init(init, base_url, template)?;
+            map.range = Some(Range {
+                end: index_range.end,
+                start: 0,
+            });
+            first.map = Some(map);
         }
     } else {
         segments.push(Segment {
-            uri: base_url.to_string(),
             map: segment_base
                 .Initialization
                 .as_ref()
                 .map(|init| parse_init(init, base_url, template))
                 .transpose()?,
+            uri: base_url.to_string(),
             ..Default::default()
         });
     }
