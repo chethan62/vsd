@@ -25,7 +25,7 @@ pub async fn push_segments(
         bail!("Incorrect dash locator: '{}'.", stream.uri);
     };
 
-    let mut all_segments = Vec::new();
+    let mut segments = Vec::new();
     let mut resolved_base_url = None;
 
     for period in &mpd.periods {
@@ -66,7 +66,7 @@ pub async fn push_segments(
             template.insert("Bandwidth", bandwidth);
         }
 
-        let segments = resolve_segments(
+        let mut sub_segments = resolve_segments(
             client,
             query,
             adaptation_set,
@@ -77,19 +77,17 @@ pub async fn push_segments(
         )
         .await?;
 
-        if let Some(first) = stream.segments.get_mut(0) {
-            let cp = representation
+        if let Some(first) = sub_segments.first_mut() {
+            let mut cp = representation
                 .ContentProtection
                 .iter()
                 .chain(adaptation_set.ContentProtection.iter());
-            let has_encryption = cp.clone().any(|c| c.value.is_some());
 
-            if has_encryption {
+            if cp.clone().any(|c| c.value.is_some()) {
                 first.key = Some(Key {
                     default_kid: cp
-                        .clone()
                         .find_map(|c| c.default_KID.clone())
-                        .map(|k| k.replace('-', "").to_lowercase()),
+                        .map(|k| k.to_ascii_lowercase().replace('-', "")),
                     method: KeyMethod::Cenc,
                     ..Default::default()
                 });
@@ -100,14 +98,14 @@ pub async fn push_segments(
             resolved_base_url = Some(base_url);
         }
 
-        all_segments.extend(segments);
+        segments.extend(sub_segments);
     }
 
-    if all_segments.is_empty() {
+    if segments.is_empty() {
         bail!("No usable addressing mode identified for Representation node.");
     }
 
-    stream.segments = all_segments;
+    stream.segments = segments;
 
     if let Some(base_url) = resolved_base_url {
         stream.uri = base_url.to_string();
@@ -120,12 +118,13 @@ pub async fn push_segments(
 /// Init maps are attached directly to the first segment.
 ///
 /// Addressing modes (in order):
-/// 1. AdaptationSet > SegmentList
-/// 2. Representation > SegmentList
+/// 1. Representation > SegmentList
+/// 2. AdaptationSet > SegmentList
 /// 3. SegmentTemplate + SegmentTimeline
 /// 4. SegmentTemplate@duration
-/// 5. SegmentBase@indexRange
-/// 6. Plain BaseURL
+/// 5. Representation > SegmentBase
+/// 6. AdaptationSet > SegmentBase
+/// 7. Plain BaseURL
 async fn resolve_segments(
     client: &Client,
     query: &[(String, String)],
@@ -135,20 +134,8 @@ async fn resolve_segments(
     period_duration_secs: f64,
     template: &mut Template,
 ) -> Result<Vec<Segment>> {
-    // (1) AdaptationSet > SegmentList
-    if let Some(segment_list) = &adaptation_set.SegmentList {
-        debug!("Using (1) AdaptationSet > SegmentList addressing mode.");
-        return resolve_segment_list(
-            segment_list,
-            base_url,
-            template,
-            !adaptation_set.BaseURL.is_empty(),
-        );
-    }
-
-    // (2) Representation > SegmentList
     if let Some(segment_list) = &representation.SegmentList {
-        debug!("Using (2) Representation > SegmentList addressing mode.");
+        debug!("Using (1) Representation > SegmentList addressing mode.");
         return resolve_segment_list(
             segment_list,
             base_url,
@@ -157,7 +144,16 @@ async fn resolve_segments(
         );
     }
 
-    // (3, 4) SegmentTemplate modes
+    if let Some(segment_list) = &adaptation_set.SegmentList {
+        debug!("Using (2) AdaptationSet > SegmentList addressing mode.");
+        return resolve_segment_list(
+            segment_list,
+            base_url,
+            template,
+            !adaptation_set.BaseURL.is_empty(),
+        );
+    }
+
     let rt = representation.SegmentTemplate.as_ref();
     let at = adaptation_set.SegmentTemplate.as_ref();
 
@@ -180,7 +176,6 @@ async fn resolve_segments(
             .and_then(|t| t.SegmentTimeline.as_ref())
             .or(at.and_then(|t| t.SegmentTimeline.as_ref()));
 
-        // (3) SegmentTemplate + SegmentTimeline
         if let Some(segment_timeline) = segment_timeline {
             debug!("Using (3) SegmentTemplate + SegmentTimeline addressing mode.");
 
@@ -204,7 +199,6 @@ async fn resolve_segments(
             return Ok(segments);
         }
 
-        // (4) SegmentTemplate@duration
         if let Some(media) = media.as_ref() {
             debug!("Using (4) SegmentTemplate@duration addressing mode.");
 
@@ -229,19 +223,21 @@ async fn resolve_segments(
             return Ok(segments);
         }
 
-        // SegmentTemplate present but no timeline or media — fall through
         return Ok(Vec::new());
     }
 
-    // (5) SegmentBase@indexRange
     if let Some(segment_base) = &representation.SegmentBase {
-        debug!("Using (5) SegmentBase@indexRange addressing mode.");
+        debug!("Using (5) Representation > SegmentBase addressing mode.");
         return resolve_segment_base(segment_base, base_url, template, client, query).await;
     }
 
-    // (6) Plain BaseURL
+    if let Some(segment_base) = &adaptation_set.SegmentBase {
+        debug!("Using (6) AdaptationSet > SegmentBase addressing mode.");
+        return resolve_segment_base(segment_base, base_url, template, client, query).await;
+    }
+
     if !representation.BaseURL.is_empty() {
-        debug!("Using (6) Plain BaseURL addressing mode.");
+        debug!("Using (7) Plain BaseURL addressing mode.");
         return Ok(vec![Segment {
             duration: period_duration_secs as f32,
             uri: base_url.to_string(),
