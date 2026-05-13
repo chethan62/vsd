@@ -36,12 +36,27 @@ pub async fn push_segments(
             continue;
         };
 
-        let period_duration_secs = period
+        let (period_duration_secs, dynamic_time_offset) = if let Some(d) = period
             .duration
             .as_ref()
             .or(mpd.mediaPresentationDuration.as_ref())
-            .map(|d| d.as_secs_f64())
-            .unwrap_or(0.0);
+        {
+            (d.as_secs_f64(), 0.0)
+        } else if let Some(ast) = mpd.availabilityStartTime {
+            // For dynamic MPDs without explicit duration, derive from wall clock
+            let now = chrono::Utc::now();
+            let period_start = period.start.as_ref().map(|d| d.as_secs_f64()).unwrap_or(0.0);
+            let total_elapsed = ((now - ast).num_milliseconds() as f64 / 1000.0 - period_start).max(0.0);
+            let window = mpd
+                .timeShiftBufferDepth
+                .as_ref()
+                .map(|d| d.as_secs_f64())
+                .unwrap_or(total_elapsed);
+            let capped = total_elapsed.min(window);
+            (capped, total_elapsed - capped)
+        } else {
+            (0.0, 0.0)
+        };
         let mut base_url = base_url.parse::<Url>()?;
 
         for url in [
@@ -73,6 +88,7 @@ pub async fn push_segments(
             representation,
             &base_url,
             period_duration_secs,
+            dynamic_time_offset,
             &mut template,
         )
         .await?;
@@ -132,6 +148,7 @@ async fn resolve_segments(
     representation: &Representation,
     base_url: &Url,
     period_duration_secs: f64,
+    dynamic_time_offset: f64,
     template: &mut Template,
 ) -> Result<Vec<Segment>> {
     if let Some(segment_list) = &representation.SegmentList {
@@ -205,6 +222,11 @@ async fn resolve_segments(
             let Some(duration) = rt.and_then(|t| t.duration).or(at.and_then(|t| t.duration)) else {
                 bail!("Missing @duration attribute on SegmentTemplate@duration.");
             };
+
+            // For dynamic MPDs, offset start_number past expired segments
+            let segment_duration_secs = duration / timescale as f64;
+            let start_number = start_number
+                + (dynamic_time_offset / segment_duration_secs).floor() as u64;
 
             let mut segments = resolve_segment_template_duration(
                 base_url,
