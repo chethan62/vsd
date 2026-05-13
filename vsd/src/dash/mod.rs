@@ -1,13 +1,13 @@
 mod addressing;
-mod playlist;
+mod master;
 mod segments;
 mod template;
 
 use crate::playlist::Range;
 use template::Template;
 
-pub(crate) use playlist::parse_as_master;
-pub(crate) use segments::push_segments;
+pub use master::parse_as_master;
+pub use segments::push_segments;
 
 fn format_locator(adaptation_index: usize, representation_index: usize) -> String {
     format!("dash:{adaptation_index}.{representation_index}")

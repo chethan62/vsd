@@ -1,3 +1,5 @@
-mod playlist;
+mod master;
+mod segments;
 
-pub(crate) use playlist::{parse_as_master, push_segments};
+pub use master::parse_as_master;
+pub use segments::push_segments;

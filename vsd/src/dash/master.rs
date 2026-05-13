@@ -5,7 +5,7 @@ use crate::{
 };
 use dash_mpd::MPD;
 
-pub(crate) fn parse_as_master(base_url: &str, mpd: &MPD) -> MasterPlaylist {
+pub fn parse_as_master(base_url: &str, mpd: &MPD) -> MasterPlaylist {
     let mut playlist = MasterPlaylist {
         playlist_type: PlaylistType::Dash,
         streams: Vec::new(),
