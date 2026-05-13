@@ -199,7 +199,7 @@ pub async fn resolve_segment_base(
     if let Some(index_range) = parse_range(&segment_base.indexRange) {
         debug!(
             "Fetching {} (sidx@{}-{})",
-            base_url, index_range.start, index_range.end
+            base_url, index_range.0, index_range.1
         );
         let request = client
             .get(base_url.clone())
@@ -207,16 +207,13 @@ pub async fn resolve_segment_base(
             .header(header::RANGE, &index_range);
         let response = request.send().await?;
         let bytes = utils::fetch_bytes(response).await?;
-        let Some(sidx) = SidxBox::from_init(&bytes, index_range.start)? else {
+        let Some(sidx) = SidxBox::from_init(&bytes, index_range.0)? else {
             bail!("Missing sidx box in initialization.");
         };
 
         for range in sidx.ranges {
             segments.push(Segment {
-                range: Some(Range {
-                    end: range.end,
-                    start: range.start,
-                }),
+                range: Some(Range(range.start, range.end)),
                 uri: base_url.to_string(),
                 ..Default::default()
             });
@@ -224,10 +221,7 @@ pub async fn resolve_segment_base(
 
         if let (Some(first), Some(init)) = (segments.first_mut(), &segment_base.Initialization) {
             let mut map = parse_init(init, base_url, template)?;
-            map.range = Some(Range {
-                end: index_range.end,
-                start: 0,
-            });
+            map.range = Some(Range(0, index_range.1));
             first.map = Some(map);
         }
     } else {

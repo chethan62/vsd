@@ -166,7 +166,7 @@ impl FetchedPlaylist {
 
                         let media_playlist = m3u8_rs::parse_media_playlist_res(&data)
                             .map_err(|e| anyhow!("Failed to parse HLS playlist: {e}"))?;
-                        crate::hls::push_segments(&media_playlist, stream);
+                        crate::hls::push_segments(stream, media_playlist);
                     }
 
                     Ok(playlist)
@@ -177,7 +177,7 @@ impl FetchedPlaylist {
                         uri: self.url.as_str().to_owned(),
                         ..Default::default()
                     };
-                    crate::hls::push_segments(&playlist, &mut media_playlist);
+                    crate::hls::push_segments(&mut media_playlist, playlist);
                     Ok(MasterPlaylist {
                         playlist_type: PlaylistType::Hls,
                         streams: vec![media_playlist],

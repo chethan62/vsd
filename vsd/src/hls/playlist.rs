@@ -1,9 +1,6 @@
 use crate::{playlist, utils};
 
-pub(crate) fn parse_as_master(
-    base_url: &str,
-    m3u8: &m3u8_rs::MasterPlaylist,
-) -> playlist::MasterPlaylist {
+pub fn parse_as_master(base_url: &str, m3u8: &m3u8_rs::MasterPlaylist) -> playlist::MasterPlaylist {
     let mut streams = Vec::new();
 
     for stream in &m3u8.variants {
@@ -65,94 +62,74 @@ pub(crate) fn parse_as_master(
 }
 
 fn parse_byte_range(br: &m3u8_rs::ByteRange, next_byte: &mut u64) -> playlist::Range {
-    let (start, end) = if let Some(offset) = br.offset {
-        (offset, offset + br.length - 1)
-    } else {
-        (*next_byte, *next_byte + br.length - 1)
-    };
+    let start = br.offset.unwrap_or(*next_byte);
+    let end = start + br.length - 1;
     *next_byte = end + 1;
-    playlist::Range { start, end }
+    playlist::Range(start, end)
 }
 
-pub(crate) fn push_segments(
-    playlist: &m3u8_rs::MediaPlaylist,
-    stream: &mut playlist::MediaPlaylist,
-) {
-    stream.i_frame = playlist.i_frames_only;
-    stream.live = !playlist.end_list;
-    stream.media_sequence = playlist.media_sequence;
+pub fn push_segments(stream: &mut playlist::MediaPlaylist, m3u8: m3u8_rs::MediaPlaylist) {
+    stream.i_frame = m3u8.i_frames_only;
+    stream.live = !m3u8.end_list;
+    stream.media_sequence = m3u8.media_sequence;
 
-    let mut next_byte: u64 = 0;
+    let mut next_byte = 0;
 
-    for segment in &playlist.segments {
-        let map = segment.map.as_ref().map(|x| playlist::Map {
-            uri: x.uri.to_owned(),
-            range: x
-                .byte_range
-                .as_ref()
-                .map(|br| parse_byte_range(br, &mut next_byte)),
+    for segment in m3u8.segments {
+        let map = segment.map.map(|x| playlist::Map {
+            uri: x.uri,
+            range: x.byte_range.map(|br| parse_byte_range(&br, &mut next_byte)),
         });
 
         let range = segment
             .byte_range
-            .as_ref()
-            .map(|br| parse_byte_range(br, &mut next_byte));
+            .map(|br| parse_byte_range(&br, &mut next_byte));
+
+        let key = segment.key.map(|key| {
+            let mut method = match &key.method {
+                m3u8_rs::KeyMethod::AES128 => playlist::KeyMethod::Aes128,
+                m3u8_rs::KeyMethod::None => playlist::KeyMethod::None,
+                m3u8_rs::KeyMethod::SampleAES => playlist::KeyMethod::SampleAes,
+                m3u8_rs::KeyMethod::Other(x) if x == "SAMPLE-AES-CENC" || x == "SAMPLE-AES-CTR" => {
+                    playlist::KeyMethod::Cenc
+                }
+                m3u8_rs::KeyMethod::Other(x) => playlist::KeyMethod::Other(x.to_owned()),
+            };
+
+            if method == playlist::KeyMethod::None
+                && let Some(keyformat) = key.keyformat.as_deref()
+            {
+                if matches!(
+                    keyformat,
+                    "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed"
+                        | "urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95"
+                        | "com.apple.streamingkeydelivery"
+                ) {
+                    method = playlist::KeyMethod::Cenc;
+                }
+            }
+
+            if method == playlist::KeyMethod::None
+                && let Some(uri) = key.uri.as_ref()
+                && (uri.starts_with("data:text/plain;base64,") || uri.starts_with("skd://"))
+            {
+                method = playlist::KeyMethod::Cenc;
+            }
+
+            playlist::Key {
+                default_kid: None,
+                iv: key.iv,
+                method,
+                uri: key.uri,
+            }
+        });
 
         stream.segments.push(playlist::Segment {
             duration: segment.duration,
-            key: if let Some(m3u8_rs::Key {
-                iv,
-                keyformat,
-                method,
-                uri,
-                ..
-            }) = &segment.key
-            {
-                let mut method = match method {
-                    m3u8_rs::KeyMethod::AES128 => playlist::KeyMethod::Aes128,
-                    m3u8_rs::KeyMethod::None => playlist::KeyMethod::None, // This should never match according to hls specifications.
-                    m3u8_rs::KeyMethod::SampleAES => playlist::KeyMethod::SampleAes,
-                    m3u8_rs::KeyMethod::Other(x)
-                        if x == "SAMPLE-AES-CENC" || x == "SAMPLE-AES-CTR" =>
-                    {
-                        playlist::KeyMethod::Cenc
-                    }
-                    m3u8_rs::KeyMethod::Other(x) => playlist::KeyMethod::Other(x.to_owned()),
-                };
-
-                /*
-                    .mpd (with encryption) converted to .m3u8
-
-                    #EXT-X-KEY:METHOD=SAMPLE-AES,URI="skd://302f80dd-411e-4886-bca5-bb1f8018a024:77FD1889AAF4143B085548B3C0F95B9A",KEYFORMATVERSIONS="1",KEYFORMAT="com.apple.streamingkeydelivery"
-                    #EXT-X-KEY:METHOD=SAMPLE-AES-CTR,KEYFORMAT="com.microsoft.playready",KEYFORMATVERSIONS="1",URI="data:text/plain;charset=UTF-16;base64,xAEAAAEAAQC6ATwAVwBSAE0ASABFAEEARABFAFIAIAB4AG0AbABuAHMAPQAiAGgAdAB0AHAAOgAvAC8AcwBjAGgAZQBtAGEAcwAuAG0AaQBjAHIAbwBzAG8AZgB0AC4AYwBvAG0ALwBEAFIATQAvADIAMAAwADcALwAwADMALwBQAGwAYQB5AFIAZQBhAGQAeQBIAGUAYQBkAGUAcgAiACAAdgBlAHIAcwBpAG8AbgA9ACIANAAuADAALgAwAC4AMAAiAD4APABEAEEAVABBAD4APABQAFIATwBUAEUAQwBUAEkATgBGAE8APgA8AEsARQBZAEwARQBOAD4AMQA2ADwALwBLAEUAWQBMAEUATgA+ADwAQQBMAEcASQBEAD4AQQBFAFMAQwBUAFIAPAAvAEEATABHAEkARAA+ADwALwBQAFIATwBUAEUAQwBUAEkATgBGAE8APgA8AEsASQBEAD4AOQBmAEIAMQAxAEsAMQB0AC8ARQBtAFEANABYAEMATQBjAEoANgBnAEkAZwA9AD0APAAvAEsASQBEAD4APAAvAEQAQQBUAEEAPgA8AC8AVwBSAE0ASABFAEEARABFAFIAPgA="
-                    #EXT-X-KEY:METHOD=SAMPLE-AES,URI="data:text/plain;base64,AAAAXHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAADwSEDAvgN1BHkiGvKW7H4AYoCQSEDAvgN1BHkiGvKW7H4AYoCQSEDAvgN1BHkiGvKW7H4AYoCRI88aJmwY=",KEYID=0x302F80DD411E4886BCA5BB1F8018A024,IV=0x77FD1889AAF4143B085548B3C0F95B9A,KEYFORMATVERSIONS="1",KEYFORMAT="urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed"
-
-                    https://dashif.org/identifiers/content_protection
-                */
-                if let Some(keyformat) = keyformat {
-                    method = match keyformat.as_str() {
-                        "com.apple.streamingkeydelivery"
-                        | "com.microsoft.playready"
-                        | "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed" => {
-                            playlist::KeyMethod::Cenc
-                        }
-                        _ => method,
-                    };
-                }
-
-                Some(playlist::Key {
-                    default_kid: None,
-                    iv: iv.clone(),
-                    key_format: keyformat.clone(),
-                    method,
-                    uri: uri.clone(),
-                })
-            } else {
-                None
-            },
+            key,
             map,
             range,
-            uri: segment.uri.to_owned(),
+            uri: segment.uri,
         });
     }
 

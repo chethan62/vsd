@@ -52,7 +52,6 @@ pub struct Segment {
 #[derive(Clone, Default, Serialize)]
 pub struct Key {
     pub default_kid: Option<String>,
-    pub key_format: Option<String>,
     pub iv: Option<String>,
     pub method: KeyMethod,
     pub uri: Option<String>,
@@ -65,10 +64,7 @@ pub struct Map {
 }
 
 #[derive(Clone, Serialize)]
-pub struct Range {
-    pub end: u64,
-    pub start: u64,
-}
+pub struct Range(pub u64, pub u64);
 
 #[derive(Clone, Default, PartialEq, Serialize)]
 pub enum MediaType {
@@ -96,12 +92,11 @@ pub enum KeyMethod {
     SampleAes,
 }
 
-#[allow(clippy::infallible_try_from)]
 impl TryFrom<&Range> for HeaderValue {
-    type Error = std::convert::Infallible;
+    type Error = reqwest::header::InvalidHeaderValue;
 
     fn try_from(range: &Range) -> std::result::Result<Self, Self::Error> {
-        Ok(HeaderValue::from_str(&format!("bytes={}-{}", range.start, range.end)).unwrap())
+        HeaderValue::from_str(&format!("bytes={}-{}", range.0, range.1))
     }
 }
 
@@ -252,7 +247,7 @@ impl MediaPlaylist {
             url,
             map.range
                 .as_ref()
-                .map(|x| format!("{}-{}", x.start, x.end))
+                .map(|x| format!("{}-{}", x.0, x.1))
                 .as_deref()
                 .unwrap_or("full-range")
         );
@@ -299,7 +294,7 @@ impl MediaPlaylist {
                 map: if i == 0 { segment.map.clone() } else { None },
                 key: if i == 0 { segment.key.clone() } else { None },
                 duration: segment.duration,
-                range: Some(Range { start, end }),
+                range: Some(Range(start, end)),
                 uri: segment.uri.clone(),
             });
         }

@@ -34,8 +34,5 @@ fn parse_frame_rate(frame_rate: &str) -> Option<f32> {
 fn parse_range(range: &Option<String>) -> Option<Range> {
     let range = range.as_ref()?;
     let (x, y) = range.split_once('-')?;
-    Some(Range {
-        end: y.parse().ok()?,
-        start: x.parse().ok()?,
-    })
+    Some(Range(x.parse().ok()?, y.parse().ok()?))
 }
