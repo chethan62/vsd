@@ -1,19 +1,19 @@
 use std::collections::HashMap;
 
-pub(super) struct Template {
+pub struct Template {
     vars: HashMap<String, String>,
 }
 
 impl Template {
-    pub(super) fn new(vars: HashMap<String, String>) -> Self {
+    pub fn new(vars: HashMap<String, String>) -> Self {
         Self { vars }
     }
 
-    pub(super) fn insert(&mut self, var: &str, val: String) {
+    pub fn insert(&mut self, var: &str, val: String) {
         self.vars.insert(var.to_owned(), val);
     }
 
-    pub(super) fn resolve(&self, template: &str) -> String {
+    pub fn resolve(&self, template: &str) -> String {
         let mut result = template.to_owned();
 
         for (var, value) in &self.vars {
@@ -25,10 +25,7 @@ impl Template {
             let prefix = format!("${var}%0");
             if let Some(pos) = result.find(&prefix) {
                 let rest = &result.as_bytes()[pos + prefix.len()..];
-                if rest.len() >= 3
-                    && rest[0].is_ascii_digit()
-                    && rest[1] == b'd'
-                    && rest[2] == b'$'
+                if rest.len() >= 3 && rest[0].is_ascii_digit() && rest[1] == b'd' && rest[2] == b'$'
                 {
                     let width = (rest[0] - b'0') as usize;
                     let padded = format!("{value:0>width$}");

@@ -9,29 +9,21 @@ use log::debug;
 use reqwest::{Client, Url, header};
 use vsd_mp4::boxes::SidxBox;
 
-/// Build a Map (init segment locator) from a dash-mpd Initialization element.
-pub fn build_init_map(
+pub fn parse_init(
     initialization: &dash_mpd::Initialization,
     base_url: &Url,
     template: &Template,
 ) -> Result<Map> {
-    let byte_range = parse_range(&initialization.range);
-    if let Some(source_url) = &initialization.sourceURL {
-        Ok(Map {
-            range: byte_range,
-            uri: base_url.join(&template.resolve(source_url))?.to_string(),
-        })
-    } else {
-        Ok(Map {
-            range: byte_range,
-            uri: base_url.to_string(),
-        })
-    }
+    Ok(Map {
+        range: parse_range(&initialization.range),
+        uri: if let Some(source_url) = &initialization.sourceURL {
+            base_url.join(&template.resolve(source_url))?.to_string()
+        } else {
+            base_url.to_string()
+        },
+    })
 }
 
-// ─── SegmentList ────────────────────────────────────────────────────────────
-
-/// Process a SegmentList element (from AdaptationSet or Representation level).
 pub fn process_segment_list(
     segment_list: &dash_mpd::SegmentList,
     base_url: &Url,
@@ -59,10 +51,10 @@ pub fn process_segment_list(
         }
     }
 
-    if let Some(first) = segments.first_mut() {
-        if let Some(initialization) = &segment_list.Initialization {
-            first.map = Some(build_init_map(initialization, base_url, template)?);
-        }
+    if let (Some(first), Some(initialization)) =
+        (segments.first_mut(), &segment_list.Initialization)
+    {
+        first.map = Some(parse_init(initialization, base_url, template)?);
     }
 
     Ok(segments)
@@ -216,7 +208,7 @@ pub async fn process_segment_base(
         // Init map covers bytes 0 through end of SIDX
         if let Some(first) = segments.first_mut() {
             if let Some(initialization) = &segment_base.Initialization {
-                let mut map = build_init_map(initialization, base_url, template)?;
+                let mut map = parse_init(initialization, base_url, template)?;
                 map.range = Some(Range {
                     end: index_range.end,
                     start: 0,
@@ -230,7 +222,7 @@ pub async fn process_segment_base(
             map: segment_base
                 .Initialization
                 .as_ref()
-                .map(|init| build_init_map(init, base_url, template))
+                .map(|init| parse_init(init, base_url, template))
                 .transpose()?,
             ..Default::default()
         });
@@ -268,7 +260,7 @@ pub fn resolve_segment_template_init(
         .or(adapt_tmpl.and_then(|t| t.Initialization.as_ref()));
 
     if let Some(initialization) = tmpl_init_element {
-        return Ok(Some(build_init_map(initialization, base_url, template)?));
+        return Ok(Some(parse_init(initialization, base_url, template)?));
     }
 
     Ok(None)

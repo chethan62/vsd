@@ -152,7 +152,7 @@ async fn resolve_segments(
     period_duration_secs: f64,
     template: &mut Template,
 ) -> Result<Vec<Segment>> {
-    // (1.1) AdaptationSet > SegmentList
+    // (1) AdaptationSet > SegmentList
     if let Some(segment_list) = &adaptation_set.SegmentList {
         return process_segment_list(
             segment_list,
@@ -162,7 +162,7 @@ async fn resolve_segments(
         );
     }
 
-    // (1.2) Representation > SegmentList
+    // (2) Representation > SegmentList
     if let Some(segment_list) = &representation.SegmentList {
         return process_segment_list(
             segment_list,
@@ -172,7 +172,7 @@ async fn resolve_segments(
         );
     }
 
-    // (2, 3, 4) SegmentTemplate modes
+    // (3, 4, 5) SegmentTemplate modes
     let repr_tmpl = representation.SegmentTemplate.as_ref();
     let adapt_tmpl = adaptation_set.SegmentTemplate.as_ref();
 
@@ -189,7 +189,7 @@ async fn resolve_segments(
             .and_then(|t| t.SegmentTimeline.as_ref())
             .or(adapt_tmpl.and_then(|t| t.SegmentTimeline.as_ref()));
 
-        // (2) SegmentTemplate + SegmentTimeline
+        // (3) SegmentTemplate + SegmentTimeline
         if let Some(segment_timeline) = segment_timeline {
             let media = tmpl_media
                 .as_deref()
@@ -211,7 +211,7 @@ async fn resolve_segments(
             return Ok(segments);
         }
 
-        // (3, 4) SegmentTemplate@duration
+        // (4) SegmentTemplate@duration
         if let Some(media) = tmpl_media.as_deref() {
             let tmpl_duration = merge_tmpl_field(repr_tmpl, adapt_tmpl, |t| t.duration)
                 .ok_or_else(|| {
