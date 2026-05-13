@@ -205,16 +205,20 @@ impl MediaPlaylist {
             return ext;
         }
 
-        if let Some(seg) = self.segments.first() {
-            let is_mp4 = |uri: &str| uri.split('?').next().is_some_and(|p| p.ends_with(".mp4"));
-            if is_mp4(&seg.uri) || seg.map.as_ref().is_some_and(|m| is_mp4(&m.uri)) {
+        if let Some(first) = self.segments.first() {
+            let is_mp4 = |uri: &str| {
+                let path = uri.split_once('?').map_or(uri, |(p, _)| p);
+                path.ends_with(".mp4") || path.ends_with(".m4s")
+            };
+
+            if is_mp4(&first.uri) || first.map.as_ref().is_some_and(|m| is_mp4(&m.uri)) {
                 return "mp4";
             }
         }
 
         match self.playlist_type {
             PlaylistType::Hls => "ts",
-            PlaylistType::Dash => "m4s",
+            PlaylistType::Dash => "mp4",
         }
     }
 

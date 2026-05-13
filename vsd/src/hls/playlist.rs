@@ -98,15 +98,14 @@ pub fn push_segments(stream: &mut playlist::MediaPlaylist, m3u8: m3u8_rs::MediaP
 
             if method == playlist::KeyMethod::None
                 && let Some(keyformat) = key.keyformat.as_deref()
-            {
-                if matches!(
+                && matches!(
                     keyformat,
                     "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed"
                         | "urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95"
                         | "com.apple.streamingkeydelivery"
-                ) {
-                    method = playlist::KeyMethod::Cenc;
-                }
+                )
+            {
+                method = playlist::KeyMethod::Cenc;
             }
 
             if method == playlist::KeyMethod::None
@@ -133,17 +132,14 @@ pub fn push_segments(stream: &mut playlist::MediaPlaylist, m3u8: m3u8_rs::MediaP
         });
     }
 
-    if let Some(segment) = stream.segments.first() {
-        if let Some(init) = &segment.map
-            && init.uri.split('?').next().unwrap().ends_with(".mp4")
-        {
-            stream.extension = Some("m4s".to_owned());
-        }
+    if let Some(first) = stream.segments.first() {
+        let is_mp4 = |uri: &str| {
+            let path = uri.split_once('?').map_or(uri, |(p, _)| p);
+            path.ends_with(".mp4") || path.ends_with(".m4s")
+        };
 
-        let uri = segment.uri.split('?').next().unwrap();
-
-        if uri.ends_with(".mp4") || uri.ends_with(".m4s") {
-            stream.extension = Some("m4s".to_owned());
+        if is_mp4(&first.uri) || first.map.as_ref().is_some_and(|m| is_mp4(&m.uri)) {
+            stream.extension = Some("mp4".to_owned());
         }
     }
 }
