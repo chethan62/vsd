@@ -170,64 +170,63 @@ async fn resolve_segments(
     }
 
     // (3, 4, 5) SegmentTemplate modes
-    let repr_tmpl = representation.SegmentTemplate.as_ref();
-    let adapt_tmpl = adaptation_set.SegmentTemplate.as_ref();
+    let rt = representation.SegmentTemplate.as_ref();
+    let at = adaptation_set.SegmentTemplate.as_ref();
 
-    if repr_tmpl.is_some() || adapt_tmpl.is_some() {
-        let init_map = process_segment_template_init(repr_tmpl, adapt_tmpl, base_url, template)?;
+    if rt.is_some() || at.is_some() {
+        let init = process_segment_template_init(rt, at, base_url, template)?;
 
-        let tmpl_media = repr_tmpl
+        let media = rt
             .and_then(|t| t.media.clone())
-            .or(adapt_tmpl.and_then(|t| t.media.clone()));
-        let tmpl_timescale = repr_tmpl
+            .or(at.and_then(|t| t.media.clone()));
+        let timescale = rt
             .and_then(|t| t.timescale)
-            .or(adapt_tmpl.and_then(|t| t.timescale))
+            .or(at.and_then(|t| t.timescale))
             .unwrap_or(1);
-        let tmpl_start_number = repr_tmpl
+        let start_number = rt
             .and_then(|t| t.startNumber)
-            .or(adapt_tmpl.and_then(|t| t.startNumber))
+            .or(at.and_then(|t| t.startNumber))
             .unwrap_or(1);
 
-        // SegmentTimeline is a child element that also inherits from AdaptationSet
-        let segment_timeline = repr_tmpl
+        let segment_timeline = rt
             .and_then(|t| t.SegmentTimeline.as_ref())
-            .or(adapt_tmpl.and_then(|t| t.SegmentTimeline.as_ref()));
+            .or(at.and_then(|t| t.SegmentTimeline.as_ref()));
 
         // (3) SegmentTemplate + SegmentTimeline
         if let Some(segment_timeline) = segment_timeline {
-            let media = tmpl_media
-                .as_deref()
-                .ok_or_else(|| anyhow!("SegmentTimeline without a media attribute."))?;
-
+            let Some(media) = media.as_ref() else {
+                bail!("SegmentTimeline without a media attribute.");
+            };
             let mut segments = process_segment_timeline(
                 segment_timeline,
-                media,
-                tmpl_start_number,
-                tmpl_timescale,
-                period_duration_secs,
                 base_url,
                 template,
+                period_duration_secs,
+                media,
+                start_number,
+                timescale,
             )?;
 
             if let Some(first) = segments.first_mut() {
-                first.map = init_map;
+                first.map = init;
             }
+
             return Ok(segments);
         }
 
         // (4) SegmentTemplate@duration
-        if let Some(media) = tmpl_media.as_deref() {
-            let tmpl_duration = repr_tmpl
+        if let Some(media) = media.as_deref() {
+            let tmpl_duration = rt
                 .and_then(|t| t.duration)
-                .or(adapt_tmpl.and_then(|t| t.duration))
+                .or(at.and_then(|t| t.duration))
                 .ok_or_else(|| {
                     anyhow!("Representation is missing SegmentTemplate@duration attribute.")
                 })?;
 
             let mut segments = process_segment_template_duration(
                 media,
-                tmpl_start_number,
-                tmpl_timescale,
+                start_number,
+                timescale,
                 tmpl_duration,
                 period_duration_secs,
                 base_url,
@@ -235,7 +234,7 @@ async fn resolve_segments(
             )?;
 
             if let Some(first) = segments.first_mut() {
-                first.map = init_map;
+                first.map = init;
             }
             return Ok(segments);
         }

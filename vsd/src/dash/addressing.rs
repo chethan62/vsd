@@ -59,15 +59,15 @@ pub fn process_segment_list(
 }
 
 pub fn process_segment_template_init(
-    repr_tmpl: Option<&SegmentTemplate>,
-    adapt_tmpl: Option<&SegmentTemplate>,
+    rt: Option<&SegmentTemplate>,
+    at: Option<&SegmentTemplate>,
     base_url: &Url,
     template: &Template,
 ) -> Result<Option<Map>> {
     // Try @initialization attribute
-    let tmpl_init = repr_tmpl
+    let tmpl_init = rt
         .and_then(|t| t.initialization.clone())
-        .or(adapt_tmpl.and_then(|t| t.initialization.clone()));
+        .or(at.and_then(|t| t.initialization.clone()));
 
     if let Some(init) = tmpl_init {
         return Ok(Some(Map {
@@ -77,9 +77,9 @@ pub fn process_segment_template_init(
     }
 
     // Try <Initialization> child element
-    let tmpl_init = repr_tmpl
+    let tmpl_init = rt
         .and_then(|t| t.Initialization.as_ref())
-        .or(adapt_tmpl.and_then(|t| t.Initialization.as_ref()));
+        .or(at.and_then(|t| t.Initialization.as_ref()));
 
     if let Some(init) = tmpl_init {
         return Ok(Some(parse_init(init, base_url, template)?));
@@ -88,23 +88,20 @@ pub fn process_segment_template_init(
     Ok(None)
 }
 
-// ─── SegmentTemplate + SegmentTimeline ──────────────────────────────────────
-
-/// Process SegmentTemplate with an explicit SegmentTimeline.
 pub fn process_segment_timeline(
     segment_timeline: &dash_mpd::SegmentTimeline,
-    tmpl_media: &str,
-    tmpl_start_number: u64,
-    tmpl_timescale: u64,
-    period_duration_secs: f64,
     base_url: &Url,
     template: &mut Template,
+    period_duration_secs: f64,
+    media: &str,
+    start_number: u64,
+    timescale: u64,
 ) -> Result<Vec<Segment>> {
+    let media = template.resolve(media);
+    let timescale = timescale as f64;
+    let mut number = start_number;
     let mut segments = Vec::new();
-    let media = template.resolve(tmpl_media);
-    let mut number = tmpl_start_number;
     let mut segment_time: u64 = 0;
-    let timescale = tmpl_timescale as f64;
 
     for s in &segment_timeline.segments {
         if let Some(t) = s.t {
