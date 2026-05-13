@@ -60,13 +60,10 @@ pub(crate) async fn push_segments(
 
         // Build template variables
         let mut template = Template::new();
-        template.insert(
-            "RepresentationID",
-            representation
-                .id
-                .clone()
-                .ok_or_else(|| anyhow!("Missing @id on representation node."))?,
-        );
+        let Some(rid) = representation.id.clone() else {
+            bail!("Missing @id on Representation node.");
+        };
+        template.insert("RepresentationID", rid);
 
         if let Some(bandwidth) = representation.bandwidth {
             template.insert("Bandwidth", bandwidth);
@@ -169,7 +166,7 @@ async fn resolve_segments(
         );
     }
 
-    // (3, 4, 5) SegmentTemplate modes
+    // (3, 4) SegmentTemplate modes
     let rt = representation.SegmentTemplate.as_ref();
     let at = adaptation_set.SegmentTemplate.as_ref();
 
@@ -195,7 +192,7 @@ async fn resolve_segments(
         // (3) SegmentTemplate + SegmentTimeline
         if let Some(segment_timeline) = segment_timeline {
             let Some(media) = media.as_ref() else {
-                bail!("SegmentTimeline without a media attribute.");
+                bail!("Missing @media attribute on SegmentTimeline.");
             };
             let mut segments = process_segment_timeline(
                 segment_timeline,
@@ -215,27 +212,25 @@ async fn resolve_segments(
         }
 
         // (4) SegmentTemplate@duration
-        if let Some(media) = media.as_deref() {
-            let tmpl_duration = rt
-                .and_then(|t| t.duration)
-                .or(at.and_then(|t| t.duration))
-                .ok_or_else(|| {
-                    anyhow!("Representation is missing SegmentTemplate@duration attribute.")
-                })?;
+        if let Some(media) = media.as_ref() {
+            let Some(duration) = rt.and_then(|t| t.duration).or(at.and_then(|t| t.duration)) else {
+                bail!("Missing @duration attribute on SegmentTemplate@duration.");
+            };
 
             let mut segments = process_segment_template_duration(
+                base_url,
+                template,
+                period_duration_secs,
+                duration,
                 media,
                 start_number,
                 timescale,
-                tmpl_duration,
-                period_duration_secs,
-                base_url,
-                template,
             )?;
 
             if let Some(first) = segments.first_mut() {
                 first.map = init;
             }
+
             return Ok(segments);
         }
 

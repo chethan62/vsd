@@ -159,29 +159,24 @@ pub fn process_segment_timeline(
     Ok(segments)
 }
 
-// ─── SegmentTemplate@duration ───────────────────────────────────────────────
-
-/// Process SegmentTemplate with @duration (simple segment numbering).
 pub fn process_segment_template_duration(
-    tmpl_media: &str,
-    tmpl_start_number: u64,
-    tmpl_timescale: u64,
-    tmpl_duration: f64,
-    period_duration_secs: f64,
     base_url: &Url,
     template: &mut Template,
+    period_duration_secs: f64,
+    duration: f64,
+    media: &str,
+    start_number: u64,
+    timescale: u64,
 ) -> Result<Vec<Segment>> {
-    let mut segments = Vec::new();
-    let media = template.resolve(tmpl_media);
-    let timescale = tmpl_timescale as f64;
-    let segment_duration = tmpl_duration / timescale;
-
-    let start_number = tmpl_start_number as i64;
+    let media = template.resolve(media);
+    let timescale = timescale as f64;
+    let segment_duration = duration / timescale;
     let segment_count = (period_duration_secs / segment_duration).ceil() as i64;
+    let start_number = start_number as i64;
+    let mut segments = Vec::new();
 
     for number in start_number..start_number + segment_count {
         template.insert("Number", number);
-
         segments.push(Segment {
             duration: segment_duration as f32,
             uri: base_url.join(&template.resolve(&media))?.to_string(),
