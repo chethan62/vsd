@@ -58,6 +58,36 @@ pub fn process_segment_list(
     Ok(segments)
 }
 
+pub fn process_segment_template_init(
+    repr_tmpl: Option<&SegmentTemplate>,
+    adapt_tmpl: Option<&SegmentTemplate>,
+    base_url: &Url,
+    template: &Template,
+) -> Result<Option<Map>> {
+    // Try @initialization attribute
+    let tmpl_init = repr_tmpl
+        .and_then(|t| t.initialization.clone())
+        .or(adapt_tmpl.and_then(|t| t.initialization.clone()));
+
+    if let Some(init) = tmpl_init {
+        return Ok(Some(Map {
+            range: None,
+            uri: base_url.join(&template.resolve(&init))?.to_string(),
+        }));
+    }
+
+    // Try <Initialization> child element
+    let tmpl_init = repr_tmpl
+        .and_then(|t| t.Initialization.as_ref())
+        .or(adapt_tmpl.and_then(|t| t.Initialization.as_ref()));
+
+    if let Some(init) = tmpl_init {
+        return Ok(Some(parse_init(init, base_url, template)?));
+    }
+
+    Ok(None)
+}
+
 // ─── SegmentTemplate + SegmentTimeline ──────────────────────────────────────
 
 /// Process SegmentTemplate with an explicit SegmentTimeline.
@@ -221,51 +251,4 @@ pub async fn process_segment_base(
     }
 
     Ok(segments)
-}
-
-// ─── SegmentTemplate init resolution ────────────────────────────────────────
-
-/// Resolve initialization for SegmentTemplate addressing modes.
-/// Checks @initialization attribute first, then <Initialization> child element,
-/// merging from Representation and AdaptationSet levels.
-pub fn resolve_segment_template_init(
-    repr_tmpl: Option<&SegmentTemplate>,
-    adapt_tmpl: Option<&SegmentTemplate>,
-    base_url: &Url,
-    template: &Template,
-) -> Result<Option<Map>> {
-    // Try @initialization attribute
-    let tmpl_initialization = merge_tmpl_field(repr_tmpl, adapt_tmpl, |t| t.initialization.clone());
-
-    if let Some(initialization) = tmpl_initialization {
-        return Ok(Some(Map {
-            range: None,
-            uri: base_url
-                .join(&template.resolve(&initialization))?
-                .to_string(),
-        }));
-    }
-
-    // Try <Initialization> child element
-    let tmpl_init_element = repr_tmpl
-        .and_then(|t| t.Initialization.as_ref())
-        .or(adapt_tmpl.and_then(|t| t.Initialization.as_ref()));
-
-    if let Some(initialization) = tmpl_init_element {
-        return Ok(Some(parse_init(initialization, base_url, template)?));
-    }
-
-    Ok(None)
-}
-
-/// Resolve merged SegmentTemplate field: uses Representation's value if present,
-/// else falls back to AdaptationSet's value.
-pub fn merge_tmpl_field<T: Clone>(
-    repr_tmpl: Option<&SegmentTemplate>,
-    adapt_tmpl: Option<&SegmentTemplate>,
-    getter: fn(&SegmentTemplate) -> Option<T>,
-) -> Option<T> {
-    repr_tmpl
-        .and_then(|t| getter(t))
-        .or(adapt_tmpl.and_then(|t| getter(t)))
 }

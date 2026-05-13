@@ -2,9 +2,8 @@ use crate::{
     dash::{
         Template,
         addressing::{
-            merge_tmpl_field, process_segment_base, process_segment_list,
-            process_segment_template_duration, process_segment_timeline,
-            resolve_segment_template_init,
+            process_segment_base, process_segment_list, process_segment_template_duration,
+            process_segment_template_init, process_segment_timeline,
         },
         parse_locator,
     },
@@ -175,12 +174,19 @@ async fn resolve_segments(
     let adapt_tmpl = adaptation_set.SegmentTemplate.as_ref();
 
     if repr_tmpl.is_some() || adapt_tmpl.is_some() {
-        let init_map = resolve_segment_template_init(repr_tmpl, adapt_tmpl, base_url, template)?;
+        let init_map = process_segment_template_init(repr_tmpl, adapt_tmpl, base_url, template)?;
 
-        let tmpl_media = merge_tmpl_field(repr_tmpl, adapt_tmpl, |t| t.media.clone());
-        let tmpl_timescale = merge_tmpl_field(repr_tmpl, adapt_tmpl, |t| t.timescale).unwrap_or(1);
-        let tmpl_start_number =
-            merge_tmpl_field(repr_tmpl, adapt_tmpl, |t| t.startNumber).unwrap_or(1);
+        let tmpl_media = repr_tmpl
+            .and_then(|t| t.media.clone())
+            .or(adapt_tmpl.and_then(|t| t.media.clone()));
+        let tmpl_timescale = repr_tmpl
+            .and_then(|t| t.timescale)
+            .or(adapt_tmpl.and_then(|t| t.timescale))
+            .unwrap_or(1);
+        let tmpl_start_number = repr_tmpl
+            .and_then(|t| t.startNumber)
+            .or(adapt_tmpl.and_then(|t| t.startNumber))
+            .unwrap_or(1);
 
         // SegmentTimeline is a child element that also inherits from AdaptationSet
         let segment_timeline = repr_tmpl
@@ -211,7 +217,9 @@ async fn resolve_segments(
 
         // (4) SegmentTemplate@duration
         if let Some(media) = tmpl_media.as_deref() {
-            let tmpl_duration = merge_tmpl_field(repr_tmpl, adapt_tmpl, |t| t.duration)
+            let tmpl_duration = repr_tmpl
+                .and_then(|t| t.duration)
+                .or(adapt_tmpl.and_then(|t| t.duration))
                 .ok_or_else(|| {
                     anyhow!("Representation is missing SegmentTemplate@duration attribute.")
                 })?;
