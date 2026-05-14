@@ -176,7 +176,7 @@ impl Downloader {
                 &self.query,
                 self.select_options.clone(),
                 self.interaction_type.clone(),
-                false,
+                true,
             )
             .await?
         } else {
@@ -185,7 +185,7 @@ impl Downloader {
                 &self.query,
                 self.select_options.clone(),
                 Interaction::None,
-                true,
+                false,
             )
             .await?
         };
