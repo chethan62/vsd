@@ -103,11 +103,8 @@ impl License {
                 .metadata(&client, &[])
                 .await?;
 
-            for sm in metadata {
-                for pssh in sm.pssh {
-                    let _ =
-                        pssh_data.insert(base64::engine::general_purpose::STANDARD.decode(&pssh)?);
-                }
+            for pssh in metadata.into_iter().flat_map(|sm| sm.pssh) {
+                let _ = pssh_data.insert(base64::engine::general_purpose::STANDARD.decode(&pssh)?);
             }
         } else if let Ok(data) = base64::engine::general_purpose::STANDARD.decode(&self.input) {
             pssh_data.insert(data);
@@ -121,17 +118,17 @@ impl License {
                     if self.skip_playready {
                         continue;
                     }
+                    info!(
+                        "DrmPsh [{}] {}",
+                        "prd".magenta(),
+                        base64::engine::general_purpose::STANDARD.encode(&pssh)
+                    );
                     let Some(device_path) = &self.playready_device else {
                         bail!("Playready device (.prd) path not provided.");
                     };
                     let Some(license_url) = &self.playready_url else {
                         bail!("Playready license url not provided.");
                     };
-                    info!(
-                        "DrmPsh [{}] {}",
-                        "prd".magenta(),
-                        base64::engine::general_purpose::STANDARD.encode(&pssh)
-                    );
                     let pssh = playready::Pssh::from_bytes(&pssh)?;
                     let device = playready::Device::from_prd(device_path)?;
                     let cdm = playready::Cdm::from_device(device);
@@ -165,17 +162,17 @@ impl License {
                     if self.skip_widevine {
                         continue;
                     }
+                    info!(
+                        "DrmPsh [{}] {}",
+                        "wvd".magenta(),
+                        base64::engine::general_purpose::STANDARD.encode(&pssh)
+                    );
                     let Some(device_path) = &self.widevine_device else {
                         bail!("Widevine device (.wvd) path not provided.");
                     };
                     let Some(license_url) = &self.widevine_url else {
                         bail!("Widevine license url not provided.");
                     };
-                    info!(
-                        "DrmPsh [{}] {}",
-                        "wvd".magenta(),
-                        base64::engine::general_purpose::STANDARD.encode(&pssh)
-                    );
                     let pssh = widevine::Pssh::from_bytes(&pssh)?;
                     let device = widevine::Device::read_wvd(File::open(device_path)?)?;
                     let cdm = widevine::Cdm::new(device);
