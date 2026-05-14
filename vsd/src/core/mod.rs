@@ -198,6 +198,10 @@ impl Downloader {
         Ok(())
     }
 
+    pub fn get_query(&self) -> &[(String, String)] {
+        &self.query
+    }
+
     pub async fn download(self, uri: &str) -> Result<()> {
         let mp = self.as_master_playlist(uri, true).await?;
         let mut streams = mp.streams;

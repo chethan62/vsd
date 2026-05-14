@@ -93,21 +93,20 @@ pub enum KeyMethod {
     SampleAes,
 }
 
+#[derive(Clone, Serialize)]
 pub struct StreamMetadata {
-    // Stream Metadata
     pub bandwidth: Option<u64>,
     pub channels: Option<f32>,
     pub codecs: Option<String>,
+    pub default_kid: Option<String>,
+    pub encryption_type: KeyMethod,
     pub frame_rate: Option<f32>,
     pub index: usize,
     pub language: Option<String>,
     pub media_type: MediaType,
     pub playlist_type: PlaylistType,
-    pub resolution: Option<(u64, u64)>,
-    // Encryption Metadata
-    pub encrypted: bool,
-    pub default_kid: Option<String>,
     pub pssh: HashSet<String>,
+    pub resolution: Option<(u64, u64)>,
 }
 
 impl TryFrom<&Range> for HeaderValue {
@@ -164,15 +163,19 @@ impl MasterPlaylist {
                 bandwidth: stream.bandwidth,
                 channels: stream.channels,
                 codecs: stream.codecs.clone(),
+                default_kid,
+                encryption_type: stream
+                    .segments
+                    .iter()
+                    .find_map(|s| s.key.as_ref().map(|k| k.method.clone()))
+                    .unwrap_or_default(),
                 frame_rate: stream.frame_rate,
                 index: i + 1,
                 language: stream.language.clone(),
                 media_type: stream.media_type.clone(),
                 playlist_type: stream.playlist_type.clone(),
-                resolution: stream.resolution,
-                default_kid,
-                encrypted: stream.segments.iter().any(|x| x.key.is_some()),
                 pssh,
+                resolution: stream.resolution,
             });
         }
 

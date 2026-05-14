@@ -55,6 +55,14 @@ pub struct Save {
     #[arg(short, long, help_heading = "Automation Options")]
     pub list_streams: bool,
 
+    /// List available streams metadata as json.
+    #[arg(
+        long,
+        conflicts_with = "list_streams",
+        help_heading = "Automation Options"
+    )]
+    pub list_streams_json: bool,
+
     /// Select streams using filters.
     #[arg(
         short,
@@ -210,6 +218,14 @@ impl Save {
 
         if self.list_streams {
             dl.list_playlist(&self.input).await?;
+        } else if self.list_streams_json {
+            let query = dl.get_query();
+            let metadata = dl
+                .as_master_playlist(&self.input, false)
+                .await?
+                .metadata(&client, query)
+                .await?;
+            serde_json::to_writer(std::io::stdout(), &metadata)?;
         } else if self.parse {
             let mp = dl.as_master_playlist(&self.input, false).await?;
 
