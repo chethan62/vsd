@@ -1,5 +1,5 @@
 use crate::{
-    downloader::{
+    core::{
         MAX_THREADS, NO_RESUME, RUNNING, STREAM_DL_IDX,
         mux::{Stream, Streams},
     },

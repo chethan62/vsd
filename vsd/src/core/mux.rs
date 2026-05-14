@@ -1,5 +1,5 @@
 use crate::{
-    downloader::{SKIP_DECRYPT, SKIP_MERGE},
+    core::{SKIP_DECRYPT, SKIP_MERGE},
     playlist::{MediaPlaylist, MediaType},
 };
 use anyhow::{Result, bail};

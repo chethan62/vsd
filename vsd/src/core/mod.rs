@@ -9,7 +9,7 @@ pub use subtitle::download_subtitle_streams;
 use vsd_mp4::pssh::PsshBox;
 
 use crate::{
-    downloader::mux::Streams,
+    core::mux::Streams,
     options::{Interaction, SelectOptions},
     playlist::MediaType,
     utils,

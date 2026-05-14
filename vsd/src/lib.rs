@@ -1,7 +1,7 @@
 mod commands;
 mod cookie;
+mod core;
 mod dash;
-mod downloader;
 mod hls;
 mod logger;
 mod options;
@@ -13,5 +13,5 @@ mod utils;
 #[doc(hidden)]
 pub use commands::Args;
 
-pub use downloader::Downloader;
+pub use core::Downloader;
 pub use reqwest;

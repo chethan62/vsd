@@ -1,5 +1,5 @@
 use crate::{
-    downloader::{
+    core::{
         MAX_RETRIES, MAX_THREADS, NO_RESUME, RUNNING, SKIP_DECRYPT, SKIP_MERGE, STREAM_DL_IDX,
         enc::Decrypter,
         mux::{Stream, Streams},
