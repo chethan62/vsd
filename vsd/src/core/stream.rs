@@ -6,7 +6,7 @@ use crate::{
     },
     playlist::{KeyMethod, MediaPlaylist, MediaType},
     progress::Progress,
-    utils::QUERY,
+    utils::Query,
 };
 use anyhow::{Result, anyhow, bail};
 use colored::Colorize;
@@ -34,7 +34,7 @@ const PNG_HEADER: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 pub async fn download_streams(
     client: &Client,
     streams: &Vec<MediaPlaylist>,
-    query: &QUERY,
+    query: &Query,
     directory: Option<&PathBuf>,
     temp_files: &mut Streams,
     keys: &HashMap<String, String>,
@@ -68,7 +68,7 @@ pub async fn download_streams(
 async fn download_stream(
     client: &Client,
     stream: &MediaPlaylist,
-    query: &QUERY,
+    query: &Query,
     directory: Option<&PathBuf>,
     temp_files: &mut Streams,
     keys: &HashMap<String, String>,

@@ -2,7 +2,7 @@ use crate::{
     dash, hls,
     options::{Interaction, SelectOptions},
     playlist::{MasterPlaylist, MediaPlaylist, PlaylistType},
-    utils::{self, QUERY},
+    utils::{self, Query},
 };
 use anyhow::{Result, anyhow, bail};
 use base64::Engine;
@@ -15,7 +15,7 @@ use tokio::fs;
 pub async fn playlist(
     client: &Client,
     base_url: &Option<Url>,
-    query: &QUERY,
+    query: &Query,
     uri: &str,
 ) -> Result<FetchedPlaylist> {
     let path = Path::new(uri);

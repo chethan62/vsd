@@ -5,7 +5,7 @@ use crate::{
     },
     playlist::{MediaPlaylist, MediaType},
     progress::Progress,
-    utils::{self, QUERY},
+    utils::{self, Query},
 };
 use anyhow::{Result, bail};
 use colored::Colorize;
@@ -53,7 +53,7 @@ fn detect_codec(codecs: Option<&str>, data: &[u8], ext: &str) -> (&'static str, 
 pub async fn download_subtitle_streams(
     client: &Client,
     streams: &[MediaPlaylist],
-    query: &QUERY,
+    query: &Query,
     directory: Option<&PathBuf>,
     temp_files: &mut Streams,
 ) -> Result<()> {
@@ -84,7 +84,7 @@ pub async fn download_subtitle_streams(
 async fn download_subtitle_stream(
     client: &Client,
     stream: &MediaPlaylist,
-    query: &QUERY,
+    query: &Query,
     directory: Option<&PathBuf>,
     temp_files: &mut Streams,
     pb: Progress,

@@ -1,4 +1,7 @@
-use crate::playlist::{KeyMethod, MediaPlaylist, Segment};
+use crate::{
+    playlist::{KeyMethod, MediaPlaylist, Segment},
+    utils::Query,
+};
 use anyhow::{Result, bail};
 use colored::Colorize;
 use log::info;
@@ -86,7 +89,7 @@ pub fn check_unsupported_enc(streams: &Vec<MediaPlaylist>) -> Result<()> {
 pub async fn get_default_kids(
     streams: &[MediaPlaylist],
     client: &Client,
-    query: &Vec<(String, String)>,
+    query: &Query,
 ) -> Result<HashSet<String>> {
     let mut default_kids = HashSet::new();
 

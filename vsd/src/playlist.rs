@@ -2,7 +2,7 @@ use crate::{
     options::{Interaction, SelectOptions},
     progress::ByteSize,
     selector::StreamSelector,
-    utils::{self, QUERY},
+    utils::{self, Query},
 };
 use anyhow::Result;
 use colored::Colorize;
@@ -118,7 +118,7 @@ impl TryFrom<&Range> for HeaderValue {
 }
 
 impl Key {
-    pub async fn key(&self, client: &Client, base_url: &Url, query: &QUERY) -> Result<[u8; 16]> {
+    pub async fn key(&self, client: &Client, base_url: &Url, query: &Query) -> Result<[u8; 16]> {
         let url = base_url.join(self.uri.as_ref().unwrap())?;
         let bytes = client.get(url).query(query).send().await?.bytes().await?;
         Ok(bytes.as_ref().try_into()?)
@@ -137,7 +137,7 @@ impl Key {
 }
 
 impl MasterPlaylist {
-    pub async fn metadata(&self, client: &Client, query: &QUERY) -> Result<Vec<StreamMetadata>> {
+    pub async fn metadata(&self, client: &Client, query: &Query) -> Result<Vec<StreamMetadata>> {
         let mut metadata = Vec::with_capacity(self.streams.len());
 
         for (i, stream) in self.streams.iter().enumerate() {
@@ -166,8 +166,8 @@ impl MasterPlaylist {
                 default_kid,
                 encryption_type: stream
                     .segments
-                    .iter()
-                    .find_map(|s| s.key.as_ref().map(|k| k.method.clone()))
+                    .first()
+                    .and_then(|s| s.key.as_ref().map(|k| k.method.clone()))
                     .unwrap_or_default(),
                 frame_rate: stream.frame_rate,
                 index: i + 1,
@@ -290,7 +290,7 @@ impl MediaPlaylist {
         &self,
         client: &Client,
         base_url: &Url,
-        query: &QUERY,
+        query: &Query,
     ) -> Result<Option<Vec<u8>>> {
         let Some(Segment { map: Some(map), .. }) = self.segments.first() else {
             return Ok(None);

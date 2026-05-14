@@ -8,7 +8,7 @@ use crate::{
         parse_locator,
     },
     playlist::{Key, KeyMethod, MediaPlaylist, Segment},
-    utils::QUERY,
+    utils::Query,
 };
 use anyhow::{Result, bail};
 use dash_mpd::{AdaptationSet, MPD, Representation};
@@ -18,7 +18,7 @@ use reqwest::{Client, Url};
 pub async fn push_segments(
     client: &Client,
     base_url: &Url,
-    query: &QUERY,
+    query: &Query,
     mpd: &MPD,
     stream: &mut MediaPlaylist,
 ) -> Result<()> {
@@ -147,9 +147,10 @@ pub async fn push_segments(
 /// 5. Representation > SegmentBase
 /// 6. AdaptationSet > SegmentBase
 /// 7. Plain BaseURL
+#[allow(clippy::too_many_arguments)]
 async fn resolve_segments(
     client: &Client,
-    query: &QUERY,
+    query: &Query,
     adaptation_set: &AdaptationSet,
     representation: &Representation,
     base_url: &Url,

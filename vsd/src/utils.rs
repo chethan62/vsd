@@ -2,7 +2,7 @@ use anyhow::{Result, bail};
 use reqwest::Response;
 use std::{env, path::PathBuf};
 
-pub type QUERY = [(String, String)];
+pub type Query = [(String, String)];
 
 pub async fn fetch_bytes(response: Response) -> Result<Vec<u8>> {
     let status = response.status();
