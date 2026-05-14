@@ -5,12 +5,12 @@ use crate::{
     },
     playlist::{MediaPlaylist, MediaType},
     progress::Progress,
-    utils,
+    utils::{self, QUERY},
 };
 use anyhow::{Result, bail};
 use colored::Colorize;
 use log::{debug, info, warn};
-use reqwest::{Client, Url, header};
+use reqwest::{Client, header};
 use std::{path::PathBuf, sync::atomic::Ordering};
 use tokio::{fs::File, io::AsyncWriteExt, task::JoinSet};
 use vsd_mp4::text::{Mp4TtmlParser, Mp4VttParser, ttml_text_parser};
@@ -53,8 +53,7 @@ fn detect_codec(codecs: Option<&str>, data: &[u8], ext: &str) -> (&'static str, 
 pub async fn download_subtitle_streams(
     client: &Client,
     streams: &[MediaPlaylist],
-    base_url: &Option<Url>,
-    query: &Vec<(String, String)>,
+    query: &QUERY,
     directory: Option<&PathBuf>,
     temp_files: &mut Streams,
 ) -> Result<()> {
@@ -68,7 +67,6 @@ pub async fn download_subtitle_streams(
         download_subtitle_stream(
             client,
             stream,
-            base_url,
             query,
             directory,
             temp_files,
@@ -86,8 +84,7 @@ pub async fn download_subtitle_streams(
 async fn download_subtitle_stream(
     client: &Client,
     stream: &MediaPlaylist,
-    base_url: &Option<Url>,
-    query: &Vec<(String, String)>,
+    query: &QUERY,
     directory: Option<&PathBuf>,
     temp_files: &mut Streams,
     pb: Progress,
@@ -103,7 +100,7 @@ async fn download_subtitle_stream(
         return Ok(());
     }
 
-    let base_url = base_url.clone().unwrap_or(stream.uri.parse()?);
+    let base_url = stream.uri.parse()?;
     let ext = stream.extension();
     let mut data = Vec::new();
     let mut temp_file = stream.path(directory);

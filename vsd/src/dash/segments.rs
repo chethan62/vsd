@@ -8,6 +8,7 @@ use crate::{
         parse_locator,
     },
     playlist::{Key, KeyMethod, MediaPlaylist, Segment},
+    utils::QUERY,
 };
 use anyhow::{Result, bail};
 use dash_mpd::{AdaptationSet, MPD, Representation};
@@ -17,7 +18,7 @@ use reqwest::{Client, Url};
 pub async fn push_segments(
     client: &Client,
     base_url: &Url,
-    query: &[(String, String)],
+    query: &QUERY,
     mpd: &MPD,
     stream: &mut MediaPlaylist,
 ) -> Result<()> {
@@ -148,7 +149,7 @@ pub async fn push_segments(
 /// 7. Plain BaseURL
 async fn resolve_segments(
     client: &Client,
-    query: &[(String, String)],
+    query: &QUERY,
     adaptation_set: &AdaptationSet,
     representation: &Representation,
     base_url: &Url,

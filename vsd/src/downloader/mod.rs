@@ -172,10 +172,10 @@ impl Downloader {
 
     async fn fetch_playlist(&self) -> Result<FetchedPlaylist> {
         FetchedPlaylist::new(
-            &self.input,
             &self.client,
             self.base_url.as_ref(),
             &self.query,
+            &self.input,
         )
         .await
     }
@@ -284,7 +284,6 @@ impl Downloader {
         download_subtitle_streams(
             &self.client,
             &streams,
-            &self.base_url,
             &self.query,
             self.directory.as_ref(),
             &mut temp_files,
@@ -294,7 +293,6 @@ impl Downloader {
         stream::download_streams(
             &self.client,
             &streams,
-            &self.base_url,
             &self.query,
             self.directory.as_ref(),
             &mut temp_files,

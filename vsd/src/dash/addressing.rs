@@ -1,7 +1,7 @@
 use crate::{
     dash::{Template, parse_range},
     playlist::{Map, Range, Segment},
-    utils,
+    utils::{self, QUERY},
 };
 use anyhow::{Result, bail};
 use dash_mpd::SegmentTemplate;
@@ -192,7 +192,7 @@ pub async fn resolve_segment_base(
     base_url: &Url,
     template: &Template,
     client: &Client,
-    query: &[(String, String)],
+    query: &QUERY,
 ) -> Result<Vec<Segment>> {
     let mut segments = Vec::new();
 

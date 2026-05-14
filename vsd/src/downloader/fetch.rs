@@ -20,10 +20,10 @@ pub struct FetchedPlaylist {
 
 impl FetchedPlaylist {
     pub async fn new(
-        input: &str,
         client: &Client,
         base_url: Option<&Url>,
-        query: &Vec<(String, String)>,
+        query: &[(String, String)],
+        input: &str,
     ) -> Result<Self> {
         let path = Path::new(input);
         let mut typ = None;
@@ -122,13 +122,11 @@ impl FetchedPlaylist {
                 let mpd = dash_mpd::parse(&xml)
                     .map_err(|e| anyhow!("Failed to parse dash playlist: {e}"))?;
 
-                let mut playlist = if parse_everything {
-                    dash::parse_as_master(&self.url, &mpd)
-                } else {
-                    dash::parse_as_master(&self.url, &mpd)
-                        .sort_streams()
-                        .select_streams(&mut select_opts, interaction)?
-                };
+                let mut playlist = dash::parse_as_master(&self.url, &mpd).sort_streams();
+
+                if !parse_everything {
+                    playlist = playlist.select_streams(&mut select_opts, interaction)?;
+                }
 
                 for stream in &mut playlist.streams {
                     dash::push_segments(client, &self.url, query, &mpd, stream).await?;
@@ -140,13 +138,11 @@ impl FetchedPlaylist {
                 .map_err(|e| anyhow!("Failed to parse hls playlist: {e}"))?
             {
                 m3u8_rs::Playlist::MasterPlaylist(m3u8) => {
-                    let mut playlist = if parse_everything {
-                        hls::parse_as_master(&self.url, &m3u8)
-                    } else {
-                        hls::parse_as_master(&self.url, &m3u8)
-                            .sort_streams()
-                            .select_streams(&mut select_opts, interaction)?
-                    };
+                    let mut playlist = hls::parse_as_master(&self.url, &m3u8).sort_streams();
+
+                    if !parse_everything {
+                        playlist = playlist.select_streams(&mut select_opts, interaction)?;
+                    }
 
                     for stream in &mut playlist.streams {
                         let data;
@@ -155,6 +151,7 @@ impl FetchedPlaylist {
                             .strip_prefix("data:application/x-mpegurl;base64,")
                         {
                             data = base64::engine::general_purpose::STANDARD.decode(bs)?;
+                            stream.uri = self.url.to_string();
                         } else {
                             stream.uri = self.url.join(&stream.uri)?.to_string();
                             debug!("Fetching {} (media-playlist)", stream.uri);

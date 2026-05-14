@@ -2,7 +2,7 @@ use crate::{
     options::{Interaction, SelectOptions},
     progress::ByteSize,
     selector::StreamSelector,
-    utils,
+    utils::{self, QUERY},
 };
 use anyhow::Result;
 use colored::Colorize;
@@ -101,12 +101,7 @@ impl TryFrom<&Range> for HeaderValue {
 }
 
 impl Key {
-    pub async fn key(
-        &self,
-        client: &Client,
-        base_url: &Url,
-        query: &Vec<(String, String)>,
-    ) -> Result<[u8; 16]> {
+    pub async fn key(&self, client: &Client, base_url: &Url, query: &QUERY) -> Result<[u8; 16]> {
         let url = base_url.join(self.uri.as_ref().unwrap())?;
         let bytes = client.get(url).query(query).send().await?.bytes().await?;
         Ok(bytes.as_ref().try_into()?)
@@ -233,7 +228,7 @@ impl MediaPlaylist {
         &self,
         client: &Client,
         base_url: &Url,
-        query: &Vec<(String, String)>,
+        query: &QUERY,
     ) -> Result<Option<Vec<u8>>> {
         let Some(Segment { map: Some(map), .. }) = self.segments.first() else {
             return Ok(None);

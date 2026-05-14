@@ -6,11 +6,12 @@ use crate::{
     },
     playlist::{KeyMethod, MediaPlaylist, MediaType},
     progress::Progress,
+    utils::QUERY,
 };
 use anyhow::{Result, anyhow, bail};
 use colored::Colorize;
 use log::{debug, info, trace, warn};
-use reqwest::{Client, StatusCode, Url, header};
+use reqwest::{Client, StatusCode, header};
 use std::{
     collections::HashMap,
     path::PathBuf,
@@ -33,8 +34,7 @@ const PNG_HEADER: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 pub async fn download_streams(
     client: &Client,
     streams: &Vec<MediaPlaylist>,
-    base_url: &Option<Url>,
-    query: &Vec<(String, String)>,
+    query: &QUERY,
     directory: Option<&PathBuf>,
     temp_files: &mut Streams,
     keys: &HashMap<String, String>,
@@ -49,7 +49,6 @@ pub async fn download_streams(
         download_stream(
             client,
             stream,
-            base_url,
             query,
             directory,
             temp_files,
@@ -69,8 +68,7 @@ pub async fn download_streams(
 async fn download_stream(
     client: &Client,
     stream: &MediaPlaylist,
-    base_url: &Option<Url>,
-    query: &Vec<(String, String)>,
+    query: &QUERY,
     directory: Option<&PathBuf>,
     temp_files: &mut Streams,
     keys: &HashMap<String, String>,
@@ -109,7 +107,7 @@ async fn download_stream(
         );
     }
 
-    let base_url = base_url.clone().unwrap_or(stream.uri.parse()?);
+    let base_url = stream.uri.parse()?;
     let ext = stream.extension();
     let pb_handle = pb.spawn();
     let should_decrypt = !SKIP_DECRYPT.load(Ordering::SeqCst);
