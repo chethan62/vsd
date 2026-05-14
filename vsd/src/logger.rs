@@ -25,9 +25,9 @@ impl log::Log for Logger {
                 LevelFilter::Debug | LevelFilter::Trace if record.target().starts_with("vsd") => {
                     let location = match (record.file(), record.line()) {
                         (Some(file), Some(line)) => {
-                            format!("{:>35}", format!("{}:{}", file, line)).dimmed()
+                            format!("{:>30}", format!("{}:{}", file, line)).dimmed()
                         }
-                        _ => format!("{:>35}", "unk:unk").dimmed(),
+                        _ => format!("{:>30}", "unk:unk").dimmed(),
                     };
 
                     println!("{}{} {}", label(record.level()), location, record.args());
