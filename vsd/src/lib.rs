@@ -1,4 +1,4 @@
-mod commands;
+mod cli;
 mod cookie;
 mod core;
 mod dash;
@@ -11,7 +11,7 @@ mod selector;
 mod utils;
 
 #[doc(hidden)]
-pub use commands::Args;
+pub use cli::Args;
 
 pub use core::Downloader;
 pub use reqwest;
