@@ -12,6 +12,61 @@ use reqwest::{Client, Url, header};
 use std::path::Path;
 use tokio::fs;
 
+pub async fn playlist(
+    client: &Client,
+    base_url: &Option<Url>,
+    query: &QUERY,
+    uri: &str,
+) -> Result<FetchedPlaylist> {
+    let path = Path::new(uri);
+    let mut typ = None;
+
+    if path.exists() {
+        let Some(base_url) = base_url else {
+            bail!("--baseurl flag is required for local playlist file.");
+        };
+
+        if let Some(ext) = path.extension() {
+            if ext == "mpd" {
+                typ = Some(PlaylistType::Dash)
+            } else if ext == "m3u" || ext == "m3u8" {
+                typ = Some(PlaylistType::Hls)
+            }
+        }
+
+        Ok(FetchedPlaylist {
+            url: base_url.to_owned(),
+            data: fs::read(path).await?,
+            typ,
+        })
+    } else if let Ok(input) = uri.parse::<Url>() {
+        debug!("Fetching {} (playlist)", input);
+        let response = client.get(input).query(query).send().await?;
+
+        if let Some(content_type) = response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|x| x.to_str().ok())
+        {
+            if content_type == "application/dash+xml" || content_type == "video/vnd.mpeg.dash.mpd" {
+                typ = Some(PlaylistType::Dash)
+            } else if content_type == "application/x-mpegurl"
+                || content_type == "application/vnd.apple.mpegurl"
+            {
+                typ = Some(PlaylistType::Hls)
+            }
+        }
+
+        Ok(FetchedPlaylist {
+            url: response.url().to_owned(),
+            data: utils::fetch_bytes(response).await?,
+            typ,
+        })
+    } else {
+        bail!("Unable to determine playlist type.");
+    }
+}
+
 pub struct FetchedPlaylist {
     url: Url,
     data: Vec<u8>,
@@ -19,63 +74,6 @@ pub struct FetchedPlaylist {
 }
 
 impl FetchedPlaylist {
-    pub async fn new(
-        client: &Client,
-        base_url: &Option<Url>,
-        query: &QUERY,
-        input: &str,
-    ) -> Result<Self> {
-        let path = Path::new(input);
-        let mut typ = None;
-
-        if path.exists() {
-            let Some(base_url) = base_url else {
-                bail!("--baseurl flag is required for local playlist file.");
-            };
-
-            if let Some(ext) = path.extension() {
-                if ext == "mpd" {
-                    typ = Some(PlaylistType::Dash)
-                } else if ext == "m3u" || ext == "m3u8" {
-                    typ = Some(PlaylistType::Hls)
-                }
-            }
-
-            Ok(Self {
-                url: base_url.to_owned(),
-                data: fs::read(path).await?,
-                typ,
-            })
-        } else if let Ok(input) = input.parse::<Url>() {
-            debug!("Fetching {} (playlist)", input);
-            let response = client.get(input).query(query).send().await?;
-
-            if let Some(content_type) = response
-                .headers()
-                .get(header::CONTENT_TYPE)
-                .and_then(|x| x.to_str().ok())
-            {
-                if content_type == "application/dash+xml"
-                    || content_type == "video/vnd.mpeg.dash.mpd"
-                {
-                    typ = Some(PlaylistType::Dash)
-                } else if content_type == "application/x-mpegurl"
-                    || content_type == "application/vnd.apple.mpegurl"
-                {
-                    typ = Some(PlaylistType::Hls)
-                }
-            }
-
-            Ok(Self {
-                url: response.url().to_owned(),
-                data: utils::fetch_bytes(response).await?,
-                typ,
-            })
-        } else {
-            bail!("Unable to determine playlist type.");
-        }
-    }
-
     fn playlist_type(&self) -> Result<PlaylistType> {
         if let Some(typ) = &self.typ {
             return Ok(typ.to_owned());

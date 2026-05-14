@@ -180,7 +180,7 @@ impl Save {
             client = client.proxy(proxy);
         }
         let client = client.build()?;
-        let mut dl = Downloader::new(self.input, &client)
+        let mut dl = Downloader::new(&client)
             .subs_codec(self.subs_codec)
             .select_streams(&self.select_streams)
             .keys(self.keys)
@@ -209,11 +209,11 @@ impl Save {
         }
 
         if self.list_streams {
-            dl.list_playlist().await?;
+            dl.list_playlist(&self.input).await?;
         } else if self.parse {
-            dl.parse_playlist().await?;
+            dl.parse_playlist(&self.input).await?;
         } else {
-            dl.download().await?;
+            dl.download(&self.input).await?;
         }
         Ok(())
     }

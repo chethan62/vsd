@@ -4,21 +4,17 @@ mod mux;
 mod stream;
 mod subtitle;
 
-pub use fetch::FetchedPlaylist;
-pub use subtitle::download_subtitle_streams;
-use vsd_mp4::pssh::PsshBox;
-
 use crate::{
     core::mux::Streams,
     options::{Interaction, SelectOptions},
-    playlist::MediaType,
+    playlist::{MasterPlaylist, MediaType},
     utils,
 };
 use anyhow::{Result, bail};
 use log::{error, warn};
 use reqwest::{Client, Url};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fs,
     path::PathBuf,
     sync::atomic::{AtomicBool, AtomicU8, Ordering},
@@ -34,7 +30,6 @@ pub(crate) static STREAM_DL_IDX: AtomicU8 = AtomicU8::new(1);
 
 /// Download streams from DASH or HLS playlist.
 pub struct Downloader {
-    input: String,
     client: Client,
     base_url: Option<Url>,
     directory: Option<PathBuf>,
@@ -47,9 +42,8 @@ pub struct Downloader {
 }
 
 impl Downloader {
-    pub fn new(input: impl Into<String>, client: &Client) -> Self {
+    pub fn new(client: &Client) -> Self {
         Self {
-            input: input.into(),
             client: client.clone(),
             base_url: None,
             directory: None,
@@ -170,19 +164,29 @@ impl Downloader {
         self
     }
 
-    async fn fetch_playlist(&self) -> Result<FetchedPlaylist> {
-        FetchedPlaylist::new(&self.client, &self.base_url, &self.query, &self.input).await
+    pub async fn as_master_playlist(self, uri: &str) -> Result<MasterPlaylist> {
+        let fp = fetch::playlist(&self.client, &self.base_url, &self.query, uri).await?;
+        let mp = fp
+            .as_master_playlist(
+                &self.client,
+                &self.query,
+                self.select_options,
+                Interaction::None,
+                true,
+            )
+            .await?;
+        Ok(mp)
     }
 
-    pub(crate) async fn list_playlist(self) -> Result<()> {
-        self.fetch_playlist().await?.list_streams()?;
+    pub(crate) async fn list_playlist(self, uri: &str) -> Result<()> {
+        let fp = fetch::playlist(&self.client, &self.base_url, &self.query, uri).await?;
+        fp.list_streams()?;
         Ok(())
     }
 
-    pub(crate) async fn metadata(self) -> Result<()> {
-        let pl = self
-            .fetch_playlist()
-            .await?
+    pub(crate) async fn parse_playlist(self, uri: &str) -> Result<()> {
+        let fp = fetch::playlist(&self.client, &self.base_url, &self.query, uri).await?;
+        let mp = fp
             .as_master_playlist(
                 &self.client,
                 &self.query,
@@ -192,65 +196,44 @@ impl Downloader {
             )
             .await?;
         if let Some(output) = &self.output {
-            serde_json::to_writer(std::fs::File::create(output)?, &pl)?;
+            serde_json::to_writer(std::fs::File::create(output)?, &mp)?;
         } else {
-            serde_json::to_writer(std::io::stdout(), &pl)?;
+            serde_json::to_writer(std::io::stdout(), &mp)?;
         }
         Ok(())
     }
 
-    pub(crate) async fn parse_playlist(self) -> Result<()> {
-        let pl = self
-            .fetch_playlist()
-            .await?
-            .as_master_playlist(
-                &self.client,
-                &self.query,
-                self.select_options,
-                Interaction::None,
-                true,
-            )
-            .await?;
-        if let Some(output) = &self.output {
-            serde_json::to_writer(std::fs::File::create(output)?, &pl)?;
-        } else {
-            serde_json::to_writer(std::io::stdout(), &pl)?;
-        }
-        Ok(())
-    }
+    // pub(crate) async fn pssh_data(self) -> Result<HashSet<Vec<u8>>> {
+    //     let pl = self
+    //         .fetch_playlist()
+    //         .await?
+    //         .as_master_playlist(
+    //             &self.client,
+    //             &self.query,
+    //             self.select_options,
+    //             Interaction::None,
+    //             true,
+    //         )
+    //         .await?;
 
-    pub(crate) async fn pssh_data(self) -> Result<HashSet<Vec<u8>>> {
-        let pl = self
-            .fetch_playlist()
-            .await?
-            .as_master_playlist(
-                &self.client,
-                &self.query,
-                self.select_options,
-                Interaction::None,
-                true,
-            )
-            .await?;
+    //     let mut pssh_data = HashSet::new();
+    //     for stream in pl.streams {
+    //         let Some(bytes) = stream
+    //             .fetch_init(&self.client, &stream.uri.parse()?, &self.query)
+    //             .await?
+    //         else {
+    //             continue;
+    //         };
+    //         PsshBox::from_init(&bytes)?.data.into_iter().for_each(|x| {
+    //             let _ = pssh_data.insert(x.data);
+    //         });
+    //     }
+    //     Ok(pssh_data)
+    // }
 
-        let mut pssh_data = HashSet::new();
-        for stream in pl.streams {
-            let Some(bytes) = stream
-                .fetch_init(&self.client, &stream.uri.parse()?, &self.query)
-                .await?
-            else {
-                continue;
-            };
-            PsshBox::from_init(&bytes)?.data.into_iter().for_each(|x| {
-                let _ = pssh_data.insert(x.data);
-            });
-        }
-        Ok(pssh_data)
-    }
-
-    pub async fn download(self) -> Result<()> {
-        let pl = self
-            .fetch_playlist()
-            .await?
+    pub async fn download(self, uri: &str) -> Result<()> {
+        let fp = fetch::playlist(&self.client, &self.base_url, &self.query, uri).await?;
+        let pl = fp
             .as_master_playlist(
                 &self.client,
                 &self.query,
@@ -295,7 +278,7 @@ impl Downloader {
             fs::create_dir_all(directory)?;
         }
 
-        download_subtitle_streams(
+        subtitle::download_subtitle_streams(
             &self.client,
             &streams,
             &self.query,

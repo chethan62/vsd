@@ -97,7 +97,18 @@ impl License {
                     let _ = pssh_data.insert(x.data);
                 });
         } else if let Ok(url) = self.input.parse::<Url>() {
-            pssh_data = Downloader::new(url.as_str(), &client).pssh_data().await?;
+            let metadata = Downloader::new(&client)
+                .as_master_playlist(url.as_str())
+                .await?
+                .metadata(&client, &[])
+                .await?;
+
+            for sm in metadata {
+                for pssh in sm.pssh {
+                    let _ =
+                        pssh_data.insert(base64::engine::general_purpose::STANDARD.decode(&pssh)?);
+                }
+            }
         } else if let Ok(data) = base64::engine::general_purpose::STANDARD.decode(&self.input) {
             pssh_data.insert(data);
         } else {

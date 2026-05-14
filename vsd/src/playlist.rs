@@ -12,7 +12,8 @@ use reqwest::{
     header::{self, HeaderValue},
 };
 use serde::Serialize;
-use std::{cmp::Reverse, fmt::Display, path::PathBuf};
+use std::{cmp::Reverse, collections::HashSet, fmt::Display, path::PathBuf};
+use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
 
 #[derive(Serialize)]
 pub struct MasterPlaylist {
@@ -92,6 +93,23 @@ pub enum KeyMethod {
     SampleAes,
 }
 
+pub struct StreamMetadata {
+    // Stream Metadata
+    pub bandwidth: Option<u64>,
+    pub channels: Option<f32>,
+    pub codecs: Option<String>,
+    pub frame_rate: Option<f32>,
+    pub index: usize,
+    pub language: Option<String>,
+    pub media_type: MediaType,
+    pub playlist_type: PlaylistType,
+    pub resolution: Option<(u64, u64)>,
+    // Encryption Metadata
+    pub encrypted: bool,
+    pub default_kid: Option<String>,
+    pub pssh: HashSet<String>,
+}
+
 impl TryFrom<&Range> for HeaderValue {
     type Error = reqwest::header::InvalidHeaderValue;
 
@@ -120,6 +138,47 @@ impl Key {
 }
 
 impl MasterPlaylist {
+    pub async fn metadata(&self, client: &Client, query: &QUERY) -> Result<Vec<StreamMetadata>> {
+        let mut metadata = Vec::with_capacity(self.streams.len());
+
+        for (i, stream) in self.streams.iter().enumerate() {
+            let mut default_kid = stream.default_kid();
+            let mut pssh = HashSet::new();
+
+            if let Some(bytes) = stream
+                .fetch_init(client, &stream.uri.parse()?, query)
+                .await?
+            {
+                if let Some(kid) = TencBox::from_init(&bytes)?.map(|x| x.default_kid_hex())
+                    && (default_kid.is_none() || kid != "00000000000000000000000000000000")
+                {
+                    default_kid = Some(kid);
+                }
+
+                for data in PsshBox::from_init(&bytes)?.data {
+                    let _ = pssh.insert(data.as_base64());
+                }
+            }
+
+            metadata.push(StreamMetadata {
+                bandwidth: stream.bandwidth,
+                channels: stream.channels,
+                codecs: stream.codecs.clone(),
+                frame_rate: stream.frame_rate,
+                index: i,
+                language: stream.language.clone(),
+                media_type: stream.media_type.clone(),
+                playlist_type: stream.playlist_type.clone(),
+                resolution: stream.resolution,
+                default_kid,
+                encrypted: stream.segments.iter().any(|x| x.key.is_some()),
+                pssh,
+            });
+        }
+
+        Ok(metadata)
+    }
+
     pub fn sort_streams(mut self) -> Self {
         let mut vid_streams = Vec::new();
         let mut aud_streams = Vec::new();
