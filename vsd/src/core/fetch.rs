@@ -15,7 +15,7 @@ use tokio::fs;
 pub struct FetchedPlaylist {
     url: Url,
     data: Vec<u8>,
-    playlist_type: Option<PlaylistType>,
+    typ: Option<PlaylistType>,
 }
 
 impl FetchedPlaylist {
@@ -44,7 +44,7 @@ impl FetchedPlaylist {
             Ok(Self {
                 url: base_url.to_owned(),
                 data: fs::read(path).await?,
-                playlist_type: typ,
+                typ,
             })
         } else if let Ok(input) = input.parse::<Url>() {
             debug!("Fetching {} (playlist)", input);
@@ -69,7 +69,7 @@ impl FetchedPlaylist {
             Ok(Self {
                 url: response.url().to_owned(),
                 data: utils::fetch_bytes(response).await?,
-                playlist_type: typ,
+                typ,
             })
         } else {
             bail!("Unable to determine playlist type.");
@@ -77,7 +77,7 @@ impl FetchedPlaylist {
     }
 
     fn playlist_type(&self) -> Result<PlaylistType> {
-        if let Some(typ) = &self.playlist_type {
+        if let Some(typ) = &self.typ {
             return Ok(typ.to_owned());
         }
         if self.data.windows(7).any(|w| w == b"#EXTM3U") {
@@ -129,29 +129,29 @@ impl FetchedPlaylist {
                 let Ok(mpd) = dash_mpd::parse(&xml) else {
                     bail!("Unable to parse dash playlist.");
                 };
-                let mut playlist = dash::parse_as_master(&self.url, &mpd).sort_streams();
+                let mut pl = dash::parse_as_master(&self.url, &mpd).sort_streams();
 
                 if !parse_everything {
-                    playlist = playlist.select_streams(&mut select_opts, interaction)?;
+                    pl = pl.select_streams(&mut select_opts, interaction)?;
                 }
 
-                for stream in &mut playlist.streams {
+                for stream in &mut pl.streams {
                     dash::push_segments(client, &self.url, query, &mpd, stream).await?;
                 }
 
-                Ok(playlist)
+                Ok(pl)
             }
             PlaylistType::Hls => match m3u8_rs::parse_playlist_res(&self.data)
                 .map_err(|_| anyhow!("Unable to parse hls playlist."))?
             {
                 m3u8_rs::Playlist::MasterPlaylist(m3u8) => {
-                    let mut playlist = hls::parse_as_master(&self.url, &m3u8).sort_streams();
+                    let mut pl = hls::parse_as_master(&self.url, &m3u8).sort_streams();
 
                     if !parse_everything {
-                        playlist = playlist.select_streams(&mut select_opts, interaction)?;
+                        pl = pl.select_streams(&mut select_opts, interaction)?;
                     }
 
-                    for stream in &mut playlist.streams {
+                    for stream in &mut pl.streams {
                         let m3u8 = if let Some(bs) = stream
                             .uri
                             .clone()
@@ -171,7 +171,7 @@ impl FetchedPlaylist {
                         hls::push_segments(stream, media_playlist);
                     }
 
-                    Ok(playlist)
+                    Ok(pl)
                 }
                 m3u8_rs::Playlist::MediaPlaylist(m3u8) => {
                     let mut stream = MediaPlaylist {
