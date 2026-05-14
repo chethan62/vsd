@@ -1,12 +1,13 @@
 use std::collections::HashSet;
 
+#[derive(Clone)]
 pub enum Interaction {
     Modern,
     None,
     Raw,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct SelectOptions {
     pub vid: Preferences,
     pub aud: Preferences,
@@ -15,7 +16,7 @@ pub struct SelectOptions {
     pub strict_indices: bool,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Preferences {
     pub all: bool,
     pub skip: bool,
@@ -24,7 +25,7 @@ pub struct Preferences {
     pub quality: Quality,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub enum Quality {
     Best,
     #[default]

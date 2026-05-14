@@ -165,7 +165,7 @@ impl MasterPlaylist {
                 channels: stream.channels,
                 codecs: stream.codecs.clone(),
                 frame_rate: stream.frame_rate,
-                index: i,
+                index: i + 1,
                 language: stream.language.clone(),
                 media_type: stream.media_type.clone(),
                 playlist_type: stream.playlist_type.clone(),

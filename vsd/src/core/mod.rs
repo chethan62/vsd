@@ -164,17 +164,31 @@ impl Downloader {
         self
     }
 
-    pub async fn as_master_playlist(self, uri: &str) -> Result<MasterPlaylist> {
+    pub async fn as_master_playlist(
+        &self,
+        uri: &str,
+        partial_parse: bool,
+    ) -> Result<MasterPlaylist> {
         let fp = fetch::playlist(&self.client, &self.base_url, &self.query, uri).await?;
-        let mp = fp
-            .as_master_playlist(
+        let mp = if partial_parse {
+            fp.as_master_playlist(
                 &self.client,
                 &self.query,
-                self.select_options,
+                self.select_options.clone(),
+                self.interaction_type.clone(),
+                false,
+            )
+            .await?
+        } else {
+            fp.as_master_playlist(
+                &self.client,
+                &self.query,
+                self.select_options.clone(),
                 Interaction::None,
                 true,
             )
-            .await?;
+            .await?
+        };
         Ok(mp)
     }
 
@@ -184,65 +198,9 @@ impl Downloader {
         Ok(())
     }
 
-    pub(crate) async fn parse_playlist(self, uri: &str) -> Result<()> {
-        let fp = fetch::playlist(&self.client, &self.base_url, &self.query, uri).await?;
-        let mp = fp
-            .as_master_playlist(
-                &self.client,
-                &self.query,
-                self.select_options,
-                Interaction::None,
-                true,
-            )
-            .await?;
-        if let Some(output) = &self.output {
-            serde_json::to_writer(std::fs::File::create(output)?, &mp)?;
-        } else {
-            serde_json::to_writer(std::io::stdout(), &mp)?;
-        }
-        Ok(())
-    }
-
-    // pub(crate) async fn pssh_data(self) -> Result<HashSet<Vec<u8>>> {
-    //     let pl = self
-    //         .fetch_playlist()
-    //         .await?
-    //         .as_master_playlist(
-    //             &self.client,
-    //             &self.query,
-    //             self.select_options,
-    //             Interaction::None,
-    //             true,
-    //         )
-    //         .await?;
-
-    //     let mut pssh_data = HashSet::new();
-    //     for stream in pl.streams {
-    //         let Some(bytes) = stream
-    //             .fetch_init(&self.client, &stream.uri.parse()?, &self.query)
-    //             .await?
-    //         else {
-    //             continue;
-    //         };
-    //         PsshBox::from_init(&bytes)?.data.into_iter().for_each(|x| {
-    //             let _ = pssh_data.insert(x.data);
-    //         });
-    //     }
-    //     Ok(pssh_data)
-    // }
-
     pub async fn download(self, uri: &str) -> Result<()> {
-        let fp = fetch::playlist(&self.client, &self.base_url, &self.query, uri).await?;
-        let pl = fp
-            .as_master_playlist(
-                &self.client,
-                &self.query,
-                self.select_options,
-                self.interaction_type,
-                false,
-            )
-            .await?;
-        let mut streams = pl.streams;
+        let mp = self.as_master_playlist(uri, true).await?;
+        let mut streams = mp.streams;
 
         if !SKIP_DECRYPT.load(Ordering::SeqCst) {
             enc::check_unsupported_enc(&streams)?;

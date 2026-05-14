@@ -196,8 +196,8 @@ impl Save {
         if let Some(directory) = self.directory {
             dl = dl.directory(directory);
         }
-        if let Some(output) = self.output {
-            dl = dl.output(output);
+        if let Some(output) = &self.output {
+            dl = dl.output(output.clone());
         }
         if let Some(query) = self.query {
             dl = dl.query(&query);
@@ -211,7 +211,13 @@ impl Save {
         if self.list_streams {
             dl.list_playlist(&self.input).await?;
         } else if self.parse {
-            dl.parse_playlist(&self.input).await?;
+            let mp = dl.as_master_playlist(&self.input, false).await?;
+
+            if let Some(output) = &self.output {
+                serde_json::to_writer(std::fs::File::create(output)?, &mp)?;
+            } else {
+                serde_json::to_writer(std::io::stdout(), &mp)?;
+            }
         } else {
             dl.download(&self.input).await?;
         }

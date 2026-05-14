@@ -119,7 +119,7 @@ impl FetchedPlaylist {
         query: &[(String, String)],
         mut select_opts: SelectOptions,
         interaction: Interaction,
-        parse_everything: bool,
+        partial_parse: bool,
     ) -> Result<MasterPlaylist> {
         match self.playlist_type()? {
             PlaylistType::Dash => {
@@ -129,7 +129,7 @@ impl FetchedPlaylist {
                 };
                 let mut pl = dash::parse_as_master(&self.url, &mpd).sort_streams();
 
-                if !parse_everything {
+                if partial_parse {
                     pl = pl.select_streams(&mut select_opts, interaction)?;
                 }
 
@@ -145,7 +145,7 @@ impl FetchedPlaylist {
                 m3u8_rs::Playlist::MasterPlaylist(m3u8) => {
                     let mut pl = hls::parse_as_master(&self.url, &m3u8).sort_streams();
 
-                    if !parse_everything {
+                    if partial_parse {
                         pl = pl.select_streams(&mut select_opts, interaction)?;
                     }
 

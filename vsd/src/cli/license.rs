@@ -98,7 +98,7 @@ impl License {
                 });
         } else if let Ok(url) = self.input.parse::<Url>() {
             let metadata = Downloader::new(&client)
-                .as_master_playlist(url.as_str())
+                .as_master_playlist(url.as_str(), false)
                 .await?
                 .metadata(&client, &[])
                 .await?;
