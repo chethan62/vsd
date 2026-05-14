@@ -171,17 +171,31 @@ impl Downloader {
     }
 
     async fn fetch_playlist(&self) -> Result<FetchedPlaylist> {
-        FetchedPlaylist::new(
-            &self.client,
-            self.base_url.as_ref(),
-            &self.query,
-            &self.input,
-        )
-        .await
+        FetchedPlaylist::new(&self.client, &self.base_url, &self.query, &self.input).await
     }
 
     pub(crate) async fn list_playlist(self) -> Result<()> {
         self.fetch_playlist().await?.list_streams()?;
+        Ok(())
+    }
+
+    pub(crate) async fn metadata(self) -> Result<()> {
+        let pl = self
+            .fetch_playlist()
+            .await?
+            .as_master_playlist(
+                &self.client,
+                &self.query,
+                self.select_options,
+                Interaction::None,
+                true,
+            )
+            .await?;
+        if let Some(output) = &self.output {
+            serde_json::to_writer(std::fs::File::create(output)?, &pl)?;
+        } else {
+            serde_json::to_writer(std::io::stdout(), &pl)?;
+        }
         Ok(())
     }
 
