@@ -6,8 +6,7 @@ use crate::{
     utils::{self, Query},
 };
 use anyhow::Result;
-use colored::Colorize;
-use log::{debug, info};
+use log::debug;
 use reqwest::{
     Client, Url,
     header::{self, HeaderValue},
@@ -223,23 +222,6 @@ impl MasterPlaylist {
             .collect();
 
         self
-    }
-
-    pub fn list_streams(&self) {
-        for (media_type, header) in [
-            (MediaType::Video, "------- Video Streams --------"),
-            (MediaType::Audio, "------- Audio Streams --------"),
-            (MediaType::Subtitles, "------ Subtitle Streams ------"),
-        ] {
-            info!("{}", header.cyan());
-            for (i, stream) in self.streams.iter().enumerate() {
-                if stream.media_type == media_type {
-                    info!("{:>2}) {}", i + 1, stream);
-                }
-            }
-        }
-
-        info!("{}", "------------------------------".cyan());
     }
 
     pub fn select_streams(
@@ -492,7 +474,7 @@ impl Display for MediaPlaylist {
                 )?;
             }
             MediaType::Undefined => {
-                write!(f, "{:>9} | {:>9} | {:>10} |", "?", "?", "?")?;
+                write!(f, "{}", self.uri)?;
             }
         }
         Ok(())

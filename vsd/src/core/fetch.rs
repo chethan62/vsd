@@ -88,25 +88,35 @@ impl FetchedPlaylist {
     }
 
     pub fn list_streams(&self) -> Result<()> {
+        let list = |mp: MasterPlaylist| {
+            for (i, stream) in mp.streams.iter().enumerate() {
+                info!(
+                    "{:>2}) [{}]{}",
+                    i + 1,
+                    stream.media_type.to_string().yellow(),
+                    stream
+                );
+            }
+        };
+
         match self.playlist_type()? {
             PlaylistType::Dash => {
                 let xml = String::from_utf8_lossy(&self.data);
                 let Ok(mpd) = dash_mpd::parse(&xml) else {
                     bail!("Unable to parse dash playlist.");
                 };
-                dash::parse_as_master(&self.url, &mpd)
-                    .sort_streams()
-                    .list_streams();
+                let mp = dash::parse_as_master(&self.url, &mpd).sort_streams();
+                list(mp);
             }
             PlaylistType::Hls => match m3u8_rs::parse_playlist_res(&self.data)
                 .map_err(|_| anyhow!("Unable to parse hls playlist."))?
             {
-                m3u8_rs::Playlist::MasterPlaylist(m3u8) => hls::parse_as_master(&self.url, &m3u8)
-                    .sort_streams()
-                    .list_streams(),
+                m3u8_rs::Playlist::MasterPlaylist(m3u8) => {
+                    let mp = hls::parse_as_master(&self.url, &m3u8).sort_streams();
+                    list(mp)
+                }
                 m3u8_rs::Playlist::MediaPlaylist(_) => {
-                    info!("------ {} ------", "Undefined Streams".cyan());
-                    info!(" 1) {}", self.url);
+                    info!(" 1) [{}] {}", "und".yellow(), self.url);
                 }
             },
         }
