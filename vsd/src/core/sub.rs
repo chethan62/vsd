@@ -164,8 +164,7 @@ pub async fn download(
     pb.finish();
 
     if !running.load(Ordering::SeqCst) {
-        warn!("Download interrupted due to Ctrl+C.");
-        std::process::exit(0);
+        bail!("Download interrupted due to Ctrl+C.");
     }
 
     let output = match codec {
