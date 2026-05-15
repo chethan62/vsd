@@ -5,13 +5,14 @@ mod dash;
 mod hls;
 mod logger;
 mod options;
-mod playlist;
 mod progress;
 mod selector;
 mod utils;
 
+pub mod playlist;
+
 #[doc(hidden)]
 pub use cli::Args;
 
-pub use core::Downloader;
+pub use core::{Downloader, Stream, Streams};
 pub use reqwest;

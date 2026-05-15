@@ -6,7 +6,7 @@ mod sub;
 mod vid;
 
 pub use dl::download_stream;
-pub use mux::Stream;
+pub use mux::{Stream, Streams};
 
 use crate::{
     options::{Interaction, SelectOptions},
@@ -31,7 +31,6 @@ pub(crate) static SKIP_DECRYPT: AtomicBool = AtomicBool::new(false);
 pub(crate) static SKIP_MERGE: AtomicBool = AtomicBool::new(false);
 pub(crate) static STREAM_DL_IDX: AtomicU8 = AtomicU8::new(1);
 
-/// Download streams from DASH or HLS playlist.
 pub struct Downloader {
     client: Client,
     base_url: Option<Url>,
@@ -59,26 +58,16 @@ impl Downloader {
         }
     }
 
-    /// Base URL for resolving relative segment paths.
-    ///
-    /// Required for local playlist files. For remote playlists,
-    /// the final redirected URL is used by default.
     pub fn base_url(mut self, base_url: impl Into<Url>) -> Self {
         self.base_url = Some(base_url.into());
         self
     }
 
-    /// Working directory for temporary segment files.
-    ///
-    /// Defaults to the current directory.
     pub fn directory(mut self, directory: impl Into<PathBuf>) -> Self {
         self.directory = Some(directory.into());
         self
     }
 
-    /// Mux downloaded streams into a video container using ffmpeg (`.mp4`, `.mkv`, etc.).
-    ///
-    /// Overwrites existing files and deletes intermediate stream files after muxing.
     pub fn output(mut self, output: impl Into<PathBuf>) -> Self {
         self.output = Some(output.into());
         self
@@ -102,13 +91,11 @@ impl Downloader {
         self
     }
 
-    /// Stream selection filters for automatic mode.
     pub fn select_streams(mut self, select_streams: &str) -> Self {
         self.select_options = select_streams.parse().unwrap();
         self
     }
 
-    /// Additional query parameters for requests.
     pub fn query(mut self, query: &str) -> Self {
         if query.is_empty() {
             return self;
@@ -127,41 +114,31 @@ impl Downloader {
         self
     }
 
-    /// Decryption keys in `KID:KEY;…` hex format.
     pub fn keys(mut self, keys: HashMap<String, String>) -> Self {
         self.keys = keys;
         self
     }
 
-    /// Skip decryption and download encrypted streams as-is.
-    ///
-    /// Ignores `--output` when enabled.
     pub fn skip_decrypt(self, skip_decrypt: bool) -> Self {
         SKIP_DECRYPT.store(skip_decrypt, Ordering::SeqCst);
         self
     }
 
-    /// Skip segment merging and keep individual files.
-    ///
-    /// Ignores `--output` when enabled.
     pub fn skip_merge(self, skip_merge: bool) -> Self {
         SKIP_MERGE.store(skip_merge, Ordering::SeqCst);
         self
     }
 
-    /// Disable resume and re-download all segments from scratch.
     pub fn no_resume(self, no_resume: bool) -> Self {
         NO_RESUME.store(no_resume, Ordering::SeqCst);
         self
     }
 
-    /// Maximum retry attempts per segment.
     pub fn max_retries(self, max_retries: u8) -> Self {
         MAX_RETRIES.store(max_retries, Ordering::SeqCst);
         self
     }
 
-    /// Number of concurrent download threads (1–16).
     pub fn max_threads(self, max_threads: u8) -> Self {
         MAX_THREADS.store(max_threads, Ordering::SeqCst);
         self
