@@ -1,12 +1,13 @@
 use crate::{
+    DownloadConfig,
     dash::{Template, parse_range},
     playlist::{Map, Range, Segment},
-    utils::{self, Query},
+    utils,
 };
 use anyhow::{Result, bail};
 use dash_mpd::SegmentTemplate;
 use log::debug;
-use reqwest::{Client, Url, header};
+use reqwest::{Url, header};
 use vsd_mp4::boxes::SidxBox;
 
 pub fn parse_init(
@@ -191,8 +192,7 @@ pub async fn resolve_segment_base(
     segment_base: &dash_mpd::SegmentBase,
     base_url: &Url,
     template: &Template,
-    client: &Client,
-    query: &Query,
+    config: &DownloadConfig,
 ) -> Result<Vec<Segment>> {
     let mut segments = Vec::new();
 
@@ -201,9 +201,10 @@ pub async fn resolve_segment_base(
             "Fetching {} (sidx@{}-{})",
             base_url, index_range.0, index_range.1
         );
-        let request = client
+        let request = config
+            .client
             .get(base_url.clone())
-            .query(query)
+            .query(&config.query)
             .header(header::RANGE, &index_range);
         let response = request.send().await?;
         let bytes = utils::fetch_bytes(response).await?;

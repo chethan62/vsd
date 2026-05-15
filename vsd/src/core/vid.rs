@@ -110,14 +110,14 @@ pub async fn download(
                 match key.method {
                     KeyMethod::Aes128 => {
                         decrypter = Decrypter::Aes128(HlsAes128Decrypter::new(
-                            &key.key(&config.client, &base_url, &config.query).await?,
+                            &key.key(config, &base_url).await?,
                             &key.iv(media_sequence)?,
                         ));
                         auto_increment_iv = key.iv.is_none();
                     }
                     KeyMethod::SampleAes => {
                         decrypter = Decrypter::SampleAes(HlsSampleAesDecrypter::new(
-                            &key.key(&config.client, &base_url, &config.query).await?,
+                            &key.key(config, &base_url).await?,
                             &key.iv(media_sequence)?,
                         ));
                         auto_increment_iv = key.iv.is_none();

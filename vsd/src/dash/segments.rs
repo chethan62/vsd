@@ -1,4 +1,5 @@
 use crate::{
+    DownloadConfig,
     dash::{
         Template,
         addressing::{
@@ -8,17 +9,15 @@ use crate::{
         parse_locator,
     },
     playlist::{Key, KeyMethod, MediaPlaylist, Segment},
-    utils::Query,
 };
 use anyhow::{Result, bail};
 use dash_mpd::{AdaptationSet, MPD, Representation};
 use log::debug;
-use reqwest::{Client, Url};
+use reqwest::Url;
 
 pub async fn push_segments(
-    client: &Client,
+    config: &DownloadConfig,
     base_url: &Url,
-    query: &Query,
     mpd: &MPD,
     stream: &mut MediaPlaylist,
 ) -> Result<()> {
@@ -88,8 +87,7 @@ pub async fn push_segments(
         }
 
         let mut sub_segments = resolve_segments(
-            client,
-            query,
+            config,
             adaptation_set,
             representation,
             &base_url,
@@ -147,10 +145,8 @@ pub async fn push_segments(
 /// 5. Representation > SegmentBase
 /// 6. AdaptationSet > SegmentBase
 /// 7. Plain BaseURL
-#[allow(clippy::too_many_arguments)]
 async fn resolve_segments(
-    client: &Client,
-    query: &Query,
+    config: &DownloadConfig,
     adaptation_set: &AdaptationSet,
     representation: &Representation,
     base_url: &Url,
@@ -257,12 +253,12 @@ async fn resolve_segments(
 
     if let Some(segment_base) = &representation.SegmentBase {
         debug!("Using (5) Representation > SegmentBase addressing mode.");
-        return resolve_segment_base(segment_base, base_url, template, client, query).await;
+        return resolve_segment_base(segment_base, base_url, template, config).await;
     }
 
     if let Some(segment_base) = &adaptation_set.SegmentBase {
         debug!("Using (6) AdaptationSet > SegmentBase addressing mode.");
-        return resolve_segment_base(segment_base, base_url, template, client, query).await;
+        return resolve_segment_base(segment_base, base_url, template, config).await;
     }
 
     if !representation.BaseURL.is_empty() {

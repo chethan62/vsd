@@ -3,12 +3,12 @@ use crate::{
     options::{Interaction, SelectOptions},
     progress::{ByteSize, ProgressCallback},
     selector::StreamSelector,
-    utils::{self, Query},
+    utils,
 };
 use anyhow::Result;
 use log::debug;
 use reqwest::{
-    Client, Url,
+    Url,
     header::{self, HeaderValue},
 };
 use serde::Serialize;
@@ -124,10 +124,12 @@ impl TryFrom<&Range> for HeaderValue {
 }
 
 impl Key {
-    pub async fn key(&self, client: &Client, base_url: &Url, query: &Query) -> Result<[u8; 16]> {
+    pub async fn key(&self, config: &DownloadConfig, base_url: &Url) -> Result<[u8; 16]> {
         let url = base_url.join(self.uri.as_ref().unwrap())?;
-        let bytes = client.get(url).query(query).send().await?.bytes().await?;
-        Ok(bytes.as_ref().try_into()?)
+        debug!("Fetching {} (key@full-range)", url);
+        let response = config.client.get(url).query(&config.query).send().await?;
+        let bytes = utils::fetch_bytes(response).await?;
+        Ok(bytes.as_slice().try_into()?)
     }
 
     pub fn iv(&self, sequence: u64) -> Result<[u8; 16]> {

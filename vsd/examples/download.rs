@@ -74,11 +74,11 @@ async fn main() -> Result<()> {
         }
     }
 
-    println!("Muxing to subs.srt");
+    println!("Muxing to output.srt");
     muxer
         .mux(
             vsd::find_ffmpeg().unwrap().as_path(),
-            &Path::new("subs.srt"),
+            &Path::new("output.srt"),
             "srt",
         )
         .await?;

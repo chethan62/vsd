@@ -158,21 +158,18 @@ impl Downloader {
     }
 
     pub async fn parse(&self, uri: &str, partial_parse: bool) -> Result<MasterPlaylist> {
-        let fp =
-            fetch::playlist(&self.config.client, &self.base_url, &self.config.query, uri).await?;
+        let fp = fetch::playlist(&self.config, &self.base_url, uri).await?;
         let mp = if partial_parse {
-            fp.as_master_playlist(
-                &self.config.client,
-                &self.config.query,
+            fp.parse(
+                &self.config,
                 self.select_options.clone(),
                 self.interaction_type.clone(),
                 true,
             )
             .await?
         } else {
-            fp.as_master_playlist(
-                &self.config.client,
-                &self.config.query,
+            fp.parse(
+                &self.config,
                 self.select_options.clone(),
                 Interaction::None,
                 false,
@@ -183,9 +180,8 @@ impl Downloader {
     }
 
     pub(crate) async fn list_playlist(self, uri: &str) -> Result<()> {
-        let fp =
-            fetch::playlist(&self.config.client, &self.base_url, &self.config.query, uri).await?;
-        fp.list_streams()?;
+        let fp = fetch::playlist(&self.config, &self.base_url, uri).await?;
+        fp.parse_head()?;
         Ok(())
     }
 
