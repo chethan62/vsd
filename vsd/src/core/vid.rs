@@ -261,7 +261,7 @@ pub async fn download(
     pb.finish();
 
     if !running.load(Ordering::SeqCst) {
-        warn!("Download interrupted.");
+        warn!("Download interrupted due to Ctrl+C.");
         std::process::exit(0);
     }
 

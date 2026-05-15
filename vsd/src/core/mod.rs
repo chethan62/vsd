@@ -14,7 +14,7 @@ use crate::{
     utils,
 };
 use anyhow::{Result, bail};
-use log::{error, warn};
+use log::warn;
 use reqwest::{Client, Url};
 use std::{
     collections::HashMap,
@@ -199,7 +199,7 @@ impl Downloader {
         Ok(())
     }
 
-    pub async fn download(self, uri: &str) -> Result<()> {
+    pub(crate) async fn download(self, uri: &str) -> Result<()> {
         let mp = self.parse(uri, true).await?;
         let streams = mp.streams;
 
@@ -212,12 +212,12 @@ impl Downloader {
         let running = self.running.clone();
         tokio::spawn(async move {
             if tokio::signal::ctrl_c().await.is_ok() && running.load(Ordering::SeqCst) {
-                warn!("Ctrl+C received: stopping download.");
+                warn!("Aborting download due to Ctrl+C.");
                 running.store(false, Ordering::SeqCst);
             }
 
             if tokio::signal::ctrl_c().await.is_ok() {
-                error!("Ctrl+C received: force exiting.");
+                warn!("Force exiting due to Ctrl+C.");
                 std::process::exit(1);
             }
         });
