@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use crate::error::Result;
 use clap::{Args, ValueEnum};
 use std::path::PathBuf;
 use tokio::fs;

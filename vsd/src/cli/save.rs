@@ -1,5 +1,4 @@
-use crate::{Downloader, cookie::Cookies};
-use anyhow::{Result, bail};
+use crate::{Downloader, cookie::Cookies, error::Result};
 use clap::Args;
 use reqwest::{
     Client, Proxy, Url,

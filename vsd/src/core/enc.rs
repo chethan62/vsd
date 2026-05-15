@@ -1,8 +1,8 @@
 use crate::{
     DownloadConfig,
+    error::{Error, Result},
     playlist::{KeyMethod, MediaPlaylist, Segment},
 };
-use anyhow::{Result, bail};
 use colored::Colorize;
 use log::info;
 use std::{
@@ -56,14 +56,13 @@ pub fn check_keys_exist(
 
     for kid in default_kids {
         if !supplied_kids.iter().any(|x| x == kid) {
-            bail!(
-                "Content decryption keys were not provided. Use --keys flag to provide keys for all required key ids ({}).",
+            return Err(Error::MissingKeys(
                 default_kids
                     .iter()
                     .map(|kid| kid.to_owned())
                     .collect::<Vec<_>>()
-                    .join(", ")
-            );
+                    .join(", "),
+            ));
         }
     }
 
@@ -75,10 +74,7 @@ pub fn check_unsupported_enc(streams: &Vec<MediaPlaylist>) -> Result<()> {
         if let Some(Segment { key: Some(x), .. }) = stream.segments.first()
             && let KeyMethod::Other(x) = &x.method
         {
-            bail!(
-                "{} decryption is not supported. Use --no-decrypt flag to download encrypted streams.",
-                x,
-            );
+            return Err(Error::UnsupportedEncryption(x.to_owned()));
         }
     }
 

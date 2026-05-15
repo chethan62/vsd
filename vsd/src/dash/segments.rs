@@ -8,9 +8,9 @@ use crate::{
         },
         parse_locator,
     },
+    error::{Error, Result},
     playlist::{Key, KeyMethod, MediaPlaylist, Segment},
 };
-use anyhow::{Result, bail};
 use dash_mpd::{AdaptationSet, MPD, Representation};
 use log::debug;
 use reqwest::Url;
@@ -22,7 +22,10 @@ pub async fn push_segments(
     stream: &mut MediaPlaylist,
 ) -> Result<()> {
     let Some((a_idx, r_idx)) = parse_locator(&stream.uri) else {
-        bail!("Incorrect dash locator: '{}'.", stream.uri);
+        return Err(Error::DashAddressing(format!(
+            "Used invalid dash locator: '{}'",
+            stream.uri
+        )));
     };
 
     let mut segments = Vec::new();
@@ -78,7 +81,9 @@ pub async fn push_segments(
 
         let mut template = Template::new();
         let Some(rid) = representation.id.clone() else {
-            bail!("Missing @id attribute on Representation node.");
+            return Err(Error::DashAddressing(
+                "Missing @id attribute on Representation node.".into(),
+            ));
         };
         template.insert("RepresentationID", rid);
 
@@ -122,7 +127,9 @@ pub async fn push_segments(
     }
 
     if segments.is_empty() {
-        bail!("No usable addressing mode identified for Representation node.");
+        return Err(Error::DashAddressing(
+            "No usable addressing mode identified for Representation node.".into(),
+        ));
     }
 
     stream.segments = segments;
@@ -200,7 +207,9 @@ async fn resolve_segments(
             debug!("Using (3) SegmentTemplate + SegmentTimeline addressing mode.");
 
             let Some(media) = media.as_ref() else {
-                bail!("Missing @media attribute on SegmentTimeline.");
+                return Err(Error::DashAddressing(
+                    "Missing @media attribute on SegmentTimeline.".into(),
+                ));
             };
             let mut segments = resolve_segment_timeline(
                 segment_timeline,
@@ -223,7 +232,9 @@ async fn resolve_segments(
             debug!("Using (4) SegmentTemplate@duration addressing mode.");
 
             let Some(duration) = rt.and_then(|t| t.duration).or(at.and_then(|t| t.duration)) else {
-                bail!("Missing @duration attribute on SegmentTemplate@duration.");
+                return Err(Error::DashAddressing(
+                    "Missing @duration attribute on SegmentTemplate@duration.".into(),
+                ));
             };
 
             // For dynamic MPDs, offset start_number past expired segments

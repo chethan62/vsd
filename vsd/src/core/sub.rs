@@ -1,10 +1,10 @@
 use crate::{
     core::{DownloadConfig, mux::Stream},
+    error::{Error, Result},
     playlist::MediaPlaylist,
     progress::Progress,
     utils,
 };
-use anyhow::{Result, bail};
 use colored::Colorize;
 use log::{debug, info, warn};
 use reqwest::{Url, header};
@@ -120,7 +120,7 @@ pub async fn download(
                         Ok(v) => v,
                         Err(e) => {
                             set.abort_all();
-                            bail!(e);
+                            return Err(e);
                         }
                     };
                     pb.update(bytes.len());
@@ -147,7 +147,7 @@ pub async fn download(
                 Ok(v) => v,
                 Err(e) => {
                     set.abort_all();
-                    bail!(e);
+                    return Err(e);
                 }
             };
             pb.update(bytes.len());
@@ -164,7 +164,7 @@ pub async fn download(
     pb.finish();
 
     if !running.load(Ordering::SeqCst) {
-        bail!("Download interrupted due to Ctrl+C.");
+        return Err(Error::DownloadInterrupted);
     }
 
     let output = match codec {
@@ -180,7 +180,8 @@ pub async fn download(
         }
         SubtitleType::TtmlText => {
             debug!("Extracting ttml+xml subtitles.");
-            ttml_text_parser::parse_bytes(&data)?
+            ttml_text_parser::parse_bytes(&data)
+                .map_err(|e| Error::Other(e.to_string()))?
                 .into_subtitles()
                 .as_srt()
                 .into_bytes()

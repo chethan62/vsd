@@ -1,5 +1,5 @@
 use crate::Downloader;
-use anyhow::{Result, bail};
+use crate::error::{Error, Result};
 use base64::Engine;
 use clap::Args;
 use colored::Colorize;
@@ -64,7 +64,7 @@ impl License {
 
     fn system_id(bytes: &[u8]) -> Result<SystemId> {
         if bytes.len() < 28 {
-            bail!("Data too short to be a valid PSSH box.");
+            bail!("Data too short to be a valid pssh box.");
         }
 
         let box_type = &bytes[4..8];
@@ -107,7 +107,7 @@ impl License {
         } else if let Ok(data) = base64::engine::general_purpose::STANDARD.decode(&self.input) {
             pssh_data.insert(data);
         } else {
-            bail!("Unable to determine the input type.");
+            bail!("Unable to determine input type.");
         }
 
         for pssh in pssh_data {
@@ -127,7 +127,8 @@ impl License {
                     let Some(license_url) = &self.playready_url else {
                         bail!("Playready license url not provided.");
                     };
-                    let pssh = playready::Pssh::from_bytes(&pssh)?;
+                    let pssh = playready::Pssh::from_bytes(&pssh)
+                        .map_err(|e| Error::Other(e.to_string()))?;
                     let device = playready::Device::from_prd(device_path)?;
                     let cdm = playready::Cdm::from_device(device);
                     let session = cdm.open_session();
@@ -141,12 +142,11 @@ impl License {
                     let status = response.status();
 
                     if !status.is_success() {
-                        bail!(
-                            "{} request failed ({}): '{}'",
-                            license_url,
+                        return Err(Error::RequestFailed {
+                            url: license_url.to_string(),
                             status,
-                            response.text().await?,
-                        );
+                            body: response.text().await?,
+                        });
                     }
 
                     let data = response.text().await?;
@@ -186,12 +186,11 @@ impl License {
                     let status = response.status();
 
                     if !status.is_success() {
-                        bail!(
-                            "{} request failed ({}): '{}'",
-                            license_url,
+                        return Err(Error::RequestFailed {
+                            url: license_url.to_string(),
                             status,
-                            response.text().await?,
-                        );
+                            body: response.text().await?,
+                        });
                     }
 
                     let data = response.bytes().await?;

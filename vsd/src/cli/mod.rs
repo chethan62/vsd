@@ -8,7 +8,6 @@ mod capture;
 #[cfg(feature = "license")]
 mod license;
 
-use anyhow::Ok;
 pub use extract::Extract;
 use log::LevelFilter;
 pub use merge::Merge;
@@ -20,7 +19,7 @@ pub use capture::Capture;
 #[cfg(feature = "license")]
 pub use license::License;
 
-use crate::logger::Logger;
+use crate::{error::Result, logger::Logger};
 use clap::{ArgAction, ColorChoice, Parser, Subcommand};
 
 #[derive(Debug, Clone, Subcommand)]
@@ -73,7 +72,7 @@ pub struct Args {
 }
 
 impl Args {
-    pub async fn execute(self) -> anyhow::Result<()> {
+    pub async fn execute(self) -> Result<()> {
         let level = if self.quiet {
             LevelFilter::Error
         } else {

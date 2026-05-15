@@ -1,10 +1,10 @@
 use crate::{
     DownloadConfig,
     dash::{Template, parse_range},
+    error::{Error, Result},
     playlist::{Map, Range, Segment},
     utils,
 };
-use anyhow::{Result, bail};
 use dash_mpd::SegmentTemplate;
 use log::debug;
 use reqwest::{Url, header};
@@ -209,7 +209,9 @@ pub async fn resolve_segment_base(
         let response = request.send().await?;
         let bytes = utils::fetch_bytes(response).await?;
         let Some(sidx) = SidxBox::from_init(&bytes, index_range.0)? else {
-            bail!("Missing sidx box in initialization.");
+            return Err(Error::DashAddressing(
+                "Missing sidx box in initialization.".into(),
+            ));
         };
 
         for range in sidx.ranges {

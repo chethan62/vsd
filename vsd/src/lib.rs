@@ -1,3 +1,6 @@
+#[macro_use]
+pub mod error;
+
 mod cli;
 mod cookie;
 mod core;
@@ -14,6 +17,7 @@ pub mod progress;
 #[doc(hidden)]
 pub use cli::Args;
 
-pub use core::{DownloadConfig, Downloader, Stream, Muxer};
+pub use core::{DownloadConfig, Downloader, Muxer, Stream};
+pub use error::{Error, Result};
 pub use reqwest;
 pub use utils::find_ffmpeg;

@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use crate::error::{Error, Result};
 use reqwest::Response;
 use std::{env, path::PathBuf};
 
@@ -6,12 +6,11 @@ pub async fn fetch_bytes(response: Response) -> Result<Vec<u8>> {
     let status = response.status();
 
     if !status.is_success() {
-        bail!(
-            "{} request failed ({}): '{}'",
-            response.url().clone(),
+        return Err(Error::RequestFailed {
+            url: response.url().to_string(),
             status,
-            response.text().await?,
-        );
+            body: response.text().await?,
+        });
     }
 
     Ok(response.bytes().await?.to_vec())

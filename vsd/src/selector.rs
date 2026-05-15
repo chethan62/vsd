@@ -1,8 +1,8 @@
 use crate::{
+    error::Result,
     options::{Interaction, Quality, SelectOptions},
     playlist::{MediaPlaylist, MediaType},
 };
-use anyhow::Result;
 use colored::Colorize;
 use log::info;
 use requestty::{Question, question::Choice};
@@ -81,9 +81,10 @@ impl StreamSelector {
 
         for (i, resolution) in &vid_data {
             if let Some((w, h)) = resolution
-                && opts.vid.resolutions.contains(&(*w as u16, *h as u16)) {
-                    indices.insert(*i);
-                }
+                && opts.vid.resolutions.contains(&(*w as u16, *h as u16))
+            {
+                indices.insert(*i);
+            }
         }
 
         if opts.vid.skip && !indices.is_empty() {
@@ -94,9 +95,10 @@ impl StreamSelector {
             }
         } else if !opts.vid.skip {
             if indices.is_empty()
-                && let Some((i, _)) = vid_data.first() {
-                    indices.insert(*i);
-                }
+                && let Some((i, _)) = vid_data.first()
+            {
+                indices.insert(*i);
+            }
             self.selected_indices.extend(indices);
         }
     }
@@ -126,16 +128,18 @@ impl StreamSelector {
 
         for (i, lang) in &aud_data {
             if let Some(lang) = lang
-                && opts.aud.contains_exact_lang(lang) {
-                    indices.insert(*i);
-                }
+                && opts.aud.contains_exact_lang(lang)
+            {
+                indices.insert(*i);
+            }
         }
 
         for (i, lang) in &aud_data {
             if let Some(lang) = lang
-                && opts.aud.contains_siml_lang(lang) {
-                    indices.insert(*i);
-                }
+                && opts.aud.contains_siml_lang(lang)
+            {
+                indices.insert(*i);
+            }
         }
 
         if opts.aud.skip && !indices.is_empty() {
@@ -146,9 +150,10 @@ impl StreamSelector {
             }
         } else if !opts.aud.skip {
             if indices.is_empty()
-                && let Some((i, _)) = aud_data.first() {
-                    indices.insert(*i);
-                }
+                && let Some((i, _)) = aud_data.first()
+            {
+                indices.insert(*i);
+            }
             self.selected_indices.extend(indices);
         }
     }
@@ -178,16 +183,18 @@ impl StreamSelector {
 
         for (i, lang) in &sub_data {
             if let Some(lang) = lang
-                && opts.sub.contains_exact_lang(lang) {
-                    indices.insert(*i);
-                }
+                && opts.sub.contains_exact_lang(lang)
+            {
+                indices.insert(*i);
+            }
         }
 
         for (i, lang) in &sub_data {
             if let Some(lang) = lang
-                && opts.sub.contains_siml_lang(lang) {
-                    indices.insert(*i);
-                }
+                && opts.sub.contains_siml_lang(lang)
+            {
+                indices.insert(*i);
+            }
         }
 
         if opts.sub.skip && !indices.is_empty() {
@@ -198,9 +205,10 @@ impl StreamSelector {
             }
         } else if !opts.sub.skip {
             if indices.is_empty()
-                && let Some((i, _)) = sub_data.first() {
-                    indices.insert(*i);
-                }
+                && let Some((i, _)) = sub_data.first()
+            {
+                indices.insert(*i);
+            }
             self.selected_indices.extend(indices);
         }
     }

@@ -1,5 +1,8 @@
-use crate::{core::DownloadConfig, playlist::MediaType};
-use anyhow::{Result, bail};
+use crate::{
+    core::DownloadConfig,
+    error::{Error, Result},
+    playlist::MediaType,
+};
 use colored::Colorize;
 use log::{debug, info, warn};
 use std::{
@@ -148,11 +151,10 @@ impl Muxer {
 
         if !result.status.success() {
             let stderr = String::from_utf8_lossy(&result.stderr);
-            bail!(
-                "ffmpeg exited with code {}: {}",
-                result.status.code().unwrap_or(1),
-                stderr.lines().last().unwrap_or("unknown error.")
-            );
+            return Err(Error::FfmpegFailed {
+                code: result.status.code().unwrap_or(1),
+                message: stderr.lines().last().unwrap_or("unknown").to_owned(),
+            });
         }
 
         Ok(())

@@ -1,9 +1,9 @@
 use crate::{
     core::{DownloadConfig, Stream, mux::Muxer, sub, vid},
+    error::Result,
     playlist::{MediaPlaylist, MediaType},
     progress::{Progress, ProgressCallback},
 };
-use anyhow::Result;
 use colored::Colorize;
 use log::{info, warn};
 use std::sync::{Arc, atomic::AtomicBool};

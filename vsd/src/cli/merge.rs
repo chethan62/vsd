@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use crate::error::{Error, Result};
 use clap::{Args, ValueEnum};
 use std::path::PathBuf;
 use tokio::{
@@ -96,7 +96,10 @@ impl Merge {
                 fs::remove_file("vsd-merge.txt").await?;
 
                 if !status.success() {
-                    bail!("FFmpeg exited with code {}.", status.code().unwrap_or(1))
+                    return Err(Error::FfmpegFailed {
+                        code: status.code().unwrap_or(1),
+                        message: "concat demuxer failed.".into(),
+                    });
                 }
             }
         }

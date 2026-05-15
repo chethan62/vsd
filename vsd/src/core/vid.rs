@@ -1,9 +1,9 @@
 use crate::{
     core::{DownloadConfig, enc::Decrypter, mux::Stream},
+    error::{Error, Result},
     playlist::{KeyMethod, MediaPlaylist},
     progress::Progress,
 };
-use anyhow::{Result, anyhow, bail};
 use colored::Colorize;
 use log::{debug, info, trace, warn};
 use reqwest::{StatusCode, Url, header};
@@ -93,7 +93,7 @@ pub async fn download(
                     Ok(bytes) => pb.update(bytes),
                     Err(e) => {
                         set.abort_all();
-                        bail!(e);
+                        return Err(e);
                     }
                 }
             }
@@ -123,19 +123,19 @@ pub async fn download(
                         auto_increment_iv = key.iv.is_none();
                     }
                     KeyMethod::Cenc if !matches!(decrypter, Decrypter::Cenc(_)) => {
-                        if config.keys.is_empty() {
-                            bail!("Custom keys are required to proceed further.");
-                        }
-
                         let default_kid = default_kid.as_ref().ok_or_else(|| {
-                            anyhow!("Unable to determine default kid for this stream.")
+                            Error::Other("Unable to determine default kid for this stream.".into())
                         })?;
+
+                        if config.keys.is_empty() {
+                            return Err(Error::MissingKeys(default_kid.to_owned()));
+                        }
 
                         let key = if let Some(v) = config.keys.get(default_kid) {
                             v.to_owned()
                         } else {
                             warn!(
-                                "No key provided for '{}'; checking pssh data to identify other mappable kids.",
+                                "No key provided for '{}'. Checking pssh data to identify other mappable kids.",
                                 default_kid
                             );
 
@@ -154,7 +154,7 @@ pub async fn download(
                             }
 
                             found.ok_or_else(|| {
-                                anyhow!("Unable to determine key for this stream.")
+                                Error::Other("Unable to determine key for this stream.".into())
                             })?
                         };
 
@@ -206,21 +206,20 @@ pub async fn download(
                         }
 
                         if avl_tries == 0 {
-                            bail!(
-                                "{} request failed ({}): '{}'",
-                                url,
+                            return Err(Error::RequestFailed {
+                                url: url.to_string(),
                                 status,
-                                response.text().await?,
-                            );
+                                body: response.text().await?,
+                            });
                         }
                     }
                     Err(e) => {
                         if avl_tries == 0 {
-                            bail!(
-                                "{} request failed ({})",
-                                url,
-                                e.status().unwrap_or(StatusCode::NOT_FOUND)
-                            );
+                            return Err(Error::RequestFailed {
+                                url: url.to_string(),
+                                status: e.status().unwrap_or(StatusCode::NOT_FOUND),
+                                body: "unknown".to_owned(),
+                            });
                         }
                     }
                 }
@@ -252,7 +251,7 @@ pub async fn download(
             Ok(bytes) => pb.update(bytes),
             Err(e) => {
                 set.abort_all();
-                bail!(e);
+                return Err(e);
             }
         }
     }
@@ -261,7 +260,7 @@ pub async fn download(
     pb.finish();
 
     if !running.load(Ordering::SeqCst) {
-        bail!("Download interrupted due to Ctrl+C.");
+        return Err(Error::DownloadInterrupted);
     }
 
     if config.skip_merge {

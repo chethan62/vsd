@@ -1,5 +1,4 @@
-use crate::cookie::Cookies;
-use anyhow::{Result, anyhow};
+use crate::{cookie::Cookies, error::Result};
 use base64::Engine;
 use chromiumoxide::{
     Browser, BrowserConfig,
@@ -85,8 +84,7 @@ impl Capture {
             config = config.arg(format!("--proxy-server=\"{}\"", proxy));
         }
 
-        let (mut browser, mut handler) =
-            Browser::launch(config.build().map_err(|x| anyhow!(x))?).await?;
+        let (mut browser, mut handler) = Browser::launch(config.build()?).await?;
 
         let handle = tokio::spawn(async move {
             while let Some(h) = handler.next().await {

@@ -1,10 +1,11 @@
 use crate::{
-    DownloadConfig, dash, hls,
+    DownloadConfig, dash,
+    error::{Error, Result},
+    hls,
     options::{Interaction, SelectOptions},
     playlist::{MasterPlaylist, MediaPlaylist, PlaylistType},
     utils,
 };
-use anyhow::{Result, anyhow, bail};
 use base64::Engine;
 use colored::Colorize;
 use log::{debug, info};
@@ -111,58 +112,62 @@ impl FetchedPlaylist {
 
                 Ok(pl)
             }
-            PlaylistType::Hls => match m3u8_rs::parse_playlist_res(&self.data)
-                .map_err(|_| anyhow!("Unable to parse hls playlist."))?
-            {
-                m3u8_rs::Playlist::MasterPlaylist(m3u8) => {
-                    let mut pl = hls::parse_as_master(&self.url, &m3u8).sort_streams();
+            PlaylistType::Hls => {
+                match m3u8_rs::parse_playlist_res(&self.data)
+                    .map_err(|_| Error::Other("Unable to parse hls playlist.".into()))?
+                {
+                    m3u8_rs::Playlist::MasterPlaylist(m3u8) => {
+                        let mut pl = hls::parse_as_master(&self.url, &m3u8).sort_streams();
 
-                    if partial_parse {
-                        pl = pl.select_streams(&mut select_opts, interaction)?;
+                        if partial_parse {
+                            pl = pl.select_streams(&mut select_opts, interaction)?;
+                        }
+
+                        for stream in &mut pl.streams {
+                            let m3u8 = if let Some(bs) = stream
+                                .uri
+                                .clone()
+                                .strip_prefix("data:application/x-mpegurl;base64,")
+                            {
+                                stream.uri = self.url.to_string();
+                                base64::engine::general_purpose::STANDARD.decode(bs)?
+                            } else {
+                                stream.uri = self.url.join(&stream.uri)?.to_string();
+                                debug!("Fetching {} (media-playlist)", stream.uri);
+                                let response = config
+                                    .client
+                                    .get(&stream.uri)
+                                    .query(&config.query)
+                                    .send()
+                                    .await?;
+                                utils::fetch_bytes(response).await?
+                            };
+
+                            let media_playlist =
+                                m3u8_rs::parse_media_playlist_res(&m3u8).map_err(|_| {
+                                    Error::Other("Unable to parse hls playlist.".into())
+                                })?;
+                            hls::push_segments(stream, media_playlist);
+                        }
+
+                        Ok(pl)
                     }
-
-                    for stream in &mut pl.streams {
-                        let m3u8 = if let Some(bs) = stream
-                            .uri
-                            .clone()
-                            .strip_prefix("data:application/x-mpegurl;base64,")
-                        {
-                            stream.uri = self.url.to_string();
-                            base64::engine::general_purpose::STANDARD.decode(bs)?
-                        } else {
-                            stream.uri = self.url.join(&stream.uri)?.to_string();
-                            debug!("Fetching {} (media-playlist)", stream.uri);
-                            let response = config
-                                .client
-                                .get(&stream.uri)
-                                .query(&config.query)
-                                .send()
-                                .await?;
-                            utils::fetch_bytes(response).await?
+                    m3u8_rs::Playlist::MediaPlaylist(m3u8) => {
+                        let mut stream = MediaPlaylist {
+                            id: utils::gen_id(self.url.as_str(), ""),
+                            playlist_type: PlaylistType::Hls,
+                            uri: self.url.to_string(),
+                            ..Default::default()
                         };
-
-                        let media_playlist = m3u8_rs::parse_media_playlist_res(&m3u8)
-                            .map_err(|_| anyhow!("Unable to parse hls media playlist."))?;
-                        hls::push_segments(stream, media_playlist);
+                        hls::push_segments(&mut stream, m3u8);
+                        Ok(MasterPlaylist {
+                            playlist_type: PlaylistType::Hls,
+                            streams: vec![stream],
+                            uri: self.url.to_string(),
+                        })
                     }
-
-                    Ok(pl)
                 }
-                m3u8_rs::Playlist::MediaPlaylist(m3u8) => {
-                    let mut stream = MediaPlaylist {
-                        id: utils::gen_id(self.url.as_str(), ""),
-                        playlist_type: PlaylistType::Hls,
-                        uri: self.url.to_string(),
-                        ..Default::default()
-                    };
-                    hls::push_segments(&mut stream, m3u8);
-                    Ok(MasterPlaylist {
-                        playlist_type: PlaylistType::Hls,
-                        streams: vec![stream],
-                        uri: self.url.to_string(),
-                    })
-                }
-            },
+            }
         }
     }
 
@@ -187,17 +192,19 @@ impl FetchedPlaylist {
                 let mp = dash::parse_as_master(&self.url, &mpd).sort_streams();
                 list(mp);
             }
-            PlaylistType::Hls => match m3u8_rs::parse_playlist_res(&self.data)
-                .map_err(|_| anyhow!("Unable to parse hls playlist."))?
-            {
-                m3u8_rs::Playlist::MasterPlaylist(m3u8) => {
-                    let mp = hls::parse_as_master(&self.url, &m3u8).sort_streams();
-                    list(mp)
+            PlaylistType::Hls => {
+                match m3u8_rs::parse_playlist_res(&self.data)
+                    .map_err(|_| Error::Other("Unable to parse hls playlist.".into()))?
+                {
+                    m3u8_rs::Playlist::MasterPlaylist(m3u8) => {
+                        let mp = hls::parse_as_master(&self.url, &m3u8).sort_streams();
+                        list(mp)
+                    }
+                    m3u8_rs::Playlist::MediaPlaylist(_) => {
+                        info!(" 1) [{}] {}", "und".yellow(), self.url);
+                    }
                 }
-                m3u8_rs::Playlist::MediaPlaylist(_) => {
-                    info!(" 1) [{}] {}", "und".yellow(), self.url);
-                }
-            },
+            }
         }
         Ok(())
     }

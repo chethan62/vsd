@@ -1,11 +1,11 @@
 use crate::{
     core::{self, DownloadConfig, Stream},
+    error::Result,
     options::{Interaction, SelectOptions},
     progress::{ByteSize, ProgressCallback},
     selector::StreamSelector,
     utils,
 };
-use anyhow::Result;
 use log::debug;
 use reqwest::{
     Url,

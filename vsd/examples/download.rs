@@ -3,14 +3,14 @@
 // [dependencies]
 // vsd = { version = "0.5", default-features = false, features = ["rustls-tls"]}
 
-use anyhow::Result;
 use reqwest::Client;
 use std::{
     path::PathBuf,
     sync::{Arc, atomic::AtomicBool},
 };
+use vsd::Result;
 use vsd::{
-    Downloader, Muxer,
+    Downloader, Error, Muxer,
     playlist::MediaType,
     progress::{ProgressCallback, ProgressState},
 };
@@ -59,22 +59,21 @@ async fn main() -> Result<()> {
             );
 
             // If stream is already downloaded then no progress updates will be triggered.
-            let dl_info = stream
-                .download(&config, &running, Arc::new(Progress))
-                .await?;
-
-            let Some(dl_info) = dl_info else {
-                println!("Stream has no segments");
-                continue;
+            let dl_info = match stream.download(&config, &running, Arc::new(Progress)).await {
+                Ok(Some(info)) => info,
+                Ok(None) => {
+                    println!("Stream has no segments");
+                    continue;
+                }
+                Err(Error::DownloadInterrupted) => {
+                    println!("Download paused");
+                    std::process::exit(0);
+                }
+                Err(e) => return Err(e),
             };
 
-            if dl_info.path.exists() {
-                println!("Downloaded {}", dl_info.path.to_string_lossy());
-                muxer.0.push(dl_info);
-            } else {
-                // Download must be paused using running var for this to happen.
-                println!("Download paused");
-            }
+            println!("Downloaded {}", dl_info.path.to_string_lossy());
+            muxer.0.push(dl_info);
 
             break;
         }

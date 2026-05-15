@@ -9,11 +9,11 @@ pub use dl::download_stream;
 pub use mux::{Muxer, Stream};
 
 use crate::{
+    error::Result,
     options::{Interaction, SelectOptions},
     playlist::{MasterPlaylist, MediaType},
     utils,
 };
-use anyhow::{Result, bail};
 use log::warn;
 use reqwest::{Client, Url};
 use std::{
