@@ -41,7 +41,7 @@ pub struct ProgressState {
 ///
 /// impl ProgressCallback for MyProgress {
 ///     fn on_progress(&self, state: &ProgressState) {
-///         println!("{}% ({}/{})", state.percent, state.downloaded_segments, state.total_segments);
+///         println!("{}% ({}/{})", state.percent, state.downloaded_parts, state.total_parts);
 ///     }
 ///     fn on_finish(&self, state: &ProgressState) {
 ///         println!("Done! {} bytes", state.downloaded_bytes);

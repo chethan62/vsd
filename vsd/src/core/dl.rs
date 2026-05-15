@@ -1,5 +1,5 @@
 use crate::{
-    core::{DownloadConfig, Stream, mux::Streams, sub, vid},
+    core::{DownloadConfig, Stream, mux::Muxer, sub, vid},
     playlist::{MediaPlaylist, MediaType},
     progress::{Progress, ProgressCallback},
 };
@@ -12,8 +12,8 @@ pub async fn download_streams(
     config: &DownloadConfig,
     running: &AtomicBool,
     streams: Vec<MediaPlaylist>,
-) -> Result<Streams> {
-    let mut temp_files = Streams(Vec::new());
+) -> Result<Muxer> {
+    let mut temp_files = Muxer(Vec::new());
     let total = streams.len();
 
     for (i, stream) in streams.iter().enumerate() {

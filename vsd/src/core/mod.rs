@@ -6,7 +6,7 @@ mod sub;
 mod vid;
 
 pub use dl::download_stream;
-pub use mux::{Stream, Streams};
+pub use mux::{Muxer, Stream};
 
 use crate::{
     options::{Interaction, SelectOptions},

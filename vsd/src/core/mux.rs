@@ -1,7 +1,4 @@
-use crate::{
-    core::DownloadConfig,
-    playlist::MediaType,
-};
+use crate::{core::DownloadConfig, playlist::MediaType};
 use anyhow::{Result, bail};
 use colored::Colorize;
 use log::{debug, info, warn};
@@ -17,9 +14,9 @@ pub struct Stream {
     pub path: PathBuf,
 }
 
-pub struct Streams(pub Vec<Stream>);
+pub struct Muxer(pub Vec<Stream>);
 
-impl Streams {
+impl Muxer {
     pub fn should_mux(&self, config: &DownloadConfig, output: &Option<PathBuf>) -> bool {
         if output.is_none() {
             return false;

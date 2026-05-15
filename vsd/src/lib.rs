@@ -14,5 +14,6 @@ pub mod progress;
 #[doc(hidden)]
 pub use cli::Args;
 
-pub use core::{DownloadConfig, Downloader, Stream, Streams};
+pub use core::{DownloadConfig, Downloader, Stream, Muxer};
 pub use reqwest;
+pub use utils::find_ffmpeg;
