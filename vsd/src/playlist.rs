@@ -1,5 +1,5 @@
 use crate::{
-    core::{self, Stream},
+    core::{self, DownloadConfig, Stream},
     options::{Interaction, SelectOptions},
     progress::ByteSize,
     selector::StreamSelector,
@@ -14,9 +14,10 @@ use reqwest::{
 use serde::Serialize;
 use std::{
     cmp::Reverse,
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fmt::Display,
     path::PathBuf,
+    sync::atomic::AtomicBool,
 };
 use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
 
@@ -247,12 +248,11 @@ impl MediaPlaylist {
 
     pub async fn download(
         &self,
-        client: &Client,
-        query: &Query,
-        directory: Option<&PathBuf>,
-        keys: &HashMap<String, String>,
+        config: &DownloadConfig,
+        running: &AtomicBool,
+        label: &str,
     ) -> Result<Option<Stream>> {
-        core::download_stream(client, query, directory, keys, self).await
+        core::download_stream(config, running, label, self).await
     }
 
     pub fn extension(&self) -> &str {

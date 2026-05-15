@@ -1,5 +1,5 @@
 use crate::{
-    core::{SKIP_DECRYPT, SKIP_MERGE},
+    core::DownloadConfig,
     playlist::MediaType,
 };
 use anyhow::{Result, bail};
@@ -8,7 +8,6 @@ use log::{debug, info, warn};
 use std::{
     path::{Path, PathBuf},
     process::Stdio,
-    sync::atomic::Ordering,
 };
 use tokio::{fs, process::Command};
 
@@ -21,15 +20,15 @@ pub struct Stream {
 pub struct Streams(pub Vec<Stream>);
 
 impl Streams {
-    pub fn should_mux(&self, output: &Option<PathBuf>) -> bool {
+    pub fn should_mux(&self, config: &DownloadConfig, output: &Option<PathBuf>) -> bool {
         if output.is_none() {
             return false;
         }
-        if SKIP_DECRYPT.load(Ordering::SeqCst) {
+        if config.skip_decrypt {
             warn!("--output is ignored when --no-decrypt is used.");
             return false;
         }
-        if SKIP_MERGE.load(Ordering::SeqCst) {
+        if config.skip_merge {
             warn!("--output is ignored when --no-merge is used.");
             return false;
         }

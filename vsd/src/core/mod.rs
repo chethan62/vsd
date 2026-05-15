@@ -20,41 +20,55 @@ use std::{
     collections::HashMap,
     fs,
     path::PathBuf,
-    sync::atomic::{AtomicBool, AtomicU8, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
-pub(crate) static MAX_RETRIES: AtomicU8 = AtomicU8::new(10);
-pub(crate) static MAX_THREADS: AtomicU8 = AtomicU8::new(5);
-pub(crate) static NO_RESUME: AtomicBool = AtomicBool::new(false);
-pub(crate) static RUNNING: AtomicBool = AtomicBool::new(true);
-pub(crate) static SKIP_DECRYPT: AtomicBool = AtomicBool::new(false);
-pub(crate) static SKIP_MERGE: AtomicBool = AtomicBool::new(false);
-pub(crate) static STREAM_DL_IDX: AtomicU8 = AtomicU8::new(1);
+#[derive(Clone)]
+pub struct DownloadConfig {
+    pub client: Client,
+    pub directory: Option<PathBuf>,
+    pub keys: HashMap<String, String>,
+    pub max_retries: u8,
+    pub max_threads: u8,
+    pub no_resume: bool,
+    pub query: Vec<(String, String)>,
+    pub skip_decrypt: bool,
+    pub skip_merge: bool,
+}
 
 pub struct Downloader {
-    client: Client,
+    config: DownloadConfig,
+    running: Arc<AtomicBool>,
     base_url: Option<Url>,
-    directory: Option<PathBuf>,
     output: Option<PathBuf>,
     subs_codec: String,
     interaction_type: Interaction,
     select_options: SelectOptions,
-    query: Vec<(String, String)>,
-    keys: HashMap<String, String>,
 }
 
 impl Downloader {
     pub fn new(client: &Client) -> Self {
         Self {
-            client: client.clone(),
+            config: DownloadConfig {
+                client: client.clone(),
+                directory: None,
+                keys: HashMap::new(),
+                max_retries: 10,
+                max_threads: 5,
+                no_resume: false,
+                query: Vec::new(),
+                skip_decrypt: false,
+                skip_merge: false,
+            },
+            running: Arc::new(AtomicBool::new(true)),
             base_url: None,
-            directory: None,
             output: None,
             subs_codec: "copy".to_owned(),
             interaction_type: Interaction::None,
             select_options: "v=best:s=en".parse().unwrap(),
-            query: Vec::new(),
-            keys: HashMap::new(),
         }
     }
 
@@ -64,7 +78,7 @@ impl Downloader {
     }
 
     pub fn directory(mut self, directory: impl Into<PathBuf>) -> Self {
-        self.directory = Some(directory.into());
+        self.config.directory = Some(directory.into());
         self
     }
 
@@ -96,7 +110,7 @@ impl Downloader {
         if query.is_empty() {
             return self;
         }
-        self.query = query
+        self.config.query = query
             .trim_start_matches('?')
             .split('&')
             .filter_map(|x| {
@@ -111,32 +125,32 @@ impl Downloader {
     }
 
     pub fn keys(mut self, keys: HashMap<String, String>) -> Self {
-        self.keys = keys;
+        self.config.keys = keys;
         self
     }
 
-    pub fn skip_decrypt(self, skip_decrypt: bool) -> Self {
-        SKIP_DECRYPT.store(skip_decrypt, Ordering::SeqCst);
+    pub fn skip_decrypt(mut self, skip_decrypt: bool) -> Self {
+        self.config.skip_decrypt = skip_decrypt;
         self
     }
 
-    pub fn skip_merge(self, skip_merge: bool) -> Self {
-        SKIP_MERGE.store(skip_merge, Ordering::SeqCst);
+    pub fn skip_merge(mut self, skip_merge: bool) -> Self {
+        self.config.skip_merge = skip_merge;
         self
     }
 
-    pub fn no_resume(self, no_resume: bool) -> Self {
-        NO_RESUME.store(no_resume, Ordering::SeqCst);
+    pub fn no_resume(mut self, no_resume: bool) -> Self {
+        self.config.no_resume = no_resume;
         self
     }
 
-    pub fn max_retries(self, max_retries: u8) -> Self {
-        MAX_RETRIES.store(max_retries, Ordering::SeqCst);
+    pub fn max_retries(mut self, max_retries: u8) -> Self {
+        self.config.max_retries = max_retries;
         self
     }
 
-    pub fn max_threads(self, max_threads: u8) -> Self {
-        MAX_THREADS.store(max_threads, Ordering::SeqCst);
+    pub fn max_threads(mut self, max_threads: u8) -> Self {
+        self.config.max_threads = max_threads;
         self
     }
 
@@ -145,11 +159,12 @@ impl Downloader {
         uri: &str,
         partial_parse: bool,
     ) -> Result<MasterPlaylist> {
-        let fp = fetch::playlist(&self.client, &self.base_url, &self.query, uri).await?;
+        let fp =
+            fetch::playlist(&self.config.client, &self.base_url, &self.config.query, uri).await?;
         let mp = if partial_parse {
             fp.as_master_playlist(
-                &self.client,
-                &self.query,
+                &self.config.client,
+                &self.config.query,
                 self.select_options.clone(),
                 self.interaction_type.clone(),
                 true,
@@ -157,8 +172,8 @@ impl Downloader {
             .await?
         } else {
             fp.as_master_playlist(
-                &self.client,
-                &self.query,
+                &self.config.client,
+                &self.config.query,
                 self.select_options.clone(),
                 Interaction::None,
                 false,
@@ -169,37 +184,40 @@ impl Downloader {
     }
 
     pub(crate) async fn list_playlist(self, uri: &str) -> Result<()> {
-        let fp = fetch::playlist(&self.client, &self.base_url, &self.query, uri).await?;
+        let fp =
+            fetch::playlist(&self.config.client, &self.base_url, &self.config.query, uri).await?;
         fp.list_streams()?;
         Ok(())
     }
 
     pub fn get_query(&self) -> &[(String, String)] {
-        &self.query
+        &self.config.query
     }
 
     pub async fn download(self, uri: &str) -> Result<()> {
         let mp = self.as_master_playlist(uri, true).await?;
         let mut streams = mp.streams;
 
-        if !SKIP_DECRYPT.load(Ordering::SeqCst) {
+        if !self.config.skip_decrypt {
             enc::check_unsupported_enc(&streams)?;
-            let default_kids = enc::get_default_kids(&streams, &self.client, &self.query).await?;
-            enc::check_keys_exist(&self.keys, &default_kids)?;
+            let default_kids =
+                enc::get_default_kids(&streams, &self.config.client, &self.config.query).await?;
+            enc::check_keys_exist(&self.config.keys, &default_kids)?;
         }
 
         for stream in &mut streams {
             if stream.media_type != MediaType::Subtitles {
                 stream
-                    .fetch_split_seg(&self.client, &self.base_url, &self.query)
+                    .fetch_split_seg(&self.config.client, &self.base_url, &self.config.query)
                     .await?;
             }
         }
 
-        tokio::spawn(async {
-            if tokio::signal::ctrl_c().await.is_ok() && RUNNING.load(Ordering::SeqCst) {
+        let running = self.running.clone();
+        tokio::spawn(async move {
+            if tokio::signal::ctrl_c().await.is_ok() && running.load(Ordering::SeqCst) {
                 warn!("Ctrl+C received: stopping download.");
-                RUNNING.store(false, Ordering::SeqCst);
+                running.store(false, Ordering::SeqCst);
             }
 
             if tokio::signal::ctrl_c().await.is_ok() {
@@ -208,29 +226,22 @@ impl Downloader {
             }
         });
 
-        if let Some(directory) = &self.directory
+        if let Some(directory) = &self.config.directory
             && !directory.exists()
         {
             fs::create_dir_all(directory)?;
         }
 
-        let temp_files = dl::download_streams(
-            &self.client,
-            &self.query,
-            self.directory.as_ref(),
-            &self.keys,
-            streams,
-        )
-        .await?;
+        let temp_files = dl::download_streams(&self.config, &self.running, streams).await?;
 
-        if temp_files.should_mux(&self.output) {
+        if temp_files.should_mux(&self.config, &self.output) {
             let Some(ffmpeg) = utils::find_ffmpeg() else {
                 bail!("ffmpeg couldn't be located, it's required to continue further.");
             };
             temp_files
                 .mux(&ffmpeg, self.output.as_ref().unwrap(), &self.subs_codec)
                 .await?;
-            temp_files.clean(self.directory.as_deref()).await?;
+            temp_files.clean(self.config.directory.as_deref()).await?;
         }
 
         Ok(())

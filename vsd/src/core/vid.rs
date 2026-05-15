@@ -1,20 +1,15 @@
 use crate::{
-    core::{
-        MAX_RETRIES, MAX_THREADS, NO_RESUME, RUNNING, SKIP_DECRYPT, SKIP_MERGE, enc::Decrypter,
-        mux::Stream,
-    },
+    core::{DownloadConfig, enc::Decrypter, mux::Stream},
     playlist::{KeyMethod, MediaPlaylist},
     progress::Progress,
-    utils::Query,
 };
 use anyhow::{Result, anyhow, bail};
 use colored::Colorize;
 use log::{debug, info, trace, warn};
-use reqwest::{Client, StatusCode, header};
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-    sync::{Arc, atomic::Ordering},
+use reqwest::{StatusCode, header};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
 };
 use tokio::{
     fs::{self, File},
@@ -30,21 +25,19 @@ use vsd_mp4::{
 const PNG_HEADER: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
 pub async fn download(
-    client: &Client,
-    query: &Query,
-    directory: Option<&PathBuf>,
-    keys: &HashMap<String, String>,
+    config: &DownloadConfig,
+    running: &AtomicBool,
     pb: Progress,
     stream: &MediaPlaylist,
 ) -> Result<Stream> {
-    let temp_file = stream.path(directory);
+    let temp_file = stream.path(config.directory.as_ref());
     let temp_stream = Stream {
         language: stream.language.clone(),
         media_type: stream.media_type.clone(),
         path: temp_file.clone(),
     };
 
-    if temp_file.exists() && !NO_RESUME.load(Ordering::SeqCst) {
+    if temp_file.exists() && !config.no_resume {
         info!(
             "Saving [{}] {} (downloaded)",
             stream.media_type.to_string().green(),
@@ -62,13 +55,13 @@ pub async fn download(
     let base_url = stream.uri.parse()?;
     let ext = stream.extension();
     let pb_handle = pb.spawn();
-    let should_decrypt = !SKIP_DECRYPT.load(Ordering::SeqCst);
+    let should_decrypt = !config.skip_decrypt;
     let temp_dir = temp_file.with_extension("");
     let mut auto_increment_iv = false;
     let mut decrypter = Decrypter::None;
 
     let init = stream
-        .fetch_init(client, &base_url, query)
+        .fetch_init(&config.client, &base_url, &config.query)
         .await?
         .map(Arc::new);
 
@@ -78,7 +71,7 @@ pub async fn download(
         stream.default_kid()
     };
 
-    if NO_RESUME.load(Ordering::SeqCst) && temp_dir.exists() {
+    if config.no_resume && temp_dir.exists() {
         fs::remove_dir_all(&temp_dir).await?;
     }
     fs::create_dir_all(&temp_dir).await?;
@@ -89,11 +82,11 @@ pub async fn download(
         f.flush().await?;
     }
 
-    let max_threads = MAX_THREADS.load(Ordering::SeqCst) as usize;
+    let max_threads = config.max_threads as usize;
     let mut set: JoinSet<Result<usize>> = JoinSet::new();
 
     for (i, segment) in stream.segments.iter().enumerate() {
-        if !RUNNING.load(Ordering::SeqCst) {
+        if !running.load(Ordering::SeqCst) {
             break;
         }
 
@@ -120,20 +113,20 @@ pub async fn download(
                 match key.method {
                     KeyMethod::Aes128 => {
                         decrypter = Decrypter::Aes128(HlsAes128Decrypter::new(
-                            &key.key(client, &base_url, query).await?,
+                            &key.key(&config.client, &base_url, &config.query).await?,
                             &key.iv(media_sequence)?,
                         ));
                         auto_increment_iv = key.iv.is_none();
                     }
                     KeyMethod::SampleAes => {
                         decrypter = Decrypter::SampleAes(HlsSampleAesDecrypter::new(
-                            &key.key(client, &base_url, query).await?,
+                            &key.key(&config.client, &base_url, &config.query).await?,
                             &key.iv(media_sequence)?,
                         ));
                         auto_increment_iv = key.iv.is_none();
                     }
                     KeyMethod::Cenc if !matches!(decrypter, Decrypter::Cenc(_)) => {
-                        if keys.is_empty() {
+                        if config.keys.is_empty() {
                             bail!("Custom keys are required to proceed further.");
                         }
 
@@ -141,7 +134,7 @@ pub async fn download(
                             anyhow!("Unable to determine default kid for this stream.")
                         })?;
 
-                        let key = if let Some(v) = keys.get(default_kid) {
+                        let key = if let Some(v) = config.keys.get(default_kid) {
                             v.to_owned()
                         } else {
                             warn!(
@@ -156,7 +149,7 @@ pub async fn download(
                                     .into_iter()
                                     .flat_map(|x| x.key_ids)
                                 {
-                                    if let Some(v) = keys.get(&kid.0) {
+                                    if let Some(v) = config.keys.get(&kid.0) {
                                         found = Some(v.to_owned());
                                         break;
                                     }
@@ -193,14 +186,16 @@ pub async fn download(
         let init = init.clone();
         let decrypter = decrypter.clone();
         let url = base_url.join(&segment.uri)?;
-        let mut request = client.get(url.clone()).query(query);
+        let mut request = config.client.get(url.clone()).query(&config.query);
 
         if let Some(range) = &segment.range {
             request = request.header(header::RANGE, range);
         }
 
+        let max_retries = config.max_retries;
+
         set.spawn(async move {
-            let mut avl_tries = MAX_RETRIES.load(Ordering::SeqCst);
+            let mut avl_tries = max_retries;
             let mut bytes;
 
             loop {
@@ -268,12 +263,12 @@ pub async fn download(
     pb_handle.abort();
     pb.finish();
 
-    if !RUNNING.load(Ordering::SeqCst) {
+    if !running.load(Ordering::SeqCst) {
         warn!("Download interrupted.");
         std::process::exit(0);
     }
 
-    if SKIP_MERGE.load(Ordering::SeqCst) {
+    if config.skip_merge {
         debug!("Stream merging skipped.");
     } else {
         info!(

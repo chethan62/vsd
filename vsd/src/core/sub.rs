@@ -1,14 +1,14 @@
 use crate::{
-    core::{MAX_THREADS, NO_RESUME, RUNNING, mux::Stream},
+    core::{DownloadConfig, mux::Stream},
     playlist::MediaPlaylist,
     progress::Progress,
-    utils::{self, Query},
+    utils,
 };
 use anyhow::{Result, bail};
 use colored::Colorize;
 use log::{debug, info, warn};
-use reqwest::{Client, header};
-use std::{path::PathBuf, sync::atomic::Ordering};
+use reqwest::header;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::{fs::File, io::AsyncWriteExt, task::JoinSet};
 use vsd_mp4::text::{Mp4TtmlParser, Mp4VttParser, ttml_text_parser};
 
@@ -48,24 +48,23 @@ fn detect_codec(codecs: Option<&str>, data: &[u8], ext: &str) -> (&'static str, 
 }
 
 pub async fn download(
-    client: &Client,
-    query: &Query,
-    directory: Option<&PathBuf>,
+    config: &DownloadConfig,
+    running: &AtomicBool,
     pb: Progress,
     stream: &MediaPlaylist,
 ) -> Result<Stream> {
     let base_url = stream.uri.parse()?;
     let ext = stream.extension();
     let mut data = Vec::new();
-    let mut temp_file = stream.path(directory);
+    let mut temp_file = stream.path(config.directory.as_ref());
 
-    if let Some(mut bytes) = stream.fetch_init(client, &base_url, query).await? {
+    if let Some(mut bytes) = stream.fetch_init(&config.client, &base_url, &config.query).await? {
         data.append(&mut bytes);
     }
 
     let segment = &stream.segments[0];
     let url = base_url.join(&segment.uri)?;
-    let mut request = client.get(url).query(query);
+    let mut request = config.client.get(url).query(&config.query);
 
     if let Some(range) = &segment.range {
         request = request.header(header::RANGE, range);
@@ -85,7 +84,7 @@ pub async fn download(
         path: temp_file.clone(),
     };
 
-    if temp_file.exists() && !NO_RESUME.load(Ordering::SeqCst) {
+    if temp_file.exists() && !config.no_resume {
         info!(
             "Saving [{}] {} (downloaded)",
             stream.media_type.to_string().green(),
@@ -106,12 +105,12 @@ pub async fn download(
 
     if !remaining.is_empty() {
         let pb_handle = pb.spawn();
-        let max_threads = MAX_THREADS.load(Ordering::SeqCst) as usize;
+        let max_threads = config.max_threads as usize;
         let mut set: JoinSet<Result<(usize, Vec<u8>)>> = JoinSet::new();
         let mut results = vec![None; remaining.len()];
 
         for (i, segment) in remaining.iter().enumerate() {
-            if !RUNNING.load(Ordering::SeqCst) {
+            if !running.load(Ordering::SeqCst) {
                 break;
             }
 
@@ -130,7 +129,7 @@ pub async fn download(
             }
 
             let url = base_url.join(&segment.uri)?;
-            let mut request = client.get(url).query(query);
+            let mut request = config.client.get(url).query(&config.query);
 
             if let Some(range) = &segment.range {
                 request = request.header(header::RANGE, range);
@@ -164,7 +163,7 @@ pub async fn download(
 
     pb.finish();
 
-    if !RUNNING.load(Ordering::SeqCst) {
+    if !running.load(Ordering::SeqCst) {
         warn!("Download interrupted.");
         std::process::exit(0);
     }

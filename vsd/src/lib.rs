@@ -14,5 +14,5 @@ pub mod playlist;
 #[doc(hidden)]
 pub use cli::Args;
 
-pub use core::{Downloader, Stream, Streams};
+pub use core::{DownloadConfig, Downloader, Stream, Streams};
 pub use reqwest;
