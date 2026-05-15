@@ -37,7 +37,7 @@ impl ProgressCallback for Progress {
 async fn main() -> Result<()> {
     let client = Client::new();
     let dl = Downloader::new(&client).no_resume(true);
-    let config = dl.get_config();
+    let config = dl.config();
 
     let mp = dl
         .parse(
@@ -60,7 +60,7 @@ async fn main() -> Result<()> {
 
             // If stream is already downloaded then no progress updates will be triggered.
             let dl_info = stream
-                .download(config, &running, Arc::new(Progress))
+                .download(&config, &running, Arc::new(Progress))
                 .await?;
 
             let Some(dl_info) = dl_info else {

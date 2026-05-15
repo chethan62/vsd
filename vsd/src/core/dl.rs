@@ -13,7 +13,7 @@ pub async fn download_streams(
     running: &AtomicBool,
     streams: Vec<MediaPlaylist>,
 ) -> Result<Muxer> {
-    let mut temp_files = Muxer(Vec::new());
+    let mut muxer = Muxer(Vec::new());
     let total = streams.len();
 
     for (i, stream) in streams.iter().enumerate() {
@@ -25,24 +25,24 @@ pub async fn download_streams(
 
         if stream.segments.is_empty() {
             warn!("Stream skipped because no segments were found.");
-            return Ok(temp_files);
+            return Ok(muxer);
         }
 
         let label = format!("{}/{}", i + 1, total);
         let pb = Progress::new(&label, stream.segments.len(), None);
 
         if stream.media_type == MediaType::Subtitles {
-            temp_files
+            muxer
                 .0
                 .push(sub::download(config, running, pb, stream).await?);
         } else {
-            temp_files
+            muxer
                 .0
                 .push(vid::download(config, running, pb, stream).await?);
         }
     }
 
-    Ok(temp_files)
+    Ok(muxer)
 }
 
 pub async fn download_stream(

@@ -26,6 +26,7 @@ use std::{
     },
 };
 
+#[derive(Clone, Debug)]
 pub struct DownloadConfig {
     pub client: Client,
     pub directory: Option<PathBuf>,
@@ -159,13 +160,13 @@ impl Downloader {
         self
     }
 
-    pub fn get_config(&self) -> &DownloadConfig {
-        &self.config
+    pub fn config(&self) -> DownloadConfig {
+        self.config.clone()
     }
 
     pub async fn parse(&self, uri: &str, partial_parse: bool) -> Result<MasterPlaylist> {
         let fp = fetch::playlist(&self.config, &self.base_url, uri).await?;
-        let mp = if partial_parse {
+        let mut mp = if partial_parse {
             fp.parse(
                 &self.config,
                 self.select_options.clone(),
@@ -182,6 +183,13 @@ impl Downloader {
             )
             .await?
         };
+
+        for stream in &mut mp.streams {
+            if stream.media_type != MediaType::Subtitles {
+                stream.fetch_split_seg(&self.config).await?;
+            }
+        }
+
         Ok(mp)
     }
 
@@ -193,18 +201,12 @@ impl Downloader {
 
     pub async fn download(self, uri: &str) -> Result<()> {
         let mp = self.parse(uri, true).await?;
-        let mut streams = mp.streams;
+        let streams = mp.streams;
 
         if !self.config.skip_decrypt {
             enc::check_unsupported_enc(&streams)?;
             let default_kids = enc::get_default_kids(&self.config, &streams).await?;
             enc::check_keys_exist(&self.config.keys, &default_kids)?;
-        }
-
-        for stream in &mut streams {
-            if stream.media_type != MediaType::Subtitles {
-                stream.fetch_split_seg(&self.config).await?;
-            }
         }
 
         let running = self.running.clone();
@@ -220,16 +222,16 @@ impl Downloader {
             }
         });
 
-        let temp_files = dl::download_streams(&self.config, &self.running, streams).await?;
+        let muxer = dl::download_streams(&self.config, &self.running, streams).await?;
 
-        if temp_files.should_mux(&self.config, &self.output) {
+        if muxer.should_mux(&self.config, &self.output) {
             let Some(ffmpeg) = utils::find_ffmpeg() else {
                 bail!("ffmpeg couldn't be located, it's required to continue further.");
             };
-            temp_files
+            muxer
                 .mux(&ffmpeg, self.output.as_ref().unwrap(), &self.subs_codec)
                 .await?;
-            temp_files.clean(self.config.directory.as_deref()).await?;
+            muxer.clean(self.config.directory.as_deref()).await?;
         }
 
         Ok(())
