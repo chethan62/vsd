@@ -5,11 +5,11 @@ mod dash;
 mod hls;
 mod logger;
 mod options;
-mod progress;
 mod selector;
 mod utils;
 
 pub mod playlist;
+pub mod progress;
 
 #[doc(hidden)]
 pub use cli::Args;

@@ -26,7 +26,6 @@ use std::{
     },
 };
 
-#[derive(Clone)]
 pub struct DownloadConfig {
     pub client: Client,
     pub directory: Option<PathBuf>,

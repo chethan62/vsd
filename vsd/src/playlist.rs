@@ -1,7 +1,7 @@
 use crate::{
     core::{self, DownloadConfig, Stream},
     options::{Interaction, SelectOptions},
-    progress::ByteSize,
+    progress::{ByteSize, ProgressCallback},
     selector::StreamSelector,
     utils::{self, Query},
 };
@@ -17,7 +17,7 @@ use std::{
     collections::HashSet,
     fmt::Display,
     path::PathBuf,
-    sync::atomic::AtomicBool,
+    sync::{Arc, atomic::AtomicBool},
 };
 use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
 
@@ -250,9 +250,9 @@ impl MediaPlaylist {
         &self,
         config: &DownloadConfig,
         running: &AtomicBool,
-        label: &str,
+        callback: Arc<dyn ProgressCallback>,
     ) -> Result<Option<Stream>> {
-        core::download_stream(config, running, label, self).await
+        core::download_stream(config, running, callback, self).await
     }
 
     pub fn extension(&self) -> &str {

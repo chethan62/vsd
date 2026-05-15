@@ -1,12 +1,12 @@
 use crate::{
     core::{DownloadConfig, Stream, mux::Streams, sub, vid},
     playlist::{MediaPlaylist, MediaType},
-    progress::Progress,
+    progress::{Progress, ProgressCallback},
 };
 use anyhow::Result;
 use colored::Colorize;
 use log::{info, warn};
-use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, atomic::AtomicBool};
 
 pub async fn download_streams(
     config: &DownloadConfig,
@@ -29,27 +29,16 @@ pub async fn download_streams(
         }
 
         let label = format!("{}/{}", i + 1, total);
+        let pb = Progress::new(&label, stream.segments.len(), None);
 
         if stream.media_type == MediaType::Subtitles {
-            temp_files.0.push(
-                sub::download(
-                    config,
-                    running,
-                    Progress::new(&label, stream.segments.len()),
-                    stream,
-                )
-                .await?,
-            );
+            temp_files
+                .0
+                .push(sub::download(config, running, pb, stream).await?);
         } else {
-            temp_files.0.push(
-                vid::download(
-                    config,
-                    running,
-                    Progress::new(&label, stream.segments.len()),
-                    stream,
-                )
-                .await?,
-            );
+            temp_files
+                .0
+                .push(vid::download(config, running, pb, stream).await?);
         }
     }
 
@@ -59,7 +48,7 @@ pub async fn download_streams(
 pub async fn download_stream(
     config: &DownloadConfig,
     running: &AtomicBool,
-    label: &str,
+    callback: Arc<dyn ProgressCallback>,
     stream: &MediaPlaylist,
 ) -> Result<Option<Stream>> {
     info!(
@@ -73,25 +62,11 @@ pub async fn download_stream(
         return Ok(None);
     }
 
+    let pb = Progress::new(&stream.id, stream.segments.len(), Some(callback));
+
     if stream.media_type == MediaType::Subtitles {
-        return Ok(Some(
-            sub::download(
-                config,
-                running,
-                Progress::new(label, stream.segments.len()),
-                stream,
-            )
-            .await?,
-        ));
+        Ok(Some(sub::download(config, running, pb, stream).await?))
     } else {
-        return Ok(Some(
-            vid::download(
-                config,
-                running,
-                Progress::new(label, stream.segments.len()),
-                stream,
-            )
-            .await?,
-        ));
+        Ok(Some(vid::download(config, running, pb, stream).await?))
     }
 }

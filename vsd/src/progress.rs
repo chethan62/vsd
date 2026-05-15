@@ -6,6 +6,55 @@ use std::{
 };
 use tokio::task::JoinHandle;
 
+/// Snapshot of download progress for a single stream.
+pub struct ProgressState {
+    /// Stream label (e.g. "1/3")
+    pub label: String,
+    /// Number of parts downloaded so far
+    pub downloaded_parts: usize,
+    /// Total number of parts
+    pub total_parts: usize,
+    /// Total bytes downloaded so far
+    pub downloaded_bytes: usize,
+    /// Estimated total bytes (extrapolated from current progress)
+    pub estimated_bytes: usize,
+    /// Download speed in bytes per second
+    pub speed_bps: f64,
+    /// Estimated time remaining in seconds
+    pub eta_seconds: usize,
+    /// Completion percentage (0–100)
+    pub percent: u8,
+}
+
+/// Trait for receiving download progress updates.
+///
+/// Implement this trait to receive progress updates in your own UI,
+/// logging system, or any other consumer. When no callback is provided,
+/// the built-in terminal progress bar is used instead.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use vsd::progress::{ProgressCallback, ProgressState};
+///
+/// struct MyProgress;
+///
+/// impl ProgressCallback for MyProgress {
+///     fn on_progress(&self, state: &ProgressState) {
+///         println!("{}% ({}/{})", state.percent, state.downloaded_segments, state.total_segments);
+///     }
+///     fn on_finish(&self, state: &ProgressState) {
+///         println!("Done! {} bytes", state.downloaded_bytes);
+///     }
+/// }
+/// ```
+pub trait ProgressCallback: Send + Sync {
+    /// Called periodically (roughly once per second) with the current progress.
+    fn on_progress(&self, state: &ProgressState);
+    /// Called once when the stream download completes.
+    fn on_finish(&self, state: &ProgressState);
+}
+
 struct ProgressInner {
     counter: usize,
     id: String,
@@ -16,13 +65,61 @@ struct ProgressInner {
     total_bytes: usize,
 }
 
+impl ProgressInner {
+    fn state(&self) -> ProgressState {
+        let estimated_bytes = if self.counter > 0 {
+            ((self.total_bytes as f64 / self.counter as f64) * self.total as f64) as usize
+        } else {
+            0
+        };
+
+        let percent = if self.total > 0 {
+            (self.counter as f64 / self.total as f64 * 100.0) as u8
+        } else {
+            100
+        };
+
+        let elapsed_secs = self.timer.elapsed().as_secs_f64();
+
+        let speed_bps = if self.session_counter > 0 {
+            self.session_bytes as f64 / elapsed_secs
+        } else {
+            0.0
+        };
+
+        let rate = if self.session_counter > 0 {
+            self.session_counter as f64 / elapsed_secs
+        } else {
+            0.0
+        };
+
+        let eta_seconds = if rate > 0.0 {
+            (self.total.saturating_sub(self.counter) as f64 / rate) as usize
+        } else {
+            0
+        };
+
+        ProgressState {
+            label: self.id.clone(),
+            downloaded_parts: self.counter,
+            total_parts: self.total,
+            downloaded_bytes: self.total_bytes,
+            estimated_bytes,
+            speed_bps,
+            eta_seconds,
+            percent,
+        }
+    }
+}
+
 #[derive(Clone)]
-pub struct Progress {
+pub(crate) struct Progress {
     inner: Arc<Mutex<ProgressInner>>,
+    callback: Option<Arc<dyn ProgressCallback>>,
 }
 
 impl Progress {
-    pub fn new(id: &str, total: usize) -> Self {
+    pub fn new(id: &str, total: usize, callback: Option<Arc<dyn ProgressCallback>>) -> Self {
         Self {
             inner: Arc::new(Mutex::new(ProgressInner {
                 counter: 0,
@@ -33,6 +130,7 @@ impl Progress {
                 timer: Instant::now(),
                 total_bytes: 0,
             })),
+            callback,
         }
     }
 
@@ -52,13 +150,18 @@ impl Progress {
 
     pub fn spawn(&self) -> JoinHandle<()> {
         let inner = self.inner.clone();
+        let callback = self.callback.clone();
 
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 let done = {
                     let inner = inner.lock().unwrap();
-                    Self::render(&inner);
+                    if let Some(cb) = &callback {
+                        cb.on_progress(&inner.state());
+                    } else {
+                        Self::render(&inner);
+                    }
                     inner.counter >= inner.total
                 };
                 if done {
@@ -70,8 +173,12 @@ impl Progress {
 
     pub fn finish(&self) {
         let inner = self.inner.lock().unwrap();
-        Self::render(&inner);
-        eprintln!();
+        if let Some(cb) = &self.callback {
+            cb.on_finish(&inner.state());
+        } else {
+            Self::render(&inner);
+            eprintln!();
+        }
     }
 
     fn render(inner: &ProgressInner) {
@@ -79,34 +186,7 @@ impl Progress {
             return;
         }
 
-        let remaining_bytes =
-            ((inner.total_bytes as f64 / inner.counter as f64) * inner.total as f64) as usize;
-
-        let percent = if inner.total > 0 {
-            (inner.counter as f64 / inner.total as f64 * 100.0) as usize
-        } else {
-            100
-        };
-
-        let elapsed_secs = inner.timer.elapsed().as_secs_f64();
-
-        let speed = if inner.session_counter > 0 {
-            inner.session_bytes as f64 / elapsed_secs
-        } else {
-            0.0
-        };
-
-        let rate = if inner.session_counter > 0 {
-            inner.session_counter as f64 / elapsed_secs
-        } else {
-            0.0
-        };
-
-        let eta_secs = if rate > 0.0 {
-            (inner.total.saturating_sub(inner.counter) as f64 / rate) as usize
-        } else {
-            0
-        };
+        let state = inner.state();
 
         let stderr = io::stderr();
         let mut handle = stderr.lock();
@@ -114,13 +194,13 @@ impl Progress {
             handle,
             "\r\x1B[2K{}#({}) {}/~{}{} PT:{} DL:{} ETA:{}{}",
             "[".magenta(),
-            inner.id,
-            ByteSize(inner.total_bytes),
-            ByteSize(remaining_bytes),
-            format!("({}%)", percent).cyan(),
-            format!("{}/{}", inner.counter, inner.total).cyan(),
-            ByteSize(speed as usize).to_string().green(),
-            Eta(eta_secs).to_string().yellow(),
+            state.label,
+            ByteSize(state.downloaded_bytes),
+            ByteSize(state.estimated_bytes),
+            format!("({}%)", state.percent).cyan(),
+            format!("{}/{}", state.downloaded_parts, state.total_parts).cyan(),
+            ByteSize(state.speed_bps as usize).to_string().green(),
+            Eta(state.eta_seconds).to_string().yellow(),
             "]".magenta(),
         )
         .unwrap();
