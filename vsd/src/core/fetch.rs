@@ -166,7 +166,7 @@ impl FetchedPlaylist {
         }
     }
 
-    pub fn parse_head(&self) -> Result<()> {
+    pub fn parse_and_list(&self) -> Result<()> {
         let list = |mp: MasterPlaylist| {
             for (i, stream) in mp.streams.iter().enumerate() {
                 info!(

@@ -202,7 +202,7 @@ impl Save {
             dl = dl.base_url(base_url);
         }
         if let Some(directory) = self.directory {
-            dl = dl.directory(directory);
+            dl = dl.directory(directory)?;
         }
         if let Some(output) = &self.output {
             dl = dl.output(output.clone());
@@ -217,7 +217,7 @@ impl Save {
         }
 
         if self.list_streams {
-            dl.list_playlist(&self.input).await?;
+            dl.parse_and_list(&self.input).await?;
         } else if self.list_streams_json {
             let mp = dl.parse(&self.input, false).await?;
             let metadata = mp.metadata(dl.get_config()).await?;

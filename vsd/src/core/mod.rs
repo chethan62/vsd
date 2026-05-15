@@ -76,9 +76,15 @@ impl Downloader {
         self
     }
 
-    pub fn directory(mut self, directory: impl Into<PathBuf>) -> Self {
-        self.config.directory = Some(directory.into());
-        self
+    pub fn directory(mut self, directory: impl Into<PathBuf>) -> Result<Self> {
+        let directory = directory.into();
+
+        if !directory.exists() {
+            fs::create_dir_all(&directory)?;
+        }
+
+        self.config.directory = Some(directory);
+        Ok(self)
     }
 
     pub fn output(mut self, output: impl Into<PathBuf>) -> Self {
@@ -179,9 +185,9 @@ impl Downloader {
         Ok(mp)
     }
 
-    pub(crate) async fn list_playlist(self, uri: &str) -> Result<()> {
+    pub(crate) async fn parse_and_list(self, uri: &str) -> Result<()> {
         let fp = fetch::playlist(&self.config, &self.base_url, uri).await?;
-        fp.parse_head()?;
+        fp.parse_and_list()?;
         Ok(())
     }
 
@@ -213,12 +219,6 @@ impl Downloader {
                 std::process::exit(1);
             }
         });
-
-        if let Some(directory) = &self.config.directory
-            && !directory.exists()
-        {
-            fs::create_dir_all(directory)?;
-        }
 
         let temp_files = dl::download_streams(&self.config, &self.running, streams).await?;
 

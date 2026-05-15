@@ -51,14 +51,7 @@ pub async fn download_stream(
     callback: Arc<dyn ProgressCallback>,
     stream: &MediaPlaylist,
 ) -> Result<Option<Stream>> {
-    info!(
-        "DownLD [{}] {}",
-        stream.media_type.to_string().green(),
-        stream.display().cyan(),
-    );
-
     if stream.segments.is_empty() {
-        warn!("Stream skipped because no segments were found.");
         return Ok(None);
     }
 
