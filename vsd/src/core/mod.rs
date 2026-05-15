@@ -2,15 +2,13 @@ mod dl;
 mod enc;
 mod fetch;
 mod mux;
-mod stream;
 mod sub;
+mod vid;
 
+pub use dl::download_stream;
 pub use mux::Stream;
-pub use stream::download_stream;
-pub use sub::download_sub_stream;
 
 use crate::{
-    core::mux::Streams,
     options::{Interaction, SelectOptions},
     playlist::{MasterPlaylist, MediaType},
     utils,

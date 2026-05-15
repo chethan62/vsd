@@ -1,5 +1,5 @@
 use crate::{
-    core::Stream,
+    core::{self, Stream},
     options::{Interaction, SelectOptions},
     progress::ByteSize,
     selector::StreamSelector,
@@ -263,6 +263,16 @@ impl MediaPlaylist {
             .map(|kid| kid.to_ascii_lowercase().replace('-', ""))
     }
 
+    pub async fn download(
+        &self,
+        client: &Client,
+        query: &Query,
+        directory: Option<&PathBuf>,
+        keys: &HashMap<String, String>,
+    ) -> Result<Option<Stream>> {
+        core::download_stream(client, query, directory, keys, self).await
+    }
+
     pub fn extension(&self) -> &str {
         if let Some(ext) = &self.extension {
             return ext;
@@ -368,15 +378,6 @@ impl MediaPlaylist {
 
         Ok(())
     }
-
-    // pub fn download(
-    //     client: &Client,
-    //     query: &Query,
-    //     directory: &Option<PathBuf>,
-    //     keys: &HashMap<String, String>,
-    // ) -> Result<Stream> {
-    //     Ok(())
-    // }
 }
 
 impl Display for MediaType {
