@@ -7,7 +7,7 @@ use crate::{
 use anyhow::{Result, bail};
 use colored::Colorize;
 use log::{debug, info, warn};
-use reqwest::header;
+use reqwest::{Url, header};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::{fs::File, io::AsyncWriteExt, task::JoinSet};
 use vsd_mp4::text::{Mp4TtmlParser, Mp4VttParser, ttml_text_parser};
@@ -53,12 +53,12 @@ pub async fn download(
     pb: Progress,
     stream: &MediaPlaylist,
 ) -> Result<Stream> {
-    let base_url = stream.uri.parse()?;
+    let base_url = stream.uri.parse::<Url>()?;
     let ext = stream.extension();
     let mut data = Vec::new();
     let mut temp_file = stream.path(config.directory.as_ref());
 
-    if let Some(mut bytes) = stream.fetch_init(&config.client, &base_url, &config.query).await? {
+    if let Some(mut bytes) = stream.fetch_init(config).await? {
         data.append(&mut bytes);
     }
 

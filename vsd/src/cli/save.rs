@@ -219,15 +219,11 @@ impl Save {
         if self.list_streams {
             dl.list_playlist(&self.input).await?;
         } else if self.list_streams_json {
-            let query = dl.get_query();
-            let metadata = dl
-                .as_master_playlist(&self.input, false)
-                .await?
-                .metadata(&client, query)
-                .await?;
+            let mp = dl.parse(&self.input, false).await?;
+            let metadata = mp.metadata(dl.get_config()).await?;
             serde_json::to_writer(std::io::stdout(), &metadata)?;
         } else if self.parse {
-            let mp = dl.as_master_playlist(&self.input, false).await?;
+            let mp = dl.parse(&self.input, false).await?;
 
             if let Some(output) = &self.output {
                 serde_json::to_writer(std::fs::File::create(output)?, &mp)?;

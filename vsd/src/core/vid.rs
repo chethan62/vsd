@@ -6,7 +6,7 @@ use crate::{
 use anyhow::{Result, anyhow, bail};
 use colored::Colorize;
 use log::{debug, info, trace, warn};
-use reqwest::{StatusCode, header};
+use reqwest::{StatusCode, Url, header};
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -52,7 +52,7 @@ pub async fn download(
         );
     }
 
-    let base_url = stream.uri.parse()?;
+    let base_url = stream.uri.parse::<Url>()?;
     let ext = stream.extension();
     let pb_handle = pb.spawn();
     let should_decrypt = !config.skip_decrypt;
@@ -60,10 +60,7 @@ pub async fn download(
     let mut auto_increment_iv = false;
     let mut decrypter = Decrypter::None;
 
-    let init = stream
-        .fetch_init(&config.client, &base_url, &config.query)
-        .await?
-        .map(Arc::new);
+    let init = stream.fetch_init(config).await?.map(Arc::new);
 
     let default_kid = if let Some(init) = &init {
         TencBox::from_init(init)?.map(|x| x.default_kid_hex())

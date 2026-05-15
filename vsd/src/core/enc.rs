@@ -1,11 +1,10 @@
 use crate::{
+    DownloadConfig,
     playlist::{KeyMethod, MediaPlaylist, Segment},
-    utils::Query,
 };
 use anyhow::{Result, bail};
 use colored::Colorize;
 use log::info;
-use reqwest::Client;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -87,9 +86,8 @@ pub fn check_unsupported_enc(streams: &Vec<MediaPlaylist>) -> Result<()> {
 }
 
 pub async fn get_default_kids(
+    config: &DownloadConfig,
     streams: &[MediaPlaylist],
-    client: &Client,
-    query: &Query,
 ) -> Result<HashSet<String>> {
     let mut default_kids = HashSet::new();
 
@@ -102,10 +100,7 @@ pub async fn get_default_kids(
     let mut pssh_hash = HashSet::new();
 
     for stream in streams {
-        let Some(init_seg) = stream
-            .fetch_init(client, &stream.uri.parse()?, query)
-            .await?
-        else {
+        let Some(init_seg) = stream.fetch_init(config).await? else {
             continue;
         };
         let pssh = PsshBox::from_init(&init_seg)?;

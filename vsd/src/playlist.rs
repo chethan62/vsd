@@ -21,14 +21,14 @@ use std::{
 };
 use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct MasterPlaylist {
     pub playlist_type: PlaylistType,
     pub uri: String,
     pub streams: Vec<MediaPlaylist>,
 }
 
-#[derive(Default, Serialize)]
+#[derive(Default, Debug, Serialize)]
 pub struct MediaPlaylist {
     pub bandwidth: Option<u64>,
     pub channels: Option<f32>,
@@ -47,7 +47,7 @@ pub struct MediaPlaylist {
     pub uri: String,
 }
 
-#[derive(Clone, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct Segment {
     pub duration: f32,
     pub key: Option<Key>,
@@ -56,7 +56,7 @@ pub struct Segment {
     pub uri: String,
 }
 
-#[derive(Clone, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct Key {
     pub default_kid: Option<String>,
     pub iv: Option<String>,
@@ -64,16 +64,16 @@ pub struct Key {
     pub uri: Option<String>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Map {
     pub range: Option<Range>,
     pub uri: String,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Range(pub u64, pub u64);
 
-#[derive(Clone, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub enum MediaType {
     Video,
     Audio,
@@ -82,14 +82,14 @@ pub enum MediaType {
     Undefined,
 }
 
-#[derive(Clone, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub enum PlaylistType {
     Dash,
     #[default]
     Hls,
 }
 
-#[derive(Clone, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub enum KeyMethod {
     Aes128,
     Cenc,
@@ -99,7 +99,7 @@ pub enum KeyMethod {
     SampleAes,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct StreamMetadata {
     pub bandwidth: Option<u64>,
     pub channels: Option<f32>,
@@ -143,17 +143,14 @@ impl Key {
 }
 
 impl MasterPlaylist {
-    pub async fn metadata(&self, client: &Client, query: &Query) -> Result<Vec<StreamMetadata>> {
+    pub async fn metadata(&self, config: &DownloadConfig) -> Result<Vec<StreamMetadata>> {
         let mut metadata = Vec::with_capacity(self.streams.len());
 
         for (i, stream) in self.streams.iter().enumerate() {
             let mut default_kid = stream.default_kid();
             let mut pssh = HashSet::new();
 
-            if let Some(bytes) = stream
-                .fetch_init(client, &stream.uri.parse()?, query)
-                .await?
-            {
+            if let Some(bytes) = stream.fetch_init(config).await? {
                 if let Some(kid) = TencBox::from_init(&bytes)?.map(|x| x.default_kid_hex())
                     && (default_kid.is_none() || kid != "00000000000000000000000000000000")
                 {
@@ -284,18 +281,13 @@ impl MediaPlaylist {
             .unwrap_or_else(|| PathBuf::from(filename))
     }
 
-    pub async fn fetch_init(
-        &self,
-        client: &Client,
-        base_url: &Url,
-        query: &Query,
-    ) -> Result<Option<Vec<u8>>> {
+    pub async fn fetch_init(&self, config: &DownloadConfig) -> Result<Option<Vec<u8>>> {
         let Some(Segment { map: Some(map), .. }) = self.segments.first() else {
             return Ok(None);
         };
 
-        let url = base_url.join(&map.uri)?;
-        let mut request = client.get(url.clone()).query(query);
+        let url = self.uri.parse::<Url>()?.join(&map.uri)?;
+        let mut request = config.client.get(url.clone()).query(&config.query);
 
         if let Some(range) = &map.range {
             request = request.header(header::RANGE, range);
@@ -315,23 +307,19 @@ impl MediaPlaylist {
         Ok(Some(bytes))
     }
 
-    pub async fn fetch_split_seg(
-        &mut self,
-        client: &Client,
-        base_url: &Option<Url>,
-        query: &Vec<(String, String)>,
-    ) -> Result<()> {
+    pub async fn fetch_split_seg(&mut self, config: &DownloadConfig) -> Result<()> {
         if self.segments.len() > 1 {
             return Ok(());
         }
 
-        let base_url = base_url.clone().unwrap_or(self.uri.parse()?);
+        let base_url = self.uri.parse::<Url>()?;
         let segment = self.segments.remove(0);
         let url = base_url.join(&segment.uri)?;
 
-        let content_length: u64 = client
+        let content_length: u64 = config
+            .client
             .head(url)
-            .query(query)
+            .query(&config.query)
             .send()
             .await?
             .headers()

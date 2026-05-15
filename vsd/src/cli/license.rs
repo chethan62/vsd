@@ -97,11 +97,10 @@ impl License {
                     let _ = pssh_data.insert(x.data);
                 });
         } else if let Ok(url) = self.input.parse::<Url>() {
-            let metadata = Downloader::new(&client)
-                .as_master_playlist(url.as_str(), false)
-                .await?
-                .metadata(&client, &[])
-                .await?;
+            let dl = Downloader::new(&client);
+            let config = dl.get_config();
+            let mp = dl.parse(url.as_str(), false).await?;
+            let metadata = mp.metadata(config).await?;
 
             for pssh in metadata.into_iter().flat_map(|sm| sm.pssh) {
                 let _ = pssh_data.insert(base64::engine::general_purpose::STANDARD.decode(&pssh)?);

@@ -153,11 +153,11 @@ impl Downloader {
         self
     }
 
-    pub async fn as_master_playlist(
-        &self,
-        uri: &str,
-        partial_parse: bool,
-    ) -> Result<MasterPlaylist> {
+    pub fn get_config(&self) -> &DownloadConfig {
+        &self.config
+    }
+
+    pub async fn parse(&self, uri: &str, partial_parse: bool) -> Result<MasterPlaylist> {
         let fp =
             fetch::playlist(&self.config.client, &self.base_url, &self.config.query, uri).await?;
         let mp = if partial_parse {
@@ -189,26 +189,19 @@ impl Downloader {
         Ok(())
     }
 
-    pub fn get_query(&self) -> &[(String, String)] {
-        &self.config.query
-    }
-
     pub async fn download(self, uri: &str) -> Result<()> {
-        let mp = self.as_master_playlist(uri, true).await?;
+        let mp = self.parse(uri, true).await?;
         let mut streams = mp.streams;
 
         if !self.config.skip_decrypt {
             enc::check_unsupported_enc(&streams)?;
-            let default_kids =
-                enc::get_default_kids(&streams, &self.config.client, &self.config.query).await?;
+            let default_kids = enc::get_default_kids(&self.config, &streams).await?;
             enc::check_keys_exist(&self.config.keys, &default_kids)?;
         }
 
         for stream in &mut streams {
             if stream.media_type != MediaType::Subtitles {
-                stream
-                    .fetch_split_seg(&self.config.client, &self.base_url, &self.config.query)
-                    .await?;
+                stream.fetch_split_seg(&self.config).await?;
             }
         }
 
