@@ -1,4 +1,5 @@
 use crate::{
+    core::Stream,
     options::{Interaction, SelectOptions},
     progress::ByteSize,
     selector::StreamSelector,
@@ -12,7 +13,12 @@ use reqwest::{
     header::{self, HeaderValue},
 };
 use serde::Serialize;
-use std::{cmp::Reverse, collections::HashSet, fmt::Display, path::PathBuf};
+use std::{
+    cmp::Reverse,
+    collections::{HashMap, HashSet},
+    fmt::Display,
+    path::PathBuf,
+};
 use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
 
 #[derive(Serialize)]
@@ -362,6 +368,15 @@ impl MediaPlaylist {
 
         Ok(())
     }
+
+    // pub fn download(
+    //     client: &Client,
+    //     query: &Query,
+    //     directory: &Option<PathBuf>,
+    //     keys: &HashMap<String, String>,
+    // ) -> Result<Stream> {
+    //     Ok(())
+    // }
 }
 
 impl Display for MediaType {

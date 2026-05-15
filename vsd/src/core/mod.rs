@@ -1,8 +1,13 @@
+mod dl;
 mod enc;
 mod fetch;
 mod mux;
 mod stream;
-mod subtitle;
+mod sub;
+
+pub use mux::Stream;
+pub use stream::download_stream;
+pub use sub::download_sub_stream;
 
 use crate::{
     core::mux::Streams,
@@ -232,34 +237,22 @@ impl Downloader {
             }
         });
 
-        let mut temp_files = Streams(Vec::new());
-
         if let Some(directory) = &self.directory
             && !directory.exists()
         {
             fs::create_dir_all(directory)?;
         }
 
-        subtitle::download_subtitle_streams(
+        let temp_files = dl::download_streams(
             &self.client,
-            &streams,
             &self.query,
             self.directory.as_ref(),
-            &mut temp_files,
-        )
-        .await?;
-
-        stream::download_streams(
-            &self.client,
-            &streams,
-            &self.query,
-            self.directory.as_ref(),
-            &mut temp_files,
             &self.keys,
+            streams,
         )
         .await?;
 
-        if mux::should_mux(&streams, self.output.as_ref()) {
+        if temp_files.should_mux(&self.output) {
             let Some(ffmpeg) = utils::find_ffmpeg() else {
                 bail!("ffmpeg couldn't be located, it's required to continue further.");
             };

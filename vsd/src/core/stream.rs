@@ -1,10 +1,9 @@
 use crate::{
     core::{
-        MAX_RETRIES, MAX_THREADS, NO_RESUME, RUNNING, SKIP_DECRYPT, SKIP_MERGE, STREAM_DL_IDX,
-        enc::Decrypter,
-        mux::{Stream, Streams},
+        MAX_RETRIES, MAX_THREADS, NO_RESUME, RUNNING, SKIP_DECRYPT, SKIP_MERGE, enc::Decrypter,
+        mux::Stream,
     },
-    playlist::{KeyMethod, MediaPlaylist, MediaType},
+    playlist::{KeyMethod, MediaPlaylist},
     progress::Progress,
     utils::Query,
 };
@@ -30,67 +29,20 @@ use vsd_mp4::{
 
 const PNG_HEADER: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
-#[allow(clippy::too_many_arguments)]
-pub async fn download_streams(
+pub async fn download_stream(
     client: &Client,
-    streams: &Vec<MediaPlaylist>,
     query: &Query,
     directory: Option<&PathBuf>,
-    temp_files: &mut Streams,
-    keys: &HashMap<String, String>,
-) -> Result<()> {
-    let total = streams.len();
-
-    for stream in streams {
-        if stream.media_type == MediaType::Subtitles {
-            continue;
-        }
-
-        download_stream(
-            client,
-            stream,
-            query,
-            directory,
-            temp_files,
-            keys,
-            Progress::new(
-                &format!("{}/{}", STREAM_DL_IDX.fetch_add(1, Ordering::SeqCst), total),
-                stream.segments.len(),
-            ),
-        )
-        .await?;
-    }
-
-    Ok(())
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn download_stream(
-    client: &Client,
-    stream: &MediaPlaylist,
-    query: &Query,
-    directory: Option<&PathBuf>,
-    temp_files: &mut Streams,
     keys: &HashMap<String, String>,
     pb: Progress,
-) -> Result<()> {
-    info!(
-        "DownLD [{}] {}",
-        stream.media_type.to_string().green(),
-        stream.display().cyan(),
-    );
-
-    if stream.segments.is_empty() {
-        warn!("Stream skipped because no segments were found.");
-        return Ok(());
-    }
-
+    stream: &MediaPlaylist,
+) -> Result<Stream> {
     let temp_file = stream.path(directory);
-    temp_files.0.push(Stream {
+    let temp_stream = Stream {
         language: stream.language.clone(),
         media_type: stream.media_type.clone(),
         path: temp_file.clone(),
-    });
+    };
 
     if temp_file.exists() && !NO_RESUME.load(Ordering::SeqCst) {
         info!(
@@ -98,7 +50,7 @@ async fn download_stream(
             stream.media_type.to_string().green(),
             temp_file.to_string_lossy()
         );
-        return Ok(());
+        return Ok(temp_stream);
     } else {
         info!(
             "Saving [{}] {}",
@@ -348,5 +300,6 @@ async fn download_stream(
         debug!("Deleting '{}' directory.", temp_dir.to_string_lossy());
         fs::remove_dir_all(&temp_dir).await?;
     }
-    Ok(())
+
+    Ok(temp_stream)
 }

@@ -1,6 +1,6 @@
 use crate::{
     core::{SKIP_DECRYPT, SKIP_MERGE},
-    playlist::{MediaPlaylist, MediaType},
+    playlist::MediaType,
 };
 use anyhow::{Result, bail};
 use colored::Colorize;
@@ -12,15 +12,40 @@ use std::{
 };
 use tokio::{fs, process::Command};
 
-pub struct Streams(pub Vec<Stream>);
-
 pub struct Stream {
     pub language: Option<String>,
     pub media_type: MediaType,
     pub path: PathBuf,
 }
 
+pub struct Streams(pub Vec<Stream>);
+
 impl Streams {
+    pub fn should_mux(&self, output: &Option<PathBuf>) -> bool {
+        if output.is_none() {
+            return false;
+        }
+        if SKIP_DECRYPT.load(Ordering::SeqCst) {
+            warn!("--output is ignored when --no-decrypt is used.");
+            return false;
+        }
+        if SKIP_MERGE.load(Ordering::SeqCst) {
+            warn!("--output is ignored when --no-merge is used.");
+            return false;
+        }
+        if self
+            .0
+            .iter()
+            .filter(|x| x.media_type == MediaType::Video)
+            .count()
+            > 1
+        {
+            warn!("--output is ignored when multiple vid streams are selected.");
+            return false;
+        }
+        true
+    }
+
     pub async fn mux(&self, ffmpeg: &Path, output: &Path, subs_codec: &str) -> Result<()> {
         let temp_files = [MediaType::Video, MediaType::Audio, MediaType::Subtitles]
             .iter()
@@ -152,28 +177,4 @@ impl Streams {
         }
         Ok(())
     }
-}
-
-pub fn should_mux(streams: &[MediaPlaylist], output: Option<&PathBuf>) -> bool {
-    if output.is_none() {
-        return false;
-    }
-    if SKIP_DECRYPT.load(Ordering::SeqCst) {
-        warn!("--output is ignored when --no-decrypt is used.");
-        return false;
-    }
-    if SKIP_MERGE.load(Ordering::SeqCst) {
-        warn!("--output is ignored when --no-merge is used.");
-        return false;
-    }
-    if streams
-        .iter()
-        .filter(|x| x.media_type == MediaType::Video)
-        .count()
-        > 1
-    {
-        warn!("--output is ignored when multiple vid streams are selected.");
-        return false;
-    }
-    true
 }
