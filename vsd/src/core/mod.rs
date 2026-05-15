@@ -73,15 +73,11 @@ impl Downloader {
         self
     }
 
-    /// Subtitle codec to use when muxing with ffmpeg.
-    ///
-    /// Defaults to `mov_text` for `.mp4` containers, `copy` for others.
     pub fn subs_codec(mut self, subs_codec: impl Into<String>) -> Self {
         self.subs_codec = subs_codec.into();
         self
     }
 
-    /// Enable interactive stream selection with styled or plain text prompts.
     pub fn interactive(mut self, raw: bool) -> Self {
         if raw {
             self.interaction_type = Interaction::Raw;
