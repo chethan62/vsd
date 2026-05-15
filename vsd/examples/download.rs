@@ -1,7 +1,12 @@
+// This example shows using vsd as library in other rust project.
+//
+// [dependencies]
+// vsd = { version = "0.5", default-features = false, features = ["rustls-tls"]}
+
 use anyhow::Result;
 use reqwest::Client;
 use std::{
-    path::Path,
+    path::PathBuf,
     sync::{Arc, atomic::AtomicBool},
 };
 use vsd::{
@@ -45,6 +50,7 @@ async fn main() -> Result<()> {
     let running = Arc::new(AtomicBool::new(true));
     let mut muxer = Muxer(Vec::new());
 
+    // Download first subtitle stream.
     for stream in mp.streams {
         if stream.media_type == MediaType::Subtitles {
             println!(
@@ -75,13 +81,9 @@ async fn main() -> Result<()> {
     }
 
     println!("Muxing to output.srt");
-    muxer
-        .mux(
-            vsd::find_ffmpeg().unwrap().as_path(),
-            &Path::new("output.srt"),
-            "srt",
-        )
-        .await?;
+    let ffmpeg = vsd::find_ffmpeg().unwrap();
+    let output = PathBuf::from("output.srt");
+    muxer.mux(&ffmpeg, &output, "srt").await?;
     muxer.clean(config.directory.as_deref()).await?;
 
     Ok(())

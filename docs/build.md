@@ -29,7 +29,7 @@ git clone https://github.com/clitic/vsd --depth 1
 cd vsd
 cargo build -p vsd --release
 # optional - generate cli docs (docs/cli.md)
-cargo run -p vsd --example vsd-docs --all-features
+cargo run -p vsd --example docs --all-features
 ```
 
 ## Cross Compilation
