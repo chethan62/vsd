@@ -1,7 +1,7 @@
 use crate::{
     core::{DownloadConfig, enc::Decrypter, mux::Stream},
     error::{Error, Result},
-    playlist::{KeyMethod, MediaPlaylist},
+    playlist::{Key, KeyMethod, MediaPlaylist, Segment},
     progress::Progress,
 };
 use colored::Colorize;
@@ -30,6 +30,21 @@ pub async fn download(
     pb: Progress,
     stream: &MediaPlaylist,
 ) -> Result<Stream> {
+    if let Some(Segment {
+        key:
+            Some(
+                Key {
+                    method: KeyMethod::Other(x),
+                    ..
+                },
+                ..,
+            ),
+        ..
+    }) = stream.segments.first()
+    {
+        return Err(Error::UnsupportedEncryption(x.to_owned()));
+    }
+
     let temp_file = stream.path(config.directory.as_ref());
     let temp_stream = Stream {
         language: stream.language.clone(),

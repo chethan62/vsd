@@ -44,7 +44,7 @@ pub async fn download_streams(
 
     for (i, stream) in streams.iter().enumerate() {
         info!(
-            "DownLD [{}] {}",
+            "DownLd [{}] {}",
             stream.media_type.to_string().green(),
             stream.display().cyan(),
         );
