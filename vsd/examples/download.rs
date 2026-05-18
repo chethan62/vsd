@@ -7,9 +7,8 @@ use std::{
     path::PathBuf,
     sync::{Arc, atomic::AtomicBool},
 };
-use vsd::Result;
 use vsd::{
-    Downloader, Error, Muxer,
+    Downloader, Error, Muxer, Result,
     playlist::MediaType,
     progress::{ProgressCallback, ProgressState},
     reqwest::Client,
