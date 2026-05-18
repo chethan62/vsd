@@ -13,17 +13,8 @@ use crate::{
     playlist::{MasterPlaylist, MediaType},
     utils,
 };
-use log::warn;
 use reqwest::{Client, Url};
-use std::{
-    collections::HashMap,
-    fs,
-    path::PathBuf,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 #[derive(Clone, Debug)]
 pub struct DownloadConfig {
@@ -40,7 +31,6 @@ pub struct DownloadConfig {
 
 pub struct Downloader {
     config: DownloadConfig,
-    running: Arc<AtomicBool>,
     base_url: Option<Url>,
     output: Option<PathBuf>,
     subs_codec: String,
@@ -62,7 +52,6 @@ impl Downloader {
                 skip_decrypt: false,
                 skip_merge: false,
             },
-            running: Arc::new(AtomicBool::new(true)),
             base_url: None,
             output: None,
             subs_codec: "copy".to_owned(),
@@ -207,20 +196,7 @@ impl Downloader {
             enc::check_keys_exist(&self.config.keys, &default_kids)?;
         }
 
-        let running = self.running.clone();
-        tokio::spawn(async move {
-            if tokio::signal::ctrl_c().await.is_ok() && running.load(Ordering::SeqCst) {
-                warn!("Aborting download due to Ctrl+C.");
-                running.store(false, Ordering::SeqCst);
-            }
-
-            if tokio::signal::ctrl_c().await.is_ok() {
-                warn!("Force exiting due to Ctrl+C.");
-                std::process::exit(1);
-            }
-        });
-
-        let muxer = dl::download_streams(&self.config, &self.running, streams).await?;
+        let muxer = dl::download_streams(&self.config, streams).await?;
 
         if muxer.should_mux(&self.config, &self.output) {
             let Some(ffmpeg) = utils::find_ffmpeg() else {

@@ -6,14 +6,32 @@ use crate::{
 };
 use colored::Colorize;
 use log::{info, warn};
-use std::sync::atomic::AtomicBool;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 pub async fn download_streams(
     config: &DownloadConfig,
-    running: &AtomicBool,
     streams: Vec<MediaPlaylist>,
 ) -> Result<Muxer> {
+    let running = Arc::new(AtomicBool::new(true));
+
+    let ctrlc = running.clone();
+    tokio::spawn(async move {
+        if tokio::signal::ctrl_c().await.is_ok() && ctrlc.load(Ordering::SeqCst) {
+            warn!("Aborting download due to Ctrl+C.");
+            ctrlc.store(false, Ordering::SeqCst);
+        }
+
+        if tokio::signal::ctrl_c().await.is_ok() {
+            warn!("Force exiting due to Ctrl+C.");
+            std::process::exit(1);
+        }
+    });
+
     let mut muxer = Muxer(Vec::new());
+    let running = running.clone();
     let total = streams.len();
 
     for (i, stream) in streams.iter().enumerate() {
@@ -34,11 +52,11 @@ pub async fn download_streams(
         if stream.media_type == MediaType::Subtitles {
             muxer
                 .0
-                .push(sub::download(config, running, pb, stream).await?);
+                .push(sub::download(config, &running, pb, stream).await?);
         } else {
             muxer
                 .0
-                .push(vid::download(config, running, pb, stream).await?);
+                .push(vid::download(config, &running, pb, stream).await?);
         }
     }
 
