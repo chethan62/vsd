@@ -73,44 +73,42 @@ pub async fn download_streams(
 
 pub async fn dump_pssh_info(config: &DownloadConfig, streams: &[MediaPlaylist]) -> Result<()> {
     let mut default_kids = HashSet::new();
+    let mut init_segments = Vec::new();
 
     for stream in streams {
         let Some(bytes) = stream.fetch_init(config).await? else {
             continue;
         };
 
-        let Some(default_kid) = TencBox::from_init(&bytes)?.and_then(|x| {
+        if let Some(kid) = TencBox::from_init(&bytes)?.and_then(|x| {
             let kid = x.default_kid_hex();
             if kid == "00000000000000000000000000000000" {
                 stream.default_kid()
             } else {
                 Some(kid)
             }
-        }) else {
-            continue;
-        };
+        }) {
+            default_kids.insert(kid);
+        }
 
-        let _ = default_kids.insert(default_kid);
+        init_segments.push(bytes);
     }
 
-    let mut pssh_hash = HashSet::new();
+    let mut seen = HashSet::new();
 
-    for stream in streams {
-        let Some(bytes) = stream.fetch_init(config).await? else {
-            continue;
-        };
-        let pssh = PsshBox::from_init(&bytes)?;
+    for bytes in &init_segments {
+        let pssh = PsshBox::from_init(bytes)?;
 
         for pssh in pssh.data {
-            let hash = blake3::hash(&pssh.data).to_hex()[..7].to_owned();
-            if !pssh_hash.insert(hash) {
+            let pssh_base64 = pssh.as_base64();
+            if !seen.insert(pssh_base64.clone()) {
                 continue;
             }
 
             info!(
                 "DrmPsh [{}] {}",
                 pssh.system_id.to_string().magenta(),
-                pssh.as_base64(),
+                pssh_base64,
             );
             for kid in &pssh.key_ids {
                 info!(
