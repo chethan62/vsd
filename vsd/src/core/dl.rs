@@ -1,12 +1,12 @@
 use crate::{
-    core::{DownloadConfig, Stream, mux::Muxer, sub, vid},
+    core::{DownloadConfig, mux::Muxer, sub, vid},
     error::Result,
     playlist::{MediaPlaylist, MediaType},
-    progress::{Progress, ProgressCallback},
+    progress::Progress,
 };
 use colored::Colorize;
 use log::{info, warn};
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::atomic::AtomicBool;
 
 pub async fn download_streams(
     config: &DownloadConfig,
@@ -25,7 +25,7 @@ pub async fn download_streams(
 
         if stream.segments.is_empty() {
             warn!("Stream skipped because no segments were found.");
-            return Ok(muxer);
+            continue;
         }
 
         let label = format!("{}/{}", i + 1, total);
@@ -43,23 +43,4 @@ pub async fn download_streams(
     }
 
     Ok(muxer)
-}
-
-pub async fn download_stream(
-    config: &DownloadConfig,
-    running: &AtomicBool,
-    callback: Arc<dyn ProgressCallback>,
-    stream: &MediaPlaylist,
-) -> Result<Option<Stream>> {
-    if stream.segments.is_empty() {
-        return Ok(None);
-    }
-
-    let pb = Progress::new(&stream.id, stream.segments.len(), Some(callback));
-
-    if stream.media_type == MediaType::Subtitles {
-        Ok(Some(sub::download(config, running, pb, stream).await?))
-    } else {
-        Ok(Some(vid::download(config, running, pb, stream).await?))
-    }
 }

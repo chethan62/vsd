@@ -1,8 +1,8 @@
 use crate::{
     core::{self, DownloadConfig, Stream},
-    error::Result,
+    error::{Error, Result},
     options::{Interaction, SelectOptions},
-    progress::{ByteSize, ProgressCallback},
+    progress::{ByteSize, Progress, ProgressCallback},
     selector::StreamSelector,
     utils,
 };
@@ -250,8 +250,19 @@ impl MediaPlaylist {
         config: &DownloadConfig,
         running: &AtomicBool,
         callback: Arc<dyn ProgressCallback>,
-    ) -> Result<Option<Stream>> {
-        core::download_stream(config, running, callback, self).await
+    ) -> Result<Stream> {
+        if self.segments.is_empty() {
+            return Err(Error::MissingSegments);
+        }
+
+        let pb = Progress::new(&self.id, self.segments.len(), Some(callback));
+        let temp_file = if self.media_type == MediaType::Subtitles {
+            core::sub::download(config, running, pb, self).await?
+        } else {
+            core::vid::download(config, running, pb, self).await?
+        };
+
+        Ok(temp_file)
     }
 
     pub fn extension(&self) -> &str {

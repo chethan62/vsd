@@ -2,10 +2,9 @@ mod dl;
 mod enc;
 mod fetch;
 mod mux;
-mod sub;
-mod vid;
 
-pub use dl::download_stream;
+pub(crate) mod sub;
+pub(crate) mod vid;
 pub use mux::{Muxer, Stream};
 
 use crate::{

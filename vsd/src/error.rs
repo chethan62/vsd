@@ -5,28 +5,21 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug)]
 pub enum Error {
     DownloadInterrupted,
-
+    MissingSegments,
     MissingKeys(String),
-
     UnsupportedEncryption(String),
-
     FfmpegFailed {
         code: i32,
         message: String,
     },
-
     RequestFailed {
         url: String,
         status: StatusCode,
         body: String,
     },
-
     CookieParse(String),
-
     DashParse(String),
-
     Mp4Parse(vsd_mp4::Error),
-
     Other(String),
 }
 
@@ -36,6 +29,7 @@ impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::DownloadInterrupted => write!(f, "Download interrupted due to Ctrl+C."),
+            Self::MissingSegments => write!(f, "Stream contains no segments."),
             Self::MissingKeys(s) => write!(f, "Missing decryption key(s) for kid(s): {s}"),
             Self::UnsupportedEncryption(s) => write!(
                 f,

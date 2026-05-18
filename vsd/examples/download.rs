@@ -60,14 +60,18 @@ async fn main() -> Result<()> {
 
             // If stream is already downloaded then no progress updates will be triggered.
             let dl_info = match stream.download(&config, &running, Arc::new(Progress)).await {
-                Ok(Some(info)) => info,
-                Ok(None) => {
-                    println!("Stream has no segments");
-                    continue;
-                }
+                Ok(info) => info,
                 Err(Error::DownloadInterrupted) => {
                     println!("Download paused");
                     std::process::exit(0);
+                }
+                Err(Error::MissingSegments) => {
+                    println!("Stream has no segments");
+                    continue;
+                }
+                Err(Error::MissingKeys(kid)) => {
+                    println!("Missing decryption key for {kid}");
+                    continue;
                 }
                 Err(e) => return Err(e),
             };
