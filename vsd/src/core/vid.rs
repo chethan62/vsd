@@ -217,8 +217,8 @@ pub async fn download(
                         if avl_tries == 0 {
                             return Err(Error::RequestFailed {
                                 url: url.to_string(),
-                                status: e.status().unwrap_or(StatusCode::NOT_FOUND),
-                                body: "unknown".to_owned(),
+                                status: e.status().unwrap_or(StatusCode::default()),
+                                body: "unknown.".to_owned(),
                             });
                         }
                     }

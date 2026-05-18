@@ -22,7 +22,7 @@ pub async fn push_segments(
     stream: &mut MediaPlaylist,
 ) -> Result<()> {
     let Some((a_idx, r_idx)) = parse_locator(&stream.uri) else {
-        return Err(Error::DashAddressing(format!(
+        return Err(Error::DashParse(format!(
             "Used invalid dash locator: '{}'",
             stream.uri
         )));
@@ -81,7 +81,7 @@ pub async fn push_segments(
 
         let mut template = Template::new();
         let Some(rid) = representation.id.clone() else {
-            return Err(Error::DashAddressing(
+            return Err(Error::DashParse(
                 "Missing @id attribute on Representation node.".into(),
             ));
         };
@@ -127,7 +127,7 @@ pub async fn push_segments(
     }
 
     if segments.is_empty() {
-        return Err(Error::DashAddressing(
+        return Err(Error::DashParse(
             "No usable addressing mode identified for Representation node.".into(),
         ));
     }
@@ -207,7 +207,7 @@ async fn resolve_segments(
             debug!("Using (3) SegmentTemplate + SegmentTimeline addressing mode.");
 
             let Some(media) = media.as_ref() else {
-                return Err(Error::DashAddressing(
+                return Err(Error::DashParse(
                     "Missing @media attribute on SegmentTimeline.".into(),
                 ));
             };
@@ -232,7 +232,7 @@ async fn resolve_segments(
             debug!("Using (4) SegmentTemplate@duration addressing mode.");
 
             let Some(duration) = rt.and_then(|t| t.duration).or(at.and_then(|t| t.duration)) else {
-                return Err(Error::DashAddressing(
+                return Err(Error::DashParse(
                     "Missing @duration attribute on SegmentTemplate@duration.".into(),
                 ));
             };

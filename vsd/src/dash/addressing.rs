@@ -209,7 +209,7 @@ pub async fn resolve_segment_base(
         let response = request.send().await?;
         let bytes = utils::fetch_bytes(response).await?;
         let Some(sidx) = SidxBox::from_init(&bytes, index_range.0)? else {
-            return Err(Error::DashAddressing(
+            return Err(Error::DashParse(
                 "Missing sidx box in initialization.".into(),
             ));
         };
