@@ -203,7 +203,6 @@ impl Downloader {
         let streams = mp.streams;
 
         if !self.config.skip_decrypt {
-            enc::check_unsupported_enc(&streams)?;
             let default_kids = enc::get_default_kids(&self.config, &streams).await?;
             enc::check_keys_exist(&self.config.keys, &default_kids)?;
         }

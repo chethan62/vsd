@@ -1,7 +1,7 @@
 use crate::{
     DownloadConfig,
     error::{Error, Result},
-    playlist::{KeyMethod, MediaPlaylist, Segment},
+    playlist::MediaPlaylist,
 };
 use colored::Colorize;
 use log::info;
@@ -63,18 +63,6 @@ pub fn check_keys_exist(
                     .collect::<Vec<_>>()
                     .join(", "),
             ));
-        }
-    }
-
-    Ok(())
-}
-
-pub fn check_unsupported_enc(streams: &Vec<MediaPlaylist>) -> Result<()> {
-    for stream in streams {
-        if let Some(Segment { key: Some(x), .. }) = stream.segments.first()
-            && let KeyMethod::Other(x) = &x.method
-        {
-            return Err(Error::UnsupportedEncryption(x.to_owned()));
         }
     }
 

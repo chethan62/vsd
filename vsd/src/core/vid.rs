@@ -165,6 +165,9 @@ pub async fn download(
                                 .build()?,
                         ));
                     }
+                    KeyMethod::Other(ref x) => {
+                        return Err(Error::UnsupportedEncryption(x.to_owned()));
+                    }
                     _ => (),
                 }
             }
