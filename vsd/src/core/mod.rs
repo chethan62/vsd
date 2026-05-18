@@ -174,7 +174,7 @@ impl Downloader {
 
         for stream in &mut mp.streams {
             if stream.media_type != MediaType::Subtitles {
-                stream.fetch_split_seg(&self.config).await?;
+                stream.fetch_split(&self.config).await?;
             }
         }
 

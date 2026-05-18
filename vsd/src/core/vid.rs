@@ -221,7 +221,7 @@ pub async fn download(
                             return Err(Error::RequestFailed {
                                 url: url.to_string(),
                                 status: e.status().unwrap_or(StatusCode::default()),
-                                body: "unknown.".to_owned(),
+                                body: "GET request.".to_owned(),
                             });
                         }
                     }

@@ -30,21 +30,22 @@ impl std::fmt::Display for Error {
         match self {
             Self::DownloadInterrupted => write!(f, "Download interrupted due to Ctrl+C."),
             Self::MissingSegments => write!(f, "Stream contains no segments."),
-            Self::MissingKeys(s) => write!(f, "Missing decryption key(s) for kid(s): {s}"),
-            Self::UnsupportedEncryption(s) => write!(
+            Self::MissingKeys(x) => write!(f, "Missing decryption key(s) for kid(s): {}", x),
+            Self::UnsupportedEncryption(x) => write!(
                 f,
-                "Unsupported encryption method: {s}. Use --no-decrypt flag to download encrypted streams."
+                "Unsupported encryption method: {}. Use --no-decrypt flag to download encrypted streams.",
+                x
             ),
             Self::FfmpegFailed { code, message } => {
-                write!(f, "Failed to execute ffmpeg ({code}): {message}")
+                write!(f, "Failed to execute ffmpeg ({}): {}", code, message)
             }
             Self::RequestFailed { url, status, body } => {
-                write!(f, "Failed to request {url} ({status}): {body}")
+                write!(f, "Failed to request {} ({}): {}", url, status, body)
             }
-            Self::CookieParse(s) => write!(f, "Failed to parse netscape cookie: {s}."),
-            Self::DashParse(s) => write!(f, "Failed to resolve dash addressing: {s}"),
-            Self::Mp4Parse(e) => write!(f, "vsd-mp4: {e}"),
-            Self::Other(s) => write!(f, "{s}"),
+            Self::CookieParse(x) => write!(f, "Failed to parse netscape cookie: {}.", x),
+            Self::DashParse(x) => write!(f, "Failed to resolve dash addressing: {}", x),
+            Self::Mp4Parse(x) => write!(f, "vsd-mp4: {}", x),
+            Self::Other(x) => write!(f, "{}", x),
         }
     }
 }

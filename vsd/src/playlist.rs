@@ -320,25 +320,36 @@ impl MediaPlaylist {
         Ok(Some(bytes))
     }
 
-    pub async fn fetch_split_seg(&mut self, config: &DownloadConfig) -> Result<()> {
-        if self.segments.len() > 1 {
+    pub async fn fetch_split(&mut self, config: &DownloadConfig) -> Result<()> {
+        if self.segments.len() != 1 {
             return Ok(());
         }
 
-        let base_url = self.uri.parse::<Url>()?;
-        let segment = self.segments.remove(0);
-        let url = base_url.join(&segment.uri)?;
+        let segment = self.segments.pop().unwrap();
+        let url = self.uri.parse::<Url>()?.join(&segment.uri)?;
 
-        let content_length: u64 = config
+        debug!("Fetching {} (segment@head)", url);
+        let response = config
             .client
-            .head(url)
+            .head(url.clone())
             .query(&config.query)
             .send()
-            .await?
+            .await?;
+        let status = response.status();
+
+        if !status.is_success() {
+            return Err(Error::RequestFailed {
+                url: url.to_string(),
+                status,
+                body: "HEAD request.".to_owned(),
+            });
+        }
+
+        let content_length = response
             .headers()
             .get(header::CONTENT_LENGTH)
             .and_then(|v| v.to_str().ok())
-            .and_then(|s| s.parse().ok())
+            .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(0);
 
         if content_length == 0 {
@@ -346,13 +357,15 @@ impl MediaPlaylist {
             return Ok(());
         }
 
-        const CHUNK_SIZE: u64 = 5242880; // 1024 * 1024 * 5 = 5 MiB
+        let chunk_size = 1024 * 1024 * 5; // 5 MiB
+        let mut map = segment.map;
+        let mut key = segment.key;
 
-        for (i, start) in (0..content_length).step_by(CHUNK_SIZE as usize).enumerate() {
-            let end = (start + CHUNK_SIZE - 1).min(content_length - 1);
+        for start in (0..content_length).step_by(chunk_size as usize) {
+            let end = (start + chunk_size - 1).min(content_length - 1);
             self.segments.push(Segment {
-                map: if i == 0 { segment.map.clone() } else { None },
-                key: if i == 0 { segment.key.clone() } else { None },
+                map: map.take(),
+                key: key.take(),
                 duration: segment.duration,
                 range: Some(Range(start, end)),
                 uri: segment.uri.clone(),
