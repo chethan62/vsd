@@ -84,7 +84,7 @@ pub async fn download(
         path: temp_file.clone(),
     };
 
-    if temp_file.exists() && !config.no_resume {
+    if temp_file.exists() && !config.skip_resume {
         info!(
             "Saving [{}] {} (downloaded)",
             stream.media_type.to_string().green(),

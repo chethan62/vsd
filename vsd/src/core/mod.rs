@@ -23,10 +23,10 @@ pub struct DownloadConfig {
     pub keys: HashMap<String, String>,
     pub max_retries: u8,
     pub max_threads: u8,
-    pub no_resume: bool,
     pub query: Vec<(String, String)>,
     pub skip_decrypt: bool,
     pub skip_merge: bool,
+    pub skip_resume: bool,
 }
 
 pub struct Downloader {
@@ -47,10 +47,10 @@ impl Downloader {
                 keys: HashMap::new(),
                 max_retries: 10,
                 max_threads: 5,
-                no_resume: false,
                 query: Vec::new(),
                 skip_decrypt: false,
                 skip_merge: false,
+                skip_resume: false,
             },
             base_url: None,
             output: None,
@@ -134,7 +134,7 @@ impl Downloader {
     }
 
     pub fn no_resume(mut self, no_resume: bool) -> Self {
-        self.config.no_resume = no_resume;
+        self.config.skip_resume = no_resume;
         self
     }
 

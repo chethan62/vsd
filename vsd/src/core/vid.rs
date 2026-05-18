@@ -52,7 +52,7 @@ pub async fn download(
         path: temp_file.clone(),
     };
 
-    if temp_file.exists() && !config.no_resume {
+    if temp_file.exists() && !config.skip_resume {
         info!(
             "Saving [{}] {} (downloaded)",
             stream.media_type.to_string().green(),
@@ -82,7 +82,7 @@ pub async fn download(
         stream.default_kid()
     };
 
-    if config.no_resume && temp_dir.exists() {
+    if config.skip_resume && temp_dir.exists() {
         fs::remove_dir_all(&temp_dir).await?;
     }
     fs::create_dir_all(&temp_dir).await?;
