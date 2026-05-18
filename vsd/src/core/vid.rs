@@ -70,7 +70,6 @@ pub async fn download(
     let base_url = stream.uri.parse::<Url>()?;
     let ext = stream.extension();
     let pb_handle = pb.spawn();
-    let should_decrypt = !config.skip_decrypt;
     let temp_dir = temp_file.with_extension("");
     let mut auto_increment_iv = false;
     let mut decrypter = Decrypter::None;
@@ -114,7 +113,7 @@ pub async fn download(
             }
         }
 
-        if should_decrypt {
+        if !config.skip_decrypt {
             if decrypter.is_hls() && segment.key.is_none() && auto_increment_iv {
                 decrypter.increment_iv();
             }
@@ -150,13 +149,13 @@ pub async fn download(
                             v.to_owned()
                         } else {
                             warn!(
-                                "No key provided for '{}'. Checking pssh data to identify other mappable kids.",
+                                "No key provided for {}, checking pssh data for other mappable kids.",
                                 default_kid
                             );
-
                             let mut found = None;
-                            if let Some(init) = &init {
-                                for kid in PsshBox::from_init(init)?
+
+                            if let Some(bytes) = &init {
+                                for kid in PsshBox::from_init(bytes)?
                                     .data
                                     .into_iter()
                                     .flat_map(|x| x.key_ids)
@@ -179,9 +178,6 @@ pub async fn download(
                                 .key(default_kid, &key)?
                                 .build()?,
                         ));
-                    }
-                    KeyMethod::Other(ref x) => {
-                        return Err(Error::UnsupportedEncryption(x.to_owned()));
                     }
                     _ => (),
                 }
@@ -285,8 +281,8 @@ pub async fn download(
         debug!("Stream merging skipped.");
     } else {
         info!(
-            "Mergin [{}] {}",
-            stream.media_type.to_string().cyan(),
+            "Concat [{}] {}",
+            stream.media_type.to_string().green(),
             temp_file.to_string_lossy()
         );
 

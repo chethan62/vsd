@@ -132,7 +132,7 @@ impl Muxer {
 
         info!(
             "Muxing [{}] ffmpeg {}",
-            "exe".cyan(),
+            "exe".green(),
             args.iter()
                 .map(|x| if x.contains(' ') {
                     format!("\"{x}\"")

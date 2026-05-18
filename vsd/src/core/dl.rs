@@ -24,8 +24,8 @@ pub async fn download_streams(
     }
 
     let running = Arc::new(AtomicBool::new(true));
-
     let ctrlc = running.clone();
+
     tokio::spawn(async move {
         if tokio::signal::ctrl_c().await.is_ok() && ctrlc.load(Ordering::SeqCst) {
             warn!("Aborting download due to Ctrl+C.");
