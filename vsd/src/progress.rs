@@ -230,7 +230,7 @@ impl std::fmt::Display for ByteSize {
     }
 }
 
-struct Eta(usize);
+pub struct Eta(usize);
 
 impl std::fmt::Display for Eta {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

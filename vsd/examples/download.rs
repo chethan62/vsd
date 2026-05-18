@@ -3,7 +3,6 @@
 // [dependencies]
 // vsd = { version = "0.5", default-features = false, features = ["rustls-tls"]}
 
-use reqwest::Client;
 use std::{
     path::PathBuf,
     sync::{Arc, atomic::AtomicBool},
@@ -13,6 +12,8 @@ use vsd::{
     Downloader, Error, Muxer,
     playlist::MediaType,
     progress::{ProgressCallback, ProgressState},
+    reqwest::Client,
+    tokio,
 };
 
 struct Progress;

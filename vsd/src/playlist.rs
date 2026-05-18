@@ -145,6 +145,54 @@ impl Key {
 }
 
 impl MasterPlaylist {
+    pub(crate) fn sort_streams(mut self) -> Self {
+        let mut vid_streams = Vec::new();
+        let mut aud_streams = Vec::new();
+        let mut sub_streams = Vec::new();
+        let mut und_streams = Vec::new();
+
+        for stream in self.streams {
+            match stream.media_type {
+                MediaType::Video => vid_streams.push(stream),
+                MediaType::Audio => aud_streams.push(stream),
+                MediaType::Subtitles => sub_streams.push(stream),
+                MediaType::Undefined => und_streams.push(stream),
+            }
+        }
+
+        vid_streams.sort_by_key(|s| {
+            let pixels = s.resolution.map_or(0, |(w, h)| w * h);
+            let bandwidth = s.bandwidth.unwrap_or_default();
+            Reverse((pixels, bandwidth))
+        });
+
+        aud_streams.sort_by_key(|s| {
+            let channels = (s.channels.unwrap_or_default() * 10.0) as u32;
+            let bandwidth = s.bandwidth.unwrap_or_default();
+            Reverse((channels, bandwidth))
+        });
+
+        self.streams = vid_streams
+            .into_iter()
+            .chain(aud_streams)
+            .chain(sub_streams)
+            .chain(und_streams)
+            .collect();
+
+        self
+    }
+
+    pub(crate) fn select_streams(
+        self,
+        opts: &mut SelectOptions,
+        interaction: Interaction,
+    ) -> Result<Self> {
+        Ok(Self {
+            streams: StreamSelector::new(self.streams, interaction).select(opts)?,
+            ..self
+        })
+    }
+
     pub async fn metadata(&self, config: &DownloadConfig) -> Result<Vec<StreamMetadata>> {
         let mut metadata = Vec::with_capacity(self.streams.len());
 
@@ -186,57 +234,38 @@ impl MasterPlaylist {
 
         Ok(metadata)
     }
-
-    pub fn sort_streams(mut self) -> Self {
-        let mut vid_streams = Vec::new();
-        let mut aud_streams = Vec::new();
-        let mut sub_streams = Vec::new();
-        let mut und_streams = Vec::new();
-
-        for stream in self.streams {
-            match stream.media_type {
-                MediaType::Video => vid_streams.push(stream),
-                MediaType::Audio => aud_streams.push(stream),
-                MediaType::Subtitles => sub_streams.push(stream),
-                MediaType::Undefined => und_streams.push(stream),
-            }
-        }
-
-        vid_streams.sort_by_key(|s| {
-            let pixels = s.resolution.map_or(0, |(w, h)| w * h);
-            let bandwidth = s.bandwidth.unwrap_or_default();
-            Reverse((pixels, bandwidth))
-        });
-
-        aud_streams.sort_by_key(|s| {
-            let channels = (s.channels.unwrap_or_default() * 10.0) as u32;
-            let bandwidth = s.bandwidth.unwrap_or_default();
-            Reverse((channels, bandwidth))
-        });
-
-        self.streams = vid_streams
-            .into_iter()
-            .chain(aud_streams)
-            .chain(sub_streams)
-            .chain(und_streams)
-            .collect();
-
-        self
-    }
-
-    pub fn select_streams(
-        self,
-        opts: &mut SelectOptions,
-        interaction: Interaction,
-    ) -> Result<Self> {
-        Ok(Self {
-            streams: StreamSelector::new(self.streams, interaction).select(opts)?,
-            ..self
-        })
-    }
 }
 
 impl MediaPlaylist {
+    pub(crate) fn extension(&self) -> &str {
+        if let Some(ext) = &self.extension {
+            return ext;
+        }
+
+        if let Some(first) = self.segments.first() {
+            let is_mp4 = |uri: &str| {
+                let path = uri.split_once('?').map_or(uri, |(p, _)| p);
+                path.ends_with(".mp4") || path.ends_with(".m4s")
+            };
+
+            if is_mp4(&first.uri) || first.map.as_ref().is_some_and(|m| is_mp4(&m.uri)) {
+                return "mp4";
+            }
+        }
+
+        match self.playlist_type {
+            PlaylistType::Hls => "ts",
+            PlaylistType::Dash => "mp4",
+        }
+    }
+
+    pub(crate) fn path(&self, directory: Option<&PathBuf>) -> PathBuf {
+        let filename = format!("vsd-{}-{}.{}", self.media_type, self.id, self.extension());
+        directory
+            .map(|d| d.join(&filename))
+            .unwrap_or_else(|| PathBuf::from(filename))
+    }
+
     pub fn default_kid(&self) -> Option<String> {
         self.segments
             .first()
@@ -263,35 +292,6 @@ impl MediaPlaylist {
         };
 
         Ok(temp_file)
-    }
-
-    pub fn extension(&self) -> &str {
-        if let Some(ext) = &self.extension {
-            return ext;
-        }
-
-        if let Some(first) = self.segments.first() {
-            let is_mp4 = |uri: &str| {
-                let path = uri.split_once('?').map_or(uri, |(p, _)| p);
-                path.ends_with(".mp4") || path.ends_with(".m4s")
-            };
-
-            if is_mp4(&first.uri) || first.map.as_ref().is_some_and(|m| is_mp4(&m.uri)) {
-                return "mp4";
-            }
-        }
-
-        match self.playlist_type {
-            PlaylistType::Hls => "ts",
-            PlaylistType::Dash => "mp4",
-        }
-    }
-
-    pub fn path(&self, directory: Option<&PathBuf>) -> PathBuf {
-        let filename = format!("vsd-{}-{}.{}", self.media_type, self.id, self.extension());
-        directory
-            .map(|d| d.join(&filename))
-            .unwrap_or_else(|| PathBuf::from(filename))
     }
 
     pub async fn fetch_init(&self, config: &DownloadConfig) -> Result<Option<Vec<u8>>> {
