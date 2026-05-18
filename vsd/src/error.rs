@@ -35,22 +35,22 @@ impl std::error::Error for Error {}
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::DownloadInterrupted => write!(f, "Download interrupted due to Ctrl+C."),
-            Error::MissingKeys(s) => write!(f, "Missing decryption key(s) for kid(s): {s}"),
-            Error::UnsupportedEncryption(s) => write!(
+            Self::DownloadInterrupted => write!(f, "Download interrupted due to Ctrl+C."),
+            Self::MissingKeys(s) => write!(f, "Missing decryption key(s) for kid(s): {s}"),
+            Self::UnsupportedEncryption(s) => write!(
                 f,
                 "Unsupported encryption method: {s}. Use --no-decrypt flag to download encrypted streams."
             ),
-            Error::FfmpegFailed { code, message } => {
+            Self::FfmpegFailed { code, message } => {
                 write!(f, "Failed to execute ffmpeg ({code}): {message}")
             }
-            Error::RequestFailed { url, status, body } => {
+            Self::RequestFailed { url, status, body } => {
                 write!(f, "Failed to request {url} ({status}): {body}")
             }
-            Error::CookieParse(s) => write!(f, "Failed to parse netscape cookie: {s}."),
-            Error::DashParse(s) => write!(f, "Failed to resolve dash addressing: {s}"),
-            Error::Mp4Parse(e) => write!(f, "vsd-mp4: {e}"),
-            Error::Other(s) => write!(f, "{s}"),
+            Self::CookieParse(s) => write!(f, "Failed to parse netscape cookie: {s}."),
+            Self::DashParse(s) => write!(f, "Failed to resolve dash addressing: {s}"),
+            Self::Mp4Parse(e) => write!(f, "vsd-mp4: {e}"),
+            Self::Other(s) => write!(f, "{s}"),
         }
     }
 }
@@ -83,11 +83,39 @@ impl From<vsd_mp4::decrypt::DecryptError> for Error {
     }
 }
 
-impl From<String> for Error {
-    fn from(e: String) -> Self {
-        Self::Other(e)
-    }
+macro_rules! impl_from_other {
+    ($($t:ty),*) => {
+        $(
+            impl From<$t> for Error {
+                fn from(e: $t) -> Self {
+                    Self::Other(e.to_string())
+                }
+            }
+        )*
+    };
 }
+
+impl_from_other!(
+    String,
+    std::array::TryFromSliceError,
+    std::io::Error,
+    std::num::ParseIntError,
+    std::string::FromUtf8Error,
+    base64::DecodeError,
+    serde_json::Error,
+    requestty::ErrorKind,
+    reqwest::header::InvalidHeaderName,
+    reqwest::header::InvalidHeaderValue,
+    reqwest::header::ToStrError,
+    tokio::task::JoinError,
+    url::ParseError
+);
+
+#[cfg(feature = "capture")]
+impl_from_other!(chromiumoxide::error::CdpError);
+
+#[cfg(feature = "license")]
+impl_from_other!(playready::Error, widevine::Error);
 
 /// Early-return with [`Error::Other`]. Accepts the same arguments as [`format!`].
 #[macro_export]

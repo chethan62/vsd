@@ -1,5 +1,7 @@
 #[macro_use]
 pub mod error;
+pub mod playlist;
+pub mod progress;
 
 mod cli;
 mod cookie;
@@ -10,9 +12,6 @@ mod logger;
 mod options;
 mod selector;
 mod utils;
-
-pub mod playlist;
-pub mod progress;
 
 #[doc(hidden)]
 pub use cli::Args;
