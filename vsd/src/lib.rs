@@ -20,3 +20,4 @@ pub use core::{DownloadConfig, Downloader, Muxer, Stream};
 pub use error::{Error, Result};
 pub use reqwest;
 pub use utils::find_ffmpeg;
+pub use vsd_mp4;

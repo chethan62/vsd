@@ -128,7 +128,7 @@ pub async fn download(
                         })?;
 
                         if config.keys.is_empty() {
-                            return Err(Error::MissingKeys(default_kid.to_owned()));
+                            return Err(Error::MissingKey(default_kid.to_owned()));
                         }
 
                         let key = if let Some(v) = config.keys.get(default_kid) {

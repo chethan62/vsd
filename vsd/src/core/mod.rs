@@ -189,14 +189,7 @@ impl Downloader {
 
     pub(crate) async fn download(self, uri: &str) -> Result<()> {
         let mp = self.parse(uri, true).await?;
-        let streams = mp.streams;
-
-        if !self.config.skip_decrypt {
-            let default_kids = enc::get_default_kids(&self.config, &streams).await?;
-            enc::check_keys_exist(&self.config.keys, &default_kids)?;
-        }
-
-        let muxer = dl::download_streams(&self.config, streams).await?;
+        let muxer = dl::download_streams(&self.config, mp.streams).await?;
 
         if muxer.should_mux(&self.config, &self.output) {
             let Some(ffmpeg) = utils::find_ffmpeg() else {

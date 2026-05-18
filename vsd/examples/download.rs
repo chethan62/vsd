@@ -69,7 +69,7 @@ async fn main() -> Result<()> {
                     println!("Stream has no segments");
                     continue;
                 }
-                Err(Error::MissingKeys(kid)) => {
+                Err(Error::MissingKey(kid)) => {
                     println!("Missing decryption key for {kid}");
                     continue;
                 }

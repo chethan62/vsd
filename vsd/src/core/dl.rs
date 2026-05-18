@@ -6,15 +6,23 @@ use crate::{
 };
 use colored::Colorize;
 use log::{info, warn};
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
+use std::{
+    collections::HashSet,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
+use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
 
 pub async fn download_streams(
     config: &DownloadConfig,
     streams: Vec<MediaPlaylist>,
 ) -> Result<Muxer> {
+    if !config.skip_decrypt {
+        dump_pssh_info(config, &streams).await?;
+    }
+
     let running = Arc::new(AtomicBool::new(true));
 
     let ctrlc = running.clone();
@@ -61,4 +69,63 @@ pub async fn download_streams(
     }
 
     Ok(muxer)
+}
+
+pub async fn dump_pssh_info(config: &DownloadConfig, streams: &[MediaPlaylist]) -> Result<()> {
+    let mut default_kids = HashSet::new();
+
+    for stream in streams {
+        let Some(bytes) = stream.fetch_init(config).await? else {
+            continue;
+        };
+
+        let Some(default_kid) = TencBox::from_init(&bytes)?.and_then(|x| {
+            let kid = x.default_kid_hex();
+            if kid == "00000000000000000000000000000000" {
+                stream.default_kid()
+            } else {
+                Some(kid)
+            }
+        }) else {
+            continue;
+        };
+
+        let _ = default_kids.insert(default_kid);
+    }
+
+    let mut pssh_hash = HashSet::new();
+
+    for stream in streams {
+        let Some(bytes) = stream.fetch_init(config).await? else {
+            continue;
+        };
+        let pssh = PsshBox::from_init(&bytes)?;
+
+        for pssh in pssh.data {
+            let hash = blake3::hash(&pssh.data).to_hex()[..7].to_owned();
+            if !pssh_hash.insert(hash) {
+                continue;
+            }
+
+            info!(
+                "DrmPsh [{}] {}",
+                pssh.system_id.to_string().magenta(),
+                pssh.as_base64(),
+            );
+            for kid in &pssh.key_ids {
+                info!(
+                    "DrmKid [{}] {}{}",
+                    pssh.system_id.to_string().magenta(),
+                    kid.0,
+                    if default_kids.contains(&kid.0) {
+                        " (required)".bold().red()
+                    } else {
+                        "".normal()
+                    },
+                );
+            }
+        }
+    }
+
+    Ok(())
 }

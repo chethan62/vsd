@@ -1,18 +1,6 @@
-use crate::{
-    DownloadConfig,
-    error::{Error, Result},
-    playlist::MediaPlaylist,
-};
-use colored::Colorize;
-use log::info;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
-use vsd_mp4::{
-    decrypt::{CencDecryptingProcessor, HlsAes128Decrypter, HlsSampleAesDecrypter},
-    pssh::PsshBox,
-};
+use crate::error::Result;
+use std::sync::Arc;
+use vsd_mp4::decrypt::{CencDecryptingProcessor, HlsAes128Decrypter, HlsSampleAesDecrypter};
 
 #[derive(Clone)]
 pub enum Decrypter {
@@ -43,78 +31,4 @@ impl Decrypter {
             Decrypter::None => input,
         })
     }
-}
-
-pub fn check_keys_exist(
-    keys: &HashMap<String, String>,
-    default_kids: &HashSet<String>,
-) -> Result<()> {
-    let supplied_kids = keys
-        .keys()
-        .map(|kid| kid.to_owned())
-        .collect::<Vec<String>>();
-
-    for kid in default_kids {
-        if !supplied_kids.iter().any(|x| x == kid) {
-            return Err(Error::MissingKeys(
-                default_kids
-                    .iter()
-                    .map(|kid| kid.to_owned())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            ));
-        }
-    }
-
-    Ok(())
-}
-
-pub async fn get_default_kids(
-    config: &DownloadConfig,
-    streams: &[MediaPlaylist],
-) -> Result<HashSet<String>> {
-    let mut default_kids = HashSet::new();
-
-    for stream in streams {
-        if let Some(default_kid) = stream.default_kid() {
-            default_kids.insert(default_kid);
-        }
-    }
-
-    let mut pssh_hash = HashSet::new();
-
-    for stream in streams {
-        let Some(init_seg) = stream.fetch_init(config).await? else {
-            continue;
-        };
-        let pssh = PsshBox::from_init(&init_seg)?;
-
-        for data in pssh.data {
-            let hash = blake3::hash(&data.data).to_hex()[..7].to_owned();
-            if pssh_hash.contains(&hash) {
-                continue;
-            }
-
-            pssh_hash.insert(hash);
-            info!(
-                "DrmPsh [{}] {}",
-                data.system_id.to_string().magenta(),
-                data.as_base64(),
-            );
-            for kid in &data.key_ids {
-                info!(
-                    "DrmKid [{}] {}{}",
-                    data.system_id.to_string().magenta(),
-                    kid.uuid().replace('-', ""),
-                    if default_kids.contains(&kid.0) {
-                        " (required)".bold().red()
-                    } else {
-                        "".normal()
-                    },
-                );
-            }
-        }
-    }
-
-    Ok(default_kids)
 }

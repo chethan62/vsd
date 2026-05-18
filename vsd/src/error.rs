@@ -6,7 +6,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     DownloadInterrupted,
     MissingSegments,
-    MissingKeys(String),
+    MissingKey(String),
     UnsupportedEncryption(String),
     FfmpegFailed {
         code: i32,
@@ -30,7 +30,7 @@ impl std::fmt::Display for Error {
         match self {
             Self::DownloadInterrupted => write!(f, "Download interrupted due to Ctrl+C."),
             Self::MissingSegments => write!(f, "Stream contains no segments."),
-            Self::MissingKeys(x) => write!(f, "Missing decryption key(s) for kid(s): {}", x),
+            Self::MissingKey(x) => write!(f, "Missing decryption key for {}.", x),
             Self::UnsupportedEncryption(x) => write!(
                 f,
                 "Unsupported encryption method: {}. Use --no-decrypt flag to download encrypted streams.",
@@ -54,7 +54,7 @@ impl From<reqwest::Error> for Error {
     fn from(e: reqwest::Error) -> Self {
         Self::RequestFailed {
             url: e.url().map(|x| x.as_str()).unwrap_or("unknown").to_owned(),
-            status: e.status().unwrap_or(StatusCode::default()),
+            status: e.status().unwrap_or_default(),
             body: e.to_string(),
         }
     }
