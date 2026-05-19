@@ -35,31 +35,18 @@ cd ../../../
 
 # Darwin
 
-# echo "Building aarch64-apple-darwin"
-# RUSTFLAGS="-C linker=clang -C link-arg=--target=aarch64-apple-darwin -C link-arg=-isysroot -C link-arg=$PACKAGES_DIR/MacOSX$MACOS_SDK_VERSION.sdk -C link-arg=-fuse-ld=lld" \
-#   AR="llvm-ar" \
-#   CC="clang --target=aarch64-apple-darwin -isysroot $PACKAGES_DIR/MacOSX$MACOS_SDK_VERSION.sdk -fuse-ld=lld" \
-#   CXX="clang++ --target=aarch64-apple-darwin -isysroot $PACKAGES_DIR/MacOSX$MACOS_SDK_VERSION.sdk -fuse-ld=lld" \
-#   cargo build -p vsd --release --target aarch64-apple-darwin
+echo "Building aarch64-apple-darwin"
+RUSTFLAGS="-C linker=clang -C link-arg=--target=aarch64-apple-darwin -C link-arg=-isysroot -C link-arg=$PACKAGES_DIR/MacOSX$MACOS_SDK_VERSION.sdk -C link-arg=-fuse-ld=lld" \
+  AR="llvm-ar" \
+  CC="clang --target=aarch64-apple-darwin -isysroot $PACKAGES_DIR/MacOSX$MACOS_SDK_VERSION.sdk -fuse-ld=lld" \
+  CXX="clang++ --target=aarch64-apple-darwin -isysroot $PACKAGES_DIR/MacOSX$MACOS_SDK_VERSION.sdk -fuse-ld=lld" \
+  cargo build -p vsd --release --target aarch64-apple-darwin
 
-# echo "Packaging aarch64-apple-darwin"
-# cd target/aarch64-apple-darwin/release
-# llvm-readobj vsd --needed-libs
-# tar -cJf $RELEASE_DIR/vsd-$VSD_VERSION-aarch64-apple-darwin.tar.xz ./vsd
-# cd ../../../
-
-# echo "Building x86_64-apple-darwin"
-# RUSTFLAGS="-C linker=clang -C link-arg=--target=x86_64-apple-darwin -C link-arg=-isysroot -C link-arg=$PACKAGES_DIR/MacOSX$MACOS_SDK_VERSION.sdk -C link-arg=-fuse-ld=lld" \
-#   AR="llvm-ar" \
-#   CC="clang --target=x86_64-apple-darwin -isysroot $PACKAGES_DIR/MacOSX$MACOS_SDK_VERSION.sdk -fuse-ld=lld" \
-#   CXX="clang++ --target=x86_64-apple-darwin -isysroot $PACKAGES_DIR/MacOSX$MACOS_SDK_VERSION.sdk -fuse-ld=lld" \
-#   cargo build -p vsd --release --target x86_64-apple-darwin
-
-# echo "Packaging x86_64-apple-darwin"
-# cd target/x86_64-apple-darwin/release
-# llvm-readobj vsd --needed-libs
-# tar -cJf $RELEASE_DIR/vsd-$VSD_VERSION-x86_64-apple-darwin.tar.xz ./vsd
-# cd ../../../
+echo "Packaging aarch64-apple-darwin"
+cd target/aarch64-apple-darwin/release
+llvm-readobj vsd --needed-libs
+tar -cJf $RELEASE_DIR/vsd-$VSD_VERSION-aarch64-apple-darwin.tar.xz ./vsd
+cd ../../../
 
 # Linux
 

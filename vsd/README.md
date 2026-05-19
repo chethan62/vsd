@@ -45,7 +45,6 @@ Finally, add that directory to your system's `PATH` environment variable.
 | MacOS               | aarch64      | [.tar.xz](https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-aarch64-apple-darwin.tar.xz)       |
 | Windows             | aarch64      | [.zip](https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-aarch64-pc-windows-msvc.zip)          |
 | Linux               | x86_64       | [.tar.xz](https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-x86_64-unknown-linux-musl.tar.xz)  |
-| MacOS               | x86_64       | [.tar.xz](https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-x86_64-apple-darwin.tar.xz)        |
 | Windows             | x86_64       | [.zip](https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-x86_64-pc-windows-msvc.zip)           |
 
 [![Packaging Status](https://repology.org/badge/vertical-allrepos/vsd.svg)](https://repology.org/project/vsd/versions)

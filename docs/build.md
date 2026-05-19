@@ -105,7 +105,7 @@ AR=llvm-ar \
 2. Add desired build targets using rustup.
 
     ```bash
-    rustup target add aarch64-apple-darwin x86_64-apple-darwin
+    rustup target add aarch64-apple-darwin
     ```
 
 3. Now build with desired target.

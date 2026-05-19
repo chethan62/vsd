@@ -55,12 +55,6 @@ Finally, add that directory to your system's `PATH` environment variable.
         brew install vsd
         ```
 
-    === "x86_64"
-
-        ```bash
-        curl -L https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-x86_64-apple-darwin.tar.xz | tar xJC .
-        ```
-
     === "arm64"
     
         ```bash
