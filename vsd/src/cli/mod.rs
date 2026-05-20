@@ -1,3 +1,4 @@
+mod decrypt;
 mod extract;
 mod merge;
 mod save;
@@ -8,6 +9,7 @@ mod capture;
 #[cfg(feature = "license")]
 mod license;
 
+pub use decrypt::Decrypt;
 pub use extract::Extract;
 use log::LevelFilter;
 pub use merge::Merge;
@@ -26,6 +28,7 @@ use clap::{ArgAction, ColorChoice, Parser, Subcommand};
 pub enum Commands {
     #[cfg(feature = "capture")]
     Capture(Capture),
+    Decrypt(Decrypt),
     Extract(Extract),
     #[cfg(feature = "license")]
     License(License),
@@ -101,6 +104,7 @@ impl Args {
         match self.command {
             #[cfg(feature = "capture")]
             Commands::Capture(args) => args.execute().await?,
+            Commands::Decrypt(args) => args.execute().await?,
             Commands::Extract(args) => args.execute().await?,
             #[cfg(feature = "license")]
             Commands::License(args) => args.execute().await?,

@@ -141,7 +141,7 @@ impl Save {
         Ok(Proxy::all(s)?)
     }
 
-    fn parse_keys(s: &str) -> Result<HashMap<String, String>> {
+    pub(crate) fn parse_keys(s: &str) -> Result<HashMap<String, String>> {
         let mut keys = HashMap::new();
 
         if s.is_empty() {

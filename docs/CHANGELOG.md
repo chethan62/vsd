@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `decrypt`
+    - New sub-command to decrypt CENC encrypted mp4 files.
 - `extract`
     - New `--output` flag.
 - `license`
@@ -21,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Download resume support.
     - Faster subtitle stream downloads.
     - Support for fake png header segments.
-  
+
 ### Changed
 
 - `save`

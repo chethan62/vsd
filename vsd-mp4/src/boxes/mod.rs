@@ -40,11 +40,11 @@ mod tfdt;
 #[cfg_attr(docsrs, doc(cfg(feature = "text-vtt")))]
 pub use tfdt::TfdtBox;
 
-#[cfg(feature = "text-vtt")]
+#[cfg(any(feature = "decrypt", feature = "text-vtt"))]
 mod tfhd;
 
-#[cfg(feature = "text-vtt")]
-#[cfg_attr(docsrs, doc(cfg(feature = "text-vtt")))]
+#[cfg(any(feature = "decrypt", feature = "text-vtt"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "decrypt", feature = "text-vtt"))))]
 pub use tfhd::TfhdBox;
 
 #[cfg(any(feature = "decrypt", feature = "text-vtt"))]
