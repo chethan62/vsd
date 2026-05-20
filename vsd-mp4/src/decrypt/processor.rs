@@ -1,6 +1,6 @@
 use crate::{
     Mp4Parser,
-    boxes::{SchmBox, SencBox, TencBox, TfhdBox, TrunBox},
+    boxes::{SchmBox, SencBox, TencBox, TrunBox},
     data, error::{Result, Error},
     decrypt::{
         decrypter::Decrypter,
@@ -8,7 +8,6 @@ use crate::{
     },
     parser,
 };
-use std::collections::HashMap;
 
 #[derive(Clone)]
 struct TrackEncInfo {
@@ -18,7 +17,7 @@ struct TrackEncInfo {
 
 pub struct CencDecrypter {
     key: [u8; 16],
-    tracks: Option<HashMap<u32, TrackEncInfo>>,
+    track: Option<TrackEncInfo>,
 }
 
 impl CencDecrypter {
@@ -27,7 +26,7 @@ impl CencDecrypter {
             key: hex::decode(key.to_ascii_lowercase().replace('-', ""))?
                 .try_into()
                 .map_err(|v: Vec<u8>| Error::InvalidKeySize(v.len()))?,
-            tracks: None,
+            track: None,
         })
     }
 
@@ -36,28 +35,22 @@ impl CencDecrypter {
             return Ok(input_data);
         }
 
-        let owned_tracks;
-        let tracks = if let Some(init) = init_data {
-            owned_tracks = parse_tracks(init)?;
-            &owned_tracks
-        } else if let Some(ref cached) = self.tracks {
+        let owned;
+        let track = if let Some(init) = init_data {
+            owned = parse_track(init)?;
+            &owned
+        } else if let Some(ref cached) = self.track {
             cached
         } else {
-            owned_tracks = parse_tracks(&input_data)?;
-            &owned_tracks
+            owned = parse_track(&input_data)?;
+            &owned
         };
 
-        decrypt_fragment(&self.key, tracks, input_data)
+        decrypt_fragment(&self.key, track, input_data)
     }
 
-    pub fn default_kids(&self) -> Vec<(u32, String)> {
-        match &self.tracks {
-            Some(tracks) => tracks
-                .iter()
-                .map(|(&tid, info)| (tid, hex::encode(info.tenc.default_kid)))
-                .collect(),
-            None => Vec::new(),
-        }
+    pub fn default_kid(&self) -> Option<String> {
+        self.track.as_ref().map(|t| hex::encode(t.tenc.default_kid))
     }
 
     pub fn decrypt_stream<R, W>(
@@ -84,11 +77,10 @@ impl CencDecrypter {
             }
         };
 
-        self.tracks = Some(parse_tracks(&init_data)?);
+        self.track = Some(parse_track(&init_data)?);
 
         // ----- Write init data passthrough -----
         if init.is_none() {
-            // Init was read from the stream — write it to the output.
             writer.write_all(&init_data)?;
         }
 
@@ -109,7 +101,6 @@ impl CencDecrypter {
                 let moof_data = header.read_data(reader)?;
                 let mut fragment = moof_data;
 
-                // Read subsequent boxes until (and including) the matching mdat.
                 loop {
                     let Some(next) = BoxHeader::read_header(reader)? else {
                         break;
@@ -128,7 +119,6 @@ impl CencDecrypter {
 
                 fragments += 1;
             } else {
-                // Non-fragment box (e.g. styp, sidx, mfra) — pass through.
                 let box_data = header.read_data(reader)?;
                 writer.write_all(&box_data)?;
             }
@@ -140,54 +130,40 @@ impl CencDecrypter {
     }
 }
 
-fn parse_tracks(init_data: &[u8]) -> Result<HashMap<u32, TrackEncInfo>> {
-    let current_track_id = data!(0u32);
+// ---------------------------------------------------------------------------
+// Init-segment parsing — extract encryption info for the first encrypted track
+// ---------------------------------------------------------------------------
+
+fn parse_track(init_data: &[u8]) -> Result<TrackEncInfo> {
     let current_schm = data!(0u32);
     let current_tenc = data!();
-    let tracks_map = data!(HashMap::new());
+    let result = data!();
 
     let _ = Mp4Parser::new()
         .base_box("moov", parser::children)
         .base_box("trak", {
-            let current_track_id = current_track_id.clone();
             let current_schm = current_schm.clone();
             let current_tenc = current_tenc.clone();
-            let tracks_map = tracks_map.clone();
+            let result = result.clone();
             move |box_| {
-                *current_track_id.borrow_mut() = 0;
                 *current_schm.borrow_mut() = 0;
                 *current_tenc.borrow_mut() = None;
 
                 parser::children(box_)?;
 
-                if let Some(tenc) = current_tenc.borrow_mut().take() {
-                    let tid = *current_track_id.borrow();
-                    let scheme = *current_schm.borrow();
-                    tracks_map.borrow_mut().insert(
-                        tid,
-                        TrackEncInfo {
+                if result.borrow().is_none() {
+                    if let Some(tenc) = current_tenc.borrow_mut().take() {
+                        let scheme = *current_schm.borrow();
+                        *result.borrow_mut() = Some(TrackEncInfo {
                             scheme_type: scheme,
                             tenc,
-                        },
-                    );
+                        });
+                    }
                 }
                 Ok(())
             }
         })
-        .full_box("tkhd", {
-            let current_track_id = current_track_id.clone();
-            move |mut box_| {
-                let version = box_.version.unwrap_or(0);
-                let reader = &mut box_.reader;
-                if version >= 1 {
-                    reader.skip(16)?;
-                } else {
-                    reader.skip(8)?;
-                }
-                *current_track_id.borrow_mut() = reader.read_u32()?;
-                Ok(())
-            }
-        })
+        .full_box("tkhd", |_| Ok(()))
         .base_box("mdia", parser::children)
         .base_box("minf", parser::children)
         .base_box("stbl", parser::children)
@@ -212,45 +188,34 @@ fn parse_tracks(init_data: &[u8]) -> Result<HashMap<u32, TrackEncInfo>> {
         })
         .parse(init_data, true, true);
 
-    let tracks = tracks_map.borrow_mut().drain().collect::<HashMap<_, _>>();
-
-    if tracks.is_empty() {
-        return Err(Error::InvalidMp4(
-            "No encrypted tracks found (no tenc boxes)".into(),
-        ));
-    }
-
-    Ok(tracks)
+    result
+        .borrow_mut()
+        .take()
+        .ok_or_else(|| Error::InvalidMp4("No encrypted track found (no tenc box)".into()))
 }
 
-struct TrackFragment {
-    track_id: u32,
+// ---------------------------------------------------------------------------
+// Fragment decryption
+// ---------------------------------------------------------------------------
+
+struct FragmentInfo {
     trun: TrunBox,
     senc: SencBox,
 }
 
 fn decrypt_fragment(
     key: &[u8; 16],
-    tracks: &HashMap<u32, TrackEncInfo>,
+    track: &TrackEncInfo,
     mut input_data: Vec<u8>,
 ) -> Result<Vec<u8>> {
     let moof_start = data!(0u64);
     let fragments = data!(Vec::new());
 
-    let current_frag_track_id = data!(0u32);
     let current_frag_trun = data!();
     let current_frag_senc = data!();
 
-    // Owned lookup for the senc closure.
-    let iv_info: HashMap<u32, (u8, Option<Vec<u8>>)> = tracks
-        .iter()
-        .map(|(&tid, info)| {
-            (
-                tid,
-                (info.tenc.per_sample_iv_size, info.tenc.constant_iv.clone()),
-            )
-        })
-        .collect();
+    let iv_size = track.tenc.per_sample_iv_size;
+    let constant_iv = track.tenc.constant_iv.clone();
 
     let _ = Mp4Parser::new()
         .base_box("moof", {
@@ -261,39 +226,25 @@ fn decrypt_fragment(
             }
         })
         .base_box("traf", {
-            let current_frag_track_id = current_frag_track_id.clone();
             let current_frag_trun = current_frag_trun.clone();
             let current_frag_senc = current_frag_senc.clone();
             let fragments = fragments.clone();
             move |box_| {
-                *current_frag_track_id.borrow_mut() = 0;
                 *current_frag_trun.borrow_mut() = None;
                 *current_frag_senc.borrow_mut() = None;
 
                 parser::children(box_)?;
 
-                let tid = *current_frag_track_id.borrow();
                 let trun = current_frag_trun.borrow_mut().take();
                 let senc = current_frag_senc.borrow_mut().take();
 
                 if let (Some(trun), Some(senc)) = (trun, senc) {
-                    fragments.borrow_mut().push(TrackFragment {
-                        track_id: tid,
-                        trun,
-                        senc,
-                    });
+                    fragments.borrow_mut().push(FragmentInfo { trun, senc });
                 }
                 Ok(())
             }
         })
-        .full_box("tfhd", {
-            let current_frag_track_id = current_frag_track_id.clone();
-            move |mut box_| {
-                let tfhd = TfhdBox::new(&mut box_)?;
-                *current_frag_track_id.borrow_mut() = tfhd.track_id;
-                Ok(())
-            }
-        })
+        .full_box("tfhd", |_| Ok(()))
         .full_box("tfdt", |_| Ok(()))
         .full_box("trun", {
             let current_frag_trun = current_frag_trun.clone();
@@ -303,15 +254,9 @@ fn decrypt_fragment(
             }
         })
         .full_box("senc", {
-            let current_frag_track_id = current_frag_track_id.clone();
             let current_frag_senc = current_frag_senc.clone();
+            let constant_iv = constant_iv.clone();
             move |mut box_| {
-                let tid = *current_frag_track_id.borrow();
-                let (iv_size, constant_iv) = if let Some((iv, civ)) = iv_info.get(&tid) {
-                    (*iv, civ.clone())
-                } else {
-                    (8, None)
-                };
                 *current_frag_senc.borrow_mut() =
                     Some(SencBox::new(&mut box_, iv_size, constant_iv.as_deref())?);
                 Ok(())
@@ -326,19 +271,14 @@ fn decrypt_fragment(
 
     let moof_start_val = *moof_start.borrow();
 
+    let mut decrypter = Decrypter::new(
+        track.scheme_type,
+        key,
+        track.tenc.crypt_byte_block,
+        track.tenc.skip_byte_block,
+    );
+
     for frag in frags.iter() {
-        let track_info = match tracks.get(&frag.track_id) {
-            Some(info) => info,
-            None => continue,
-        };
-
-        let mut decrypter = Decrypter::new(
-            track_info.scheme_type,
-            key,
-            track_info.tenc.crypt_byte_block,
-            track_info.tenc.skip_byte_block,
-        );
-
         let data_start = {
             let offset = frag.trun.data_offset.unwrap_or_default() as i64;
             (moof_start_val as i64 + offset) as usize
