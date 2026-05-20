@@ -6,7 +6,7 @@
 
 */
 
-use crate::{Error, Reader, Result, bail, pssh::KeyId};
+use crate::{Reader, Result, bail, pssh::KeyId};
 use base64::Engine;
 use serde::Deserialize;
 use std::collections::HashSet;
@@ -30,8 +30,7 @@ pub fn parse(data: &[u8]) -> Result<HashSet<KeyId>> {
         match record_type {
             1 => {
                 let xml = String::from_utf16(&record_data)?;
-                let wrm_header = quick_xml::de::from_str::<WrmHeader>(&xml)
-                    .map_err(|x| Error::XmlDecode { error: x, xml })?;
+                let wrm_header = quick_xml::de::from_str::<WrmHeader>(&xml)?;
                 kids.extend(wrm_header.kids()?);
             }
             2 | 3 => (),

@@ -72,12 +72,6 @@ impl From<vsd_mp4::Error> for Error {
     }
 }
 
-impl From<vsd_mp4::decrypt::DecryptError> for Error {
-    fn from(e: vsd_mp4::decrypt::DecryptError) -> Self {
-        Self::Mp4Parse(vsd_mp4::Error::from(e))
-    }
-}
-
 macro_rules! impl_from_other {
     ($($t:ty),*) => {
         $(

@@ -7,7 +7,7 @@
 */
 
 use crate::{
-    Error, Result, bail, data, parser,
+    Result, bail, data, parser,
     parser::Mp4Parser,
     text::{Subtitles, ttml_text_parser},
 };
@@ -58,11 +58,9 @@ impl Mp4TtmlParser {
                     // Join this to any previous payload, in case the mp4 has multiple
                     // mdats.
                     let xml = String::from_utf8(data)?;
-                    subtitles_c.borrow_mut().extend_cues(
-                        ttml_text_parser::parse(&xml)
-                            .map_err(|x| Error::XmlDecode { error: x, xml })?
-                            .into_cues(),
-                    );
+                    subtitles_c
+                        .borrow_mut()
+                        .extend_cues(ttml_text_parser::parse(&xml)?.into_cues());
                     Ok(())
                 }),
             )

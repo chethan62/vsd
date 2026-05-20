@@ -32,9 +32,6 @@ mod error;
 mod parser;
 mod reader;
 
-pub use error::Error;
+pub use error::{Error, Result};
 pub use parser::*;
 pub use reader::Reader;
-
-/// A `Result` alias where the `Err` case is `vsd_mp4::Error`.
-pub type Result<T> = std::result::Result<T, Error>;

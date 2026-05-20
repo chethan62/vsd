@@ -1,10 +1,9 @@
 use crate::{
     Mp4Parser,
     boxes::{SchmBox, SencBox, TencBox, TfhdBox, TrunBox},
-    data,
+    data, error::{Result, Error},
     decrypt::{
         decrypter::Decrypter,
-        error::{DecryptError, Result},
         stream::BoxHeader,
     },
     parser,
@@ -27,7 +26,7 @@ impl CencDecryptingProcessor {
         Ok(Self {
             key: hex::decode(key.to_ascii_lowercase().replace('-', ""))?
                 .try_into()
-                .map_err(|v: Vec<u8>| DecryptError::InvalidKeySize(v.len()))?,
+                .map_err(|v: Vec<u8>| Error::InvalidKeySize(v.len()))?,
             tracks: None,
         })
     }
@@ -77,7 +76,7 @@ impl CencDecryptingProcessor {
             None => {
                 let (data, moof) = BoxHeader::read_init(reader)?;
                 if moof.is_none() {
-                    return Err(DecryptError::InvalidFormat(
+                    return Err(Error::InvalidMp4(
                         "No moof box found — input does not appear to be a fragmented mp4".into(),
                     ));
                 }
@@ -216,7 +215,7 @@ fn parse_tracks(init_data: &[u8]) -> Result<HashMap<u32, TrackEncInfo>> {
     let tracks = tracks_map.borrow_mut().drain().collect::<HashMap<_, _>>();
 
     if tracks.is_empty() {
-        return Err(DecryptError::InvalidFormat(
+        return Err(Error::InvalidMp4(
             "No encrypted tracks found (no tenc boxes)".into(),
         ));
     }

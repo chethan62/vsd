@@ -3721,7 +3721,6 @@ dependencies = [
  "prost-build",
  "quick-xml 0.40.0",
  "serde",
- "thiserror 2.0.18",
 ]
 
 [[package]]

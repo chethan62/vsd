@@ -1,43 +1,73 @@
-use thiserror::Error;
+/// [Result] alias where the `Err` variant is [Error].
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// The returned error type.
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum Error {
-    #[cfg(feature = "decrypt")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "decrypt")))]
-    #[error("{0}")]
-    Decrypt(#[from] crate::decrypt::DecryptError),
-
-    #[error("{0}")]
-    Generic(String),
-
-    #[cfg(feature = "pssh")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "pssh")))]
-    #[error("Failed to decode protobuf: {0}")]
-    ProtobufDecode(#[from] prost::DecodeError),
-
-    #[error("Failed to read data: {0}")]
-    Read(#[from] std::io::Error),
-
-    #[error("Failed to decode string: {0}")]
-    StringDecodeUtf8(#[from] std::string::FromUtf8Error),
-
-    #[error("Failed to decode string: {0}")]
-    StringDecodeUtf16(#[from] std::string::FromUtf16Error),
-
-    #[cfg(feature = "pssh")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "pssh")))]
-    #[error("Failed to decode xml: {error} => {xml}")]
-    XmlDecode {
-        error: quick_xml::de::DeError,
-        xml: String,
-    },
+    InvalidKeySize(usize),
+    InvalidMp4(String),
+    Io(std::io::Error),
+    Other(String),
 }
 
-/// Creates an `Error::Generic` and returns early (like `anyhow::bail!`).
+impl std::error::Error for Error {}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::InvalidKeySize(x) => {
+                write!(f, "invalid key size, expected 16 bytes got {0} bytes.", x)
+            }
+            Error::InvalidMp4(x) => write!(f, "invalid mp4 format, {}", x),
+            Error::Io(x) => write!(f, "i/o error, {}", x),
+            Error::Other(x) => write!(f, "{}", x),
+        }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Self::Io(e)
+    }
+}
+
+impl From<std::string::FromUtf8Error> for Error {
+    fn from(e: std::string::FromUtf8Error) -> Self {
+        Self::Other(e.to_string())
+    }
+}
+
+impl From<std::string::FromUtf16Error> for Error {
+    fn from(e: std::string::FromUtf16Error) -> Self {
+        Self::Other(e.to_string())
+    }
+}
+
+#[cfg(any(feature = "decrypt", feature = "pssh"))]
+impl From<hex::FromHexError> for Error {
+    fn from(e: hex::FromHexError) -> Self {
+        Self::Other(format!("hex decode error, {e}"))
+    }
+}
+
+#[cfg(feature = "pssh")]
+impl From<prost::DecodeError> for Error {
+    fn from(e: prost::DecodeError) -> Self {
+        Self::Other(format!("protobuf decode error, {e}"))
+    }
+}
+
+#[cfg(feature = "pssh")]
+impl From<quick_xml::de::DeError> for Error {
+    fn from(e: quick_xml::de::DeError) -> Self {
+        Self::Other(format!("xml parse error, {e}"))
+    }
+}
+
+/// Creates an [Error::Other and returns early (like `anyhow::bail!`).
 #[macro_export]
 macro_rules! bail {
     ($($arg:tt)*) => {
-        return Err($crate::Error::Generic(format!($($arg)*)))
+        return Err($crate::Error::Other(format!($($arg)*)))
     };
 }

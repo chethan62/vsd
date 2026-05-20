@@ -22,7 +22,6 @@ iori-ssa = { version = "0.2.1", optional = true }
 prost = { version = "0.14", optional = true }
 quick-xml = { version = "0.40", features = ["serialize"], optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
-thiserror = { version = "2" }
 
 [build-dependencies]
 prost-build = { version = "0.14", optional = true }

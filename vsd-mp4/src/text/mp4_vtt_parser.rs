@@ -62,7 +62,7 @@ impl Mp4VttParser {
         if let Some(timescale) = timescale.take() {
             Ok(Self { timescale })
         } else {
-            Err(Error::Generic(
+            Err(Error::Other(
                 "Missing timescale (should exist inside MDHD box).".to_owned(),
             ))
         }
