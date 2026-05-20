@@ -10,6 +10,7 @@ This document contains cli reference for the `vsd` command-line program.
 
 - [`vsd`↴](#vsd)
 - [`vsd capture`↴](#vsd-capture)
+- [`vsd decrypt`↴](#vsd-decrypt)
 - [`vsd extract`↴](#vsd-extract)
 - [`vsd license`↴](#vsd-license)
 - [`vsd merge`↴](#vsd-merge)
@@ -28,6 +29,7 @@ vsd [OPTIONS] <COMMAND>
 | Command | Description |
 |---------|-------------|
 | `capture` | Capture playlist requests from a website |
+| `decrypt` | Decrypt CENC encrypted mp4 files |
 | `extract` | Extract subtitles from a fragmented mp4 file |
 | `license` | Request content keys from a license server |
 | `merge` | Merge multiple media segments into a single file |
@@ -74,6 +76,30 @@ vsd capture [OPTIONS] <INPUT>
 | `--proxy` | Launch browser with a proxy |
 | `--resource-types` | List of resource types to be filtered out separated by comma<br>*Possible values:* `document`, `stylesheet`, `image`, `media`, `font`, `script`, `texttrack`, `xhr`, `fetch`, `prefetch`, `eventsource`, `websocket`, `manifest`, `signedexchange`, `ping`, `cspviolationreport`, `preflight`, `fedcm`, `other`<br>*Default:* `fetch,xhr` |
 | `--save-cookies` | Save browser cookies in cookies.txt (netscape cookie file) |
+
+[↑ Back to top](#command-overview)
+
+### `vsd decrypt`
+
+Decrypt CENC encrypted mp4 files.
+
+Supports cenc, cens, cbc1 and cbcs protection schemes.
+
+```
+vsd decrypt [OPTIONS] <INPUT>
+```
+
+**Arguments:**
+
+- `<INPUT>`: Fragmented mp4 file path to decrypt *(required)*
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `-k, --key` | Decryption key in hex format (32 hex characters) |
+| `--init` | Path to a separate init segment containing moov/tenc boxes |
+| `-o, --output` | Output file path for the decrypted file.<br><br>Defaults to the input filename with a .dec suffix before the extension. |
 
 [↑ Back to top](#command-overview)
 
@@ -186,6 +212,7 @@ vsd save [OPTIONS] <INPUT>
 | `-i, --interactive` | Enable interactive stream selection menu with styled prompts |
 | `-I, --interactive-raw` | Enable interactive stream selection menu with plain text prompts |
 | `-l, --list-streams` | List available streams without downloading them |
+| `--list-streams-json` | List available streams metadata as json |
 | `-s, --select-streams` | Select streams using filters.<br><br>SYNTAX:<br><br>v={}:a={}:s={} where {} (in priority order) can contain:<br><br>\|> all: select all streams.<br>\|> skip: skip all streams or select inverter.<br>\|> 1,2: indices obtained by --list-streams flag.<br>\|> 1080p,1280x720: stream resolution.<br>\|> en,fr: stream language.<br><br>EXAMPLES:<br><br>\|> 1,2,3 (indices 1, 2, and 3)<br>\|> v=skip:a=skip:s=all (all sub streams)<br>\|> a:en:s=en (prefer en lang)<br>\|> v=1080p:a=all:s=skip (1080p with all aud streams)<br><br>*Default:* `v=best:s=en` |
 
 **Client Options:**
