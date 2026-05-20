@@ -35,7 +35,6 @@ decrypt-cenc = [
     "dep:cipher",
     "dep:ctr",
     "dep:hex",
-    "dep:iori-ssa",
 ]
 decrypt-hls = [
     "dep:aes",

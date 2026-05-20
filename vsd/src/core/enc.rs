@@ -1,11 +1,11 @@
 use crate::error::Result;
 use std::sync::Arc;
-use vsd_mp4::decrypt::{CencDecryptingProcessor, HlsAes128Decrypter, HlsSampleAesDecrypter};
+use vsd_mp4::decrypt::{CencDecryptor, HlsAes128Decrypter, HlsSampleAesDecrypter};
 
 #[derive(Clone)]
 pub enum Decrypter {
     Aes128(HlsAes128Decrypter),
-    Cenc(Arc<CencDecryptingProcessor>),
+    Cenc(Arc<CencDecryptor>),
     SampleAes(HlsSampleAesDecrypter),
     None,
 }

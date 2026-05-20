@@ -18,7 +18,7 @@ use tokio::{
 };
 use vsd_mp4::{
     boxes::TencBox,
-    decrypt::{CencDecryptingProcessor, HlsAes128Decrypter, HlsSampleAesDecrypter},
+    decrypt::{CencDecryptor, HlsAes128Decrypter, HlsSampleAesDecrypter},
     pssh::PsshBox,
 };
 
@@ -174,7 +174,7 @@ pub async fn download(
 
                         info!("DrmKey [{}] {}:{}", "dec".magenta(), default_kid, key);
                         decrypter = Decrypter::Cenc(Arc::new(
-                            CencDecryptingProcessor::new(&key)?,
+                            CencDecryptor::new(&key)?,
                         ));
                     }
                     _ => (),

@@ -5,7 +5,7 @@ use std::{
     path::PathBuf,
     sync::LazyLock,
 };
-use vsd_mp4::decrypt::CencDecryptingProcessor;
+use vsd_mp4::decrypt::CencDecryptor;
 
 const _VIDEO_KID: &str = "eb676abbcb345e96bbcf616630f1a3da";
 const VIDEO_KEY: &str = "100b6c20940f779a4589152b57d2dacb";
@@ -31,7 +31,7 @@ macro_rules! sample {
                 VIDEO_KEY
             };
 
-            let processor = CencDecryptingProcessor::new(key)?;
+            let processor = CencDecryptor::new(key)?;
 
             let init_data =
                 fs::read(SAMPLES_DIR.join(concat!($scheme, "-", $mode, "/", $track, "_init.mp4")))?;
