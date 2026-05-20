@@ -2,8 +2,8 @@ mod decrypter;
 mod error;
 mod hls;
 mod processor;
-pub mod stream;
+mod stream;
 
-pub use error::{DecryptError, Result};
+pub use error::DecryptError;
 pub use hls::{HlsAes128Decrypter, HlsSampleAesDecrypter};
-pub use processor::{CencDecryptingProcessor, CencDecryptingProcessorBuilder};
+pub use processor::CencDecryptingProcessor;

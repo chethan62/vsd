@@ -11,40 +11,6 @@ use crate::{
 };
 use std::collections::HashMap;
 
-#[derive(Default)]
-pub struct CencDecryptingProcessorBuilder {
-    keys: HashMap<[u8; 16], [u8; 16]>,
-}
-
-impl CencDecryptingProcessorBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn key(mut self, kid: &str, key: &str) -> Result<Self> {
-        self.keys.insert(parse_hex_16(kid)?, parse_hex_16(key)?);
-        Ok(self)
-    }
-
-    pub fn keys(mut self, keys: &HashMap<String, String>) -> Result<Self> {
-        for (kid, key) in keys {
-            self.keys.insert(parse_hex_16(kid)?, parse_hex_16(key)?);
-        }
-        Ok(self)
-    }
-
-    pub fn build(self) -> Result<CencDecryptingProcessor> {
-        if self.keys.is_empty() {
-            return Err(DecryptError::NoKeys);
-        }
-        Ok(CencDecryptingProcessor {
-            keys: self.keys,
-            tracks: None,
-        })
-    }
-}
-
-/// Per-track encryption info extracted from an init segment.
 #[derive(Clone)]
 struct TrackEncInfo {
     scheme_type: u32,
@@ -52,22 +18,20 @@ struct TrackEncInfo {
 }
 
 pub struct CencDecryptingProcessor {
-    keys: HashMap<[u8; 16], [u8; 16]>,
-    /// Pre-parsed track encryption info.  Populated by [`decrypt_stream`] or
-    /// [`decrypt`] so that subsequent calls can skip init parsing.
+    key: [u8; 16],
     tracks: Option<HashMap<u32, TrackEncInfo>>,
 }
 
 impl CencDecryptingProcessor {
-    pub fn builder() -> CencDecryptingProcessorBuilder {
-        CencDecryptingProcessorBuilder::new()
+    pub fn new(key: &str) -> Result<Self> {
+        Ok(Self {
+            key: hex::decode(key.to_ascii_lowercase().replace('-', ""))?
+                .try_into()
+                .map_err(|v: Vec<u8>| DecryptError::InvalidKeySize(v.len()))?,
+            tracks: None,
+        })
     }
 
-    /// Decrypt a CENC-encrypted fragment.
-    ///
-    /// When `init_data` is provided it is parsed to obtain track encryption
-    /// info.  If tracks have been cached (via a prior [`decrypt_stream`]
-    /// call), `init_data` can be `None` and the cached info is used instead.
     pub fn decrypt(&self, input_data: Vec<u8>, init_data: Option<&[u8]>) -> Result<Vec<u8>> {
         if input_data.is_empty() {
             return Ok(input_data);
@@ -80,20 +44,13 @@ impl CencDecryptingProcessor {
         } else if let Some(ref cached) = self.tracks {
             cached
         } else {
-            // No explicit init and no cached tracks — try using the input
-            // itself (works for single-file fragmented mp4 where moov precedes
-            // the fragments).
             owned_tracks = parse_tracks(&input_data)?;
             &owned_tracks
         };
 
-        decrypt_fragment(&self.keys, tracks, input_data)
+        decrypt_fragment(&self.key, tracks, input_data)
     }
 
-    /// Return the default KIDs for all encrypted tracks found in the loaded
-    /// init segment.  Each entry is `(track_id, kid_hex)`.
-    ///
-    /// Returns an empty vec if no init segment has been parsed yet.
     pub fn default_kids(&self) -> Vec<(u32, String)> {
         match &self.tracks {
             Some(tracks) => tracks
@@ -101,16 +58,6 @@ impl CencDecryptingProcessor {
                 .map(|(&tid, info)| (tid, hex::encode(info.tenc.default_kid)))
                 .collect(),
             None => Vec::new(),
-        }
-    }
-
-    /// Check whether a decryption key has been supplied for the given KID
-    /// (hex string, case-insensitive).
-    pub fn has_key(&self, kid_hex: &str) -> bool {
-        if let Ok(kid_bytes) = parse_hex_16(&kid_hex.to_ascii_lowercase().replace('-', "")) {
-            self.keys.contains_key(&kid_bytes)
-        } else {
-            false
         }
     }
 
@@ -139,18 +86,6 @@ impl CencDecryptingProcessor {
         };
 
         self.tracks = Some(parse_tracks(&init_data)?);
-
-        // ----- Key validation -----
-        let kids = self.default_kids();
-        let missing: Vec<String> = kids
-            .iter()
-            .filter(|(_, kid)| !self.has_key(kid))
-            .map(|(_, kid)| kid.clone())
-            .collect();
-
-        if !missing.is_empty() {
-            return Err(DecryptError::KeyNotFound(missing.join(", ")));
-        }
 
         // ----- Write init data passthrough -----
         if init.is_none() {
@@ -205,10 +140,6 @@ impl CencDecryptingProcessor {
         Ok(fragments)
     }
 }
-
-// ---------------------------------------------------------------------------
-// Init-segment parsing — extract per-track encryption info
-// ---------------------------------------------------------------------------
 
 fn parse_tracks(init_data: &[u8]) -> Result<HashMap<u32, TrackEncInfo>> {
     let current_track_id = data!(0u32);
@@ -293,11 +224,6 @@ fn parse_tracks(init_data: &[u8]) -> Result<HashMap<u32, TrackEncInfo>> {
     Ok(tracks)
 }
 
-// ---------------------------------------------------------------------------
-// Fragment decryption — handle multiple traf boxes
-// ---------------------------------------------------------------------------
-
-/// Per-track fragment info parsed from a traf box.
 struct TrackFragment {
     track_id: u32,
     trun: TrunBox,
@@ -305,7 +231,7 @@ struct TrackFragment {
 }
 
 fn decrypt_fragment(
-    keys: &HashMap<[u8; 16], [u8; 16]>,
+    key: &[u8; 16],
     tracks: &HashMap<u32, TrackEncInfo>,
     mut input_data: Vec<u8>,
 ) -> Result<Vec<u8>> {
@@ -407,11 +333,6 @@ fn decrypt_fragment(
             None => continue,
         };
 
-        let kid = track_info.tenc.default_kid;
-        let key = keys
-            .get(&kid)
-            .ok_or_else(|| DecryptError::KeyNotFound(hex::encode(kid)))?;
-
         let mut decrypter = Decrypter::new(
             track_info.scheme_type,
             key,
@@ -445,10 +366,4 @@ fn decrypt_fragment(
     }
 
     Ok(input_data)
-}
-
-fn parse_hex_16(input: &str) -> Result<[u8; 16]> {
-    hex::decode(input.to_ascii_lowercase().replace('-', ""))?
-        .try_into()
-        .map_err(|v: Vec<u8>| DecryptError::HexWrongLength(v.len()))
 }

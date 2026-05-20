@@ -7,14 +7,6 @@ pub struct BoxHeader {
 }
 
 impl BoxHeader {
-    pub fn body_size(&self) -> Option<u64> {
-        if self.total_size == 0 {
-            None
-        } else {
-            Some(self.total_size - self.header_bytes.len() as u64)
-        }
-    }
-
     pub fn read_header<R: Read>(reader: &mut R) -> Result<Option<Self>> {
         let mut buf = [0u8; 8];
         match reader.read_exact(&mut buf) {

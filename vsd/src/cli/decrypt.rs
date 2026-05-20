@@ -2,7 +2,6 @@ use crate::error::Result;
 use clap::Args;
 use log::info;
 use std::{
-    collections::HashMap,
     fs::{self, File},
     io::{BufReader, BufWriter},
     path::PathBuf,
@@ -18,9 +17,9 @@ pub struct Decrypt {
     #[arg(required = true)]
     input: PathBuf,
 
-    /// Decryption keys in KID:KEY hex format.
-    #[arg(long, required = true, value_name = "KID:KEY;…", value_parser = super::Save::parse_keys)]
-    keys: HashMap<String, String>,
+    /// Decryption key in hex format (32 hex characters).
+    #[arg(short, long, required = true, value_name = "KEY")]
+    key: String,
 
     /// Path to a separate init segment containing moov/tenc boxes.
     #[arg(long, value_name = "PATH")]
@@ -35,9 +34,7 @@ pub struct Decrypt {
 
 impl Decrypt {
     pub async fn execute(self) -> Result<()> {
-        let mut processor = CencDecryptingProcessor::builder()
-            .keys(&self.keys)?
-            .build()?;
+        let mut processor = CencDecryptingProcessor::new(&self.key)?;
         let output = self.output.unwrap_or(
             PathBuf::from(format!(
                 "{}.dec.{}",

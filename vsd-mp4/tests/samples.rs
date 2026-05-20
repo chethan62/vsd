@@ -7,9 +7,9 @@ use std::{
 };
 use vsd_mp4::decrypt::CencDecryptingProcessor;
 
-const VIDEO_KID: &str = "eb676abbcb345e96bbcf616630f1a3da";
+const _VIDEO_KID: &str = "eb676abbcb345e96bbcf616630f1a3da";
 const VIDEO_KEY: &str = "100b6c20940f779a4589152b57d2dacb";
-const AUDIO_KID: &str = "63cb5f7184dd4b689a5c5ff11ee6a328";
+const _AUDIO_KID: &str = "63cb5f7184dd4b689a5c5ff11ee6a328";
 const AUDIO_KEY: &str = "3bda3329158a4789880816a70e7e436d";
 
 static SAMPLES_DIR: LazyLock<PathBuf> =
@@ -25,13 +25,13 @@ macro_rules! sample {
     ($test_name: ident, $scheme: literal, $mode: literal, $track: literal) => {
         #[test]
         fn $test_name() -> Result<(), Box<dyn Error>> {
-            let mut builder = CencDecryptingProcessor::builder().key(VIDEO_KID, VIDEO_KEY)?;
+            let key = if $track == "audio" {
+                AUDIO_KEY
+            } else {
+                VIDEO_KEY
+            };
 
-            if $mode == "multi" {
-                builder = builder.key(AUDIO_KID, AUDIO_KEY)?;
-            }
-
-            let processor = builder.build()?;
+            let processor = CencDecryptingProcessor::new(key)?;
 
             let init_data =
                 fs::read(SAMPLES_DIR.join(concat!($scheme, "-", $mode, "/", $track, "_init.mp4")))?;

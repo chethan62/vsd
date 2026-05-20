@@ -174,9 +174,7 @@ pub async fn download(
 
                         info!("DrmKey [{}] {}:{}", "dec".magenta(), default_kid, key);
                         decrypter = Decrypter::Cenc(Arc::new(
-                            CencDecryptingProcessor::builder()
-                                .key(default_kid, &key)?
-                                .build()?,
+                            CencDecryptingProcessor::new(&key)?,
                         ));
                     }
                     _ => (),
