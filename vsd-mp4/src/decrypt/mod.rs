@@ -1,6 +1,13 @@
-mod cenc;
+#[cfg(feature = "decrypt-hls")]
 mod hls;
-mod processor;
+
+#[cfg(feature = "decrypt-cenc")]
+mod cenc;
+
+#[cfg(feature = "decrypt-cenc")]
+mod cipher;
+
+#[cfg(feature = "decrypt-cenc")]
 mod reader;
 
 #[cfg(feature = "decrypt-cenc")]

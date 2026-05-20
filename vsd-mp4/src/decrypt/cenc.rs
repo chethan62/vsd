@@ -2,7 +2,7 @@ use crate::{
     Mp4Parser,
     boxes::{SchmBox, SencBox, TencBox, TrunBox},
     data,
-    decrypt::{processor::CencProcessor, reader::BoxHeader},
+    decrypt::{cipher::CencProcessor, reader::BoxHeader},
     error::{Error, Result},
     parser,
 };
@@ -34,23 +34,24 @@ impl CencDecrypter {
         Ok(decrypter)
     }
 
-    pub fn decrypt(&self, input: Vec<u8>, init: Option<&[u8]>) -> Result<Vec<u8>> {
+    pub fn decrypt(&self, mut input: Vec<u8>, init: Option<&[u8]>) -> Result<Vec<u8>> {
         if input.is_empty() {
             return Ok(input);
         }
 
-        let owned;
-        let track = if let Some(init) = init {
-            owned = Self::parse_track(init)?;
-            &owned
-        } else if let Some(ref cached) = self.track {
+        let track;
+        let track_ref = if let Some(init) = init {
+            track = Self::parse_track(init)?;
+            &track
+        } else if let Some(cached) = &self.track {
             cached
         } else {
-            owned = Self::parse_track(&input)?;
-            &owned
+            track = Self::parse_track(&input)?;
+            &track
         };
 
-        Self::decrypt_fragment(&self.key, track, input)
+        Self::decrypt_fragment(&self.key, track_ref, &mut input)?;
+        Ok(input)
     }
 
     pub fn decrypt_stream<R: Read, W: Write>(
@@ -65,7 +66,7 @@ impl CencDecrypter {
                 let (data, moof) = BoxHeader::read_init(reader)?;
                 if moof.is_none() {
                     return Err(Error::InvalidMp4(
-                        "No moof box found — input does not appear to be a fragmented mp4".into(),
+                        "no moof box found, input does not appear to be a fragmented mp4.".into(),
                     ));
                 }
                 (data, moof)
@@ -122,7 +123,7 @@ impl CencDecrypter {
         Ok(fragments)
     }
 
-    fn parse_track(init_data: &[u8]) -> Result<TrackEncInfo> {
+    fn parse_track(init: &[u8]) -> Result<TrackEncInfo> {
         let current_schm = data!(0u32);
         let current_tenc = data!();
         let result = data!();
@@ -174,7 +175,7 @@ impl CencDecrypter {
                     Ok(())
                 }
             })
-            .parse(init_data, true, true);
+            .parse(init, true, true);
 
         result
             .borrow_mut()
@@ -185,8 +186,8 @@ impl CencDecrypter {
     fn decrypt_fragment(
         key: &[u8; 16],
         track: &TrackEncInfo,
-        mut input_data: Vec<u8>,
-    ) -> Result<Vec<u8>> {
+        input: &mut Vec<u8>,
+    ) -> Result<()> {
         struct FragmentInfo {
             trun: TrunBox,
             senc: SencBox,
@@ -246,11 +247,11 @@ impl CencDecrypter {
                     Ok(())
                 }
             })
-            .parse(&input_data, true, true);
+            .parse(&input, true, true);
 
         let frags = fragments.borrow();
         if frags.is_empty() {
-            return Ok(input_data);
+            return Ok(());
         }
 
         let moof_start_val = *moof_start.borrow();
@@ -269,7 +270,7 @@ impl CencDecrypter {
             };
 
             let mut offset = data_start;
-            let output_len = input_data.len();
+            let output_len = input.len();
 
             for (trun_sample, senc_sample) in
                 frag.trun.sample_data.iter().zip(frag.senc.samples.iter())
@@ -284,11 +285,11 @@ impl CencDecrypter {
                     break;
                 }
 
-                decrypter.decrypt_sample_inplace(&mut input_data[offset..end], senc_sample);
+                decrypter.decrypt_sample_inplace(&mut input[offset..end], senc_sample);
                 offset = end;
             }
         }
 
-        Ok(input_data)
+        Ok(())
     }
 }
