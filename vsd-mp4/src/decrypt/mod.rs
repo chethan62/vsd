@@ -9,4 +9,4 @@ pub use hls::{HlsAes128Decrypter, HlsSampleAesDecrypter};
 
 #[cfg(feature = "decrypt-cenc")]
 #[cfg_attr(docsrs, doc(cfg(feature = "decrypt-cenc")))]
-pub use processor::CencDecryptor;
+pub use processor::CencDecrypter;

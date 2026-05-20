@@ -16,12 +16,12 @@ struct TrackEncInfo {
     tenc: TencBox,
 }
 
-pub struct CencDecryptor {
+pub struct CencDecrypter {
     key: [u8; 16],
     tracks: Option<HashMap<u32, TrackEncInfo>>,
 }
 
-impl CencDecryptor {
+impl CencDecrypter {
     pub fn new(key: &str) -> Result<Self> {
         Ok(Self {
             key: hex::decode(key.to_ascii_lowercase().replace('-', ""))?

@@ -6,7 +6,7 @@ use std::{
     io::{BufReader, BufWriter},
     path::PathBuf,
 };
-use vsd_mp4::decrypt::CencDecryptor;
+use vsd_mp4::decrypt::CencDecrypter;
 
 /// Decrypt CENC encrypted mp4 files.
 ///
@@ -34,7 +34,7 @@ pub struct Decrypt {
 
 impl Decrypt {
     pub async fn execute(self) -> Result<()> {
-        let mut processor = CencDecryptor::new(&self.key)?;
+        let mut processor = CencDecrypter::new(&self.key)?;
         let output = self.output.unwrap_or(
             PathBuf::from(format!(
                 "{}.dec.{}",
