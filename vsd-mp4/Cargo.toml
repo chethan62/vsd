@@ -28,13 +28,18 @@ prost-build = { version = "0.14", optional = true }
 
 [features]
 default = ["full"]
-full = ["decrypt", "pssh", "sidx", "text-ttml", "text-vtt"]
-decrypt = [
+full = ["decrypt-cenc", "decrypt-hls", "pssh", "sidx", "text-ttml", "text-vtt"]
+decrypt-cenc = [
     "dep:aes",
     "dep:cbc",
     "dep:cipher",
     "dep:ctr",
     "dep:hex",
+    "dep:iori-ssa",
+]
+decrypt-hls = [
+    "dep:aes",
+    "dep:cbc",
     "dep:iori-ssa",
 ]
 pssh = [

@@ -1,22 +1,22 @@
-#[cfg(feature = "decrypt")]
+#[cfg(feature = "decrypt-cenc")]
 mod schm;
 
-#[cfg(feature = "decrypt")]
-#[cfg_attr(docsrs, doc(cfg(feature = "decrypt")))]
+#[cfg(feature = "decrypt-cenc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "decrypt-cenc")))]
 pub use schm::SchmBox;
 
-#[cfg(feature = "decrypt")]
+#[cfg(feature = "decrypt-cenc")]
 mod senc;
 
-#[cfg(feature = "decrypt")]
-#[cfg_attr(docsrs, doc(cfg(feature = "decrypt")))]
+#[cfg(feature = "decrypt-cenc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "decrypt-cenc")))]
 pub use senc::{SencBox, SencSample, SencSubsample};
 
-#[cfg(feature = "decrypt")]
+#[cfg(feature = "decrypt-cenc")]
 mod tenc;
 
-#[cfg(feature = "decrypt")]
-#[cfg_attr(docsrs, doc(cfg(feature = "decrypt")))]
+#[cfg(feature = "decrypt-cenc")]
+#[cfg_attr(docsrs, doc(cfg(feature = "decrypt-cenc")))]
 pub use tenc::TencBox;
 
 #[cfg(feature = "sidx")]
@@ -40,18 +40,18 @@ mod tfdt;
 #[cfg_attr(docsrs, doc(cfg(feature = "text-vtt")))]
 pub use tfdt::TfdtBox;
 
-#[cfg(any(feature = "decrypt", feature = "text-vtt"))]
+#[cfg(any(feature = "decrypt-cenc", feature = "text-vtt"))]
 mod tfhd;
 
-#[cfg(any(feature = "decrypt", feature = "text-vtt"))]
-#[cfg_attr(docsrs, doc(cfg(any(feature = "decrypt", feature = "text-vtt"))))]
+#[cfg(any(feature = "decrypt-cenc", feature = "text-vtt"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "decrypt-cenc", feature = "text-vtt"))))]
 pub use tfhd::TfhdBox;
 
-#[cfg(any(feature = "decrypt", feature = "text-vtt"))]
+#[cfg(any(feature = "decrypt-cenc", feature = "text-vtt"))]
 mod trun;
 
-#[cfg(any(feature = "decrypt", feature = "text-vtt"))]
-#[cfg_attr(docsrs, doc(cfg(any(feature = "decrypt", feature = "text-vtt"))))]
+#[cfg(any(feature = "decrypt-cenc", feature = "text-vtt"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "decrypt-cenc", feature = "text-vtt"))))]
 pub use trun::{TrunBox, TrunSample};
 
 #[macro_export]

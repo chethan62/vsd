@@ -43,7 +43,7 @@ impl From<std::string::FromUtf16Error> for Error {
     }
 }
 
-#[cfg(any(feature = "decrypt", feature = "pssh"))]
+#[cfg(any(feature = "decrypt-cenc", feature = "pssh"))]
 impl From<hex::FromHexError> for Error {
     fn from(e: hex::FromHexError) -> Self {
         Self::Other(format!("hex decode error, {e}"))
@@ -64,7 +64,7 @@ impl From<quick_xml::de::DeError> for Error {
     }
 }
 
-/// Creates an [Error::Other and returns early (like `anyhow::bail!`).
+/// Early-return with [`Error::Other`]. Accepts the same arguments as [`format!`].
 #[macro_export]
 macro_rules! bail {
     ($($arg:tt)*) => {

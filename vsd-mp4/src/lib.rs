@@ -8,7 +8,8 @@
 //! The following are a list of [Cargo features](https://doc.rust-lang.org/stable/cargo/reference/features.html#the-features-section) that can be
 //! enabled or disabled:
 //!
-//! - **decrypt**: Enables support for decryption.
+//! - **decrypt-cenc**: Enables support for decryption CENC.
+//! - **decrypt-hls**: Enables support for decryption HLS.
 //! - **pssh**: Enables support for parsing `PSSH` boxes.
 //! - **sidx**: Enables support for parsing `SIDX` boxes.
 //! - **text-ttml**: Enables support for extracting ttml subtitles.
@@ -16,8 +17,8 @@
 
 pub mod boxes;
 
-#[cfg(feature = "decrypt")]
-#[cfg_attr(docsrs, doc(cfg(feature = "decrypt")))]
+#[cfg(any(feature = "decrypt-cenc", feature = "decrypt-hls"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "decrypt-cenc", feature = "decrypt-hls"))))]
 pub mod decrypt;
 
 #[cfg(feature = "pssh")]
