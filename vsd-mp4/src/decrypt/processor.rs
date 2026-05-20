@@ -1,294 +1,245 @@
-use crate::{
-    Mp4Parser,
-    boxes::{SchmBox, SencBox, TencBox, TrunBox},
-    data,
-    decrypt::{decrypter::Decrypter, stream::BoxHeader},
-    error::{Error, Result},
-    parser,
+use aes::{
+    Aes128,
+    cipher::{BlockModeDecrypt, KeyIvInit, StreamCipher},
 };
-use std::io::{Read, Write};
 
-struct TrackEncInfo {
-    scheme_type: u32,
-    tenc: TencBox,
+use crate::boxes::{SencSample, SencSubsample};
+
+type Aes128Ctr = ctr::Ctr128BE<Aes128>;
+type Aes128Cbc = cbc::Decryptor<Aes128>;
+
+enum CipherMode {
+    Cenc,
+    Cens,
+    Cbc1,
+    Cbcs,
+    None,
 }
 
-pub struct CencDecrypter {
+pub struct CencProcessor {
+    mode: CipherMode,
     key: [u8; 16],
-    track: Option<TrackEncInfo>,
+    iv: [u8; 16],
+    crypt_size: usize,
+    skip_size: usize,
 }
 
-impl CencDecrypter {
-    pub fn new(key: &str) -> Result<Self> {
-        Ok(Self {
-            key: hex::decode(key.to_ascii_lowercase().replace('-', ""))?
-                .try_into()
-                .map_err(|v: Vec<u8>| Error::InvalidKeySize(v.len()))?,
-            track: None,
-        })
+impl CencProcessor {
+    pub fn new(scheme_type: u32, key: &[u8; 16], crypt_blocks: u8, skip_blocks: u8) -> Self {
+        Self {
+            mode: match scheme_type {
+                0x63656E63 => CipherMode::Cenc,
+                0x63656E73 => CipherMode::Cens,
+                0x63626331 => CipherMode::Cbc1,
+                0x63626373 => CipherMode::Cbcs,
+                _ => CipherMode::None,
+            },
+            key: *key,
+            iv: [0u8; 16],
+            crypt_size: crypt_blocks as usize * 16,
+            skip_size: skip_blocks as usize * 16,
+        }
     }
 
-    pub fn with_init(key: &str, init: &[u8]) -> Result<Self> {
-        let mut decrypter = Self::new(key)?;
-        decrypter.track = Some(Self::parse_track(init)?);
-        Ok(decrypter)
+    fn process_inplace(&mut self, data: &mut [u8]) {
+        match self.mode {
+            CipherMode::Cenc => self.process_ctr_inplace(data),
+            CipherMode::Cens => self.process_cens_pattern_inplace(data),
+            CipherMode::Cbc1 => self.process_cbc_inplace(data),
+            CipherMode::Cbcs => self.process_cbcs_pattern_inplace(data),
+            CipherMode::None => {}
+        }
     }
 
-    pub fn decrypt(&self, input: Vec<u8>, init: Option<&[u8]>) -> Result<Vec<u8>> {
-        if input.is_empty() {
-            return Ok(input);
+    fn process_ctr_inplace(&self, data: &mut [u8]) {
+        Aes128Ctr::new((&self.key).into(), (&self.iv).into()).apply_keystream(data);
+    }
+
+    fn process_cens_pattern_inplace(&self, data: &mut [u8]) {
+        if self.crypt_size == 0 && self.skip_size == 0 {
+            self.process_ctr_inplace(data);
+            return;
         }
 
-        let owned;
-        let track = if let Some(init) = init {
-            owned = Self::parse_track(init)?;
-            &owned
-        } else if let Some(ref cached) = self.track {
-            cached
+        let len = data.len();
+        let mut cipher = Aes128Ctr::new((&self.key).into(), (&self.iv).into());
+        let mut offset = 0;
+
+        while offset < len {
+            let to_encrypt = (len - offset).min(self.crypt_size);
+            if to_encrypt > 0 {
+                cipher.apply_keystream(&mut data[offset..offset + to_encrypt]);
+                offset += to_encrypt;
+            }
+
+            if offset >= len {
+                break;
+            }
+
+            let to_skip = (len - offset).min(self.skip_size);
+            offset += to_skip;
+        }
+    }
+
+    fn process_cbc_inplace(&self, data: &mut [u8]) {
+        let blocks = (data.len() / 16) * 16;
+        if blocks == 0 {
+            return;
+        }
+
+        Aes128Cbc::new((&self.key).into(), (&self.iv).into())
+            .decrypt_padded::<cipher::block_padding::NoPadding>(&mut data[..blocks])
+            .unwrap();
+    }
+
+    fn process_cbcs_pattern_inplace(&mut self, data: &mut [u8]) {
+        if self.crypt_size == 0 && self.skip_size == 0 {
+            self.process_cbc_inplace(data);
+            return;
+        }
+
+        let len = data.len();
+        let mut offset = 0;
+        while offset < len {
+            let to_encrypt = (len - offset).min(self.crypt_size);
+            let blocks = (to_encrypt / 16) * 16;
+
+            if blocks > 0 {
+                let iv_start = offset + blocks - 16;
+                let mut next_iv = [0u8; 16];
+                next_iv.copy_from_slice(&data[iv_start..iv_start + 16]);
+
+                self.process_cbc_inplace(&mut data[offset..offset + blocks]);
+                self.iv = next_iv;
+            }
+
+            offset += to_encrypt;
+
+            if offset >= len {
+                break;
+            }
+
+            let to_skip = (len - offset).min(self.skip_size);
+            offset += to_skip;
+        }
+    }
+
+    pub fn decrypt_sample_inplace(&mut self, data: &mut [u8], sample: &SencSample) {
+        if let CipherMode::None = self.mode {
+            return;
+        }
+
+        let iv = sample.iv_as_array();
+        self.iv = iv;
+
+        if !sample.subsamples.is_empty() {
+            self.decrypt_subsamples_inplace(data, &iv, &sample.subsamples);
+        } else if let CipherMode::Cbc1 | CipherMode::Cbcs = self.mode {
+            self.decrypt_full_blocks_inplace(data);
         } else {
-            owned = Self::parse_track(&input)?;
-            &owned
-        };
-
-        Self::decrypt_fragment(&self.key, track, input)
+            self.process_inplace(data);
+        }
     }
 
-    pub fn decrypt_stream<R: Read, W: Write>(
+    fn decrypt_subsamples_inplace(
         &mut self,
-        reader: &mut R,
-        writer: &mut W,
-        init: Option<&[u8]>,
-    ) -> Result<u64> {
-        let (init_data, first_moof_header) = match init {
-            Some(data) => (data.to_vec(), None),
-            None => {
-                let (data, moof) = BoxHeader::read_init(reader)?;
-                if moof.is_none() {
-                    return Err(Error::InvalidMp4(
-                        "No moof box found — input does not appear to be a fragmented mp4".into(),
-                    ));
-                }
-                (data, moof)
+        data: &mut [u8],
+        iv: &[u8; 16],
+        subsamples: &[SencSubsample],
+    ) {
+        match self.mode {
+            CipherMode::Cenc | CipherMode::Cens => {
+                self.decrypt_subsamples_ctr_inplace(data, iv, subsamples);
             }
-        };
-
-        self.track = Some(Self::parse_track(&init_data)?);
-
-        if init.is_none() {
-            writer.write_all(&init_data)?;
-        }
-
-        let mut pending = first_moof_header;
-        let mut fragments: u64 = 0;
-
-        loop {
-            let header = match pending.take() {
-                Some(h) => h,
-                None => match BoxHeader::read_header(reader)? {
-                    Some(h) => h,
-                    None => break,
-                },
-            };
-
-            if &header.box_type == b"moof" {
-                let moof_data = header.read_data(reader)?;
-                let mut fragment = moof_data;
-
-                loop {
-                    let Some(next) = BoxHeader::read_header(reader)? else {
-                        break;
-                    };
-
-                    let next_data = next.read_data(reader)?;
-                    fragment.extend_from_slice(&next_data);
-
-                    if &next.box_type == b"mdat" {
-                        break;
-                    }
-                }
-
-                let decrypted = self.decrypt(fragment, None)?;
-                writer.write_all(&decrypted)?;
-
-                fragments += 1;
-            } else {
-                let box_data = header.read_data(reader)?;
-                writer.write_all(&box_data)?;
+            _ => {
+                self.decrypt_subsamples_cbc_inplace(data, iv, subsamples);
             }
         }
-
-        writer.flush()?;
-
-        Ok(fragments)
     }
 
-    fn parse_track(init_data: &[u8]) -> Result<TrackEncInfo> {
-        let current_schm = data!(0u32);
-        let current_tenc = data!();
-        let result = data!();
+    fn decrypt_subsamples_ctr_inplace(
+        &self,
+        data: &mut [u8],
+        iv: &[u8; 16],
+        subsamples: &[SencSubsample],
+    ) {
+        let mut cipher = Aes128Ctr::new((&self.key).into(), iv.into());
+        let has_pattern =
+            self.crypt_size > 0 && self.skip_size > 0 && matches!(self.mode, CipherMode::Cens);
+        let len = data.len();
+        let mut offset = 0;
 
-        let _ = Mp4Parser::new()
-            .base_box("moov", parser::children)
-            .base_box("trak", {
-                let current_schm = current_schm.clone();
-                let current_tenc = current_tenc.clone();
-                let result = result.clone();
-                move |box_| {
-                    *current_schm.borrow_mut() = 0;
-                    *current_tenc.borrow_mut() = None;
+        for sub in subsamples {
+            let clear_size = sub.bytes_of_clear_data as usize;
+            let enc_size = sub.bytes_of_encrypted_data as usize;
 
-                    parser::children(box_)?;
+            if offset + clear_size + enc_size > len {
+                return;
+            }
 
-                    if result.borrow().is_none() {
-                        if let Some(tenc) = current_tenc.borrow_mut().take() {
-                            let scheme = *current_schm.borrow();
-                            *result.borrow_mut() = Some(TrackEncInfo {
-                                scheme_type: scheme,
-                                tenc,
-                            });
+            let start = offset + clear_size;
+
+            if enc_size > 0 {
+                if has_pattern {
+                    let mut pat_offset = 0;
+                    while pat_offset < enc_size {
+                        let to_crypt = (enc_size - pat_offset).min(self.crypt_size);
+                        if to_crypt > 0 {
+                            cipher.apply_keystream(
+                                &mut data[start + pat_offset..start + pat_offset + to_crypt],
+                            );
+                            pat_offset += to_crypt;
                         }
+                        if pat_offset >= enc_size {
+                            break;
+                        }
+                        let to_skip = (enc_size - pat_offset).min(self.skip_size);
+                        pat_offset += to_skip;
                     }
-                    Ok(())
+                } else {
+                    cipher.apply_keystream(&mut data[start..start + enc_size]);
                 }
-            })
-            .full_box("tkhd", |_| Ok(()))
-            .base_box("mdia", parser::children)
-            .base_box("minf", parser::children)
-            .base_box("stbl", parser::children)
-            .full_box("stsd", parser::sample_description)
-            .base_box("encv", parser::visual_sample_entry)
-            .base_box("enca", parser::audio_sample_entry)
-            .base_box("sinf", parser::children)
-            .full_box("schm", {
-                let current_schm = current_schm.clone();
-                move |mut box_| {
-                    *current_schm.borrow_mut() = SchmBox::new(&mut box_)?.scheme_type;
-                    Ok(())
-                }
-            })
-            .base_box("schi", parser::children)
-            .full_box("tenc", {
-                let current_tenc = current_tenc.clone();
-                move |mut box_| {
-                    *current_tenc.borrow_mut() = Some(TencBox::new(&mut box_)?);
-                    Ok(())
-                }
-            })
-            .parse(init_data, true, true);
+            }
 
-        result
-            .borrow_mut()
-            .take()
-            .ok_or_else(|| Error::InvalidMp4("No encrypted track found (no tenc box)".into()))
+            offset += clear_size + enc_size;
+        }
     }
 
-    fn decrypt_fragment(
-        key: &[u8; 16],
-        track: &TrackEncInfo,
-        mut input_data: Vec<u8>,
-    ) -> Result<Vec<u8>> {
-        struct FragmentInfo {
-            trun: TrunBox,
-            senc: SencBox,
-        }
+    fn decrypt_subsamples_cbc_inplace(
+        &mut self,
+        data: &mut [u8],
+        iv: &[u8; 16],
+        subsamples: &[SencSubsample],
+    ) {
+        let len = data.len();
+        let mut offset = 0;
 
-        let moof_start = data!(0u64);
-        let fragments = data!(Vec::new());
+        for sub in subsamples {
+            let clear_size = sub.bytes_of_clear_data as usize;
+            let enc_size = sub.bytes_of_encrypted_data as usize;
 
-        let current_frag_trun = data!();
-        let current_frag_senc = data!();
-
-        let iv_size = track.tenc.per_sample_iv_size;
-        let constant_iv = track.tenc.constant_iv.clone();
-
-        let _ = Mp4Parser::new()
-            .base_box("moof", {
-                let moof_start = moof_start.clone();
-                move |box_| {
-                    *moof_start.borrow_mut() = box_.start;
-                    parser::children(box_)
-                }
-            })
-            .base_box("traf", {
-                let current_frag_trun = current_frag_trun.clone();
-                let current_frag_senc = current_frag_senc.clone();
-                let fragments = fragments.clone();
-                move |box_| {
-                    *current_frag_trun.borrow_mut() = None;
-                    *current_frag_senc.borrow_mut() = None;
-
-                    parser::children(box_)?;
-
-                    let trun = current_frag_trun.borrow_mut().take();
-                    let senc = current_frag_senc.borrow_mut().take();
-
-                    if let (Some(trun), Some(senc)) = (trun, senc) {
-                        fragments.borrow_mut().push(FragmentInfo { trun, senc });
-                    }
-                    Ok(())
-                }
-            })
-            .full_box("tfhd", |_| Ok(()))
-            .full_box("tfdt", |_| Ok(()))
-            .full_box("trun", {
-                let current_frag_trun = current_frag_trun.clone();
-                move |mut box_| {
-                    *current_frag_trun.borrow_mut() = Some(TrunBox::new(&mut box_)?);
-                    Ok(())
-                }
-            })
-            .full_box("senc", {
-                let current_frag_senc = current_frag_senc.clone();
-                let constant_iv = constant_iv.clone();
-                move |mut box_| {
-                    *current_frag_senc.borrow_mut() =
-                        Some(SencBox::new(&mut box_, iv_size, constant_iv.as_deref())?);
-                    Ok(())
-                }
-            })
-            .parse(&input_data, true, true);
-
-        let frags = fragments.borrow();
-        if frags.is_empty() {
-            return Ok(input_data);
-        }
-
-        let moof_start_val = *moof_start.borrow();
-
-        let mut decrypter = Decrypter::new(
-            track.scheme_type,
-            key,
-            track.tenc.crypt_byte_block,
-            track.tenc.skip_byte_block,
-        );
-
-        for frag in frags.iter() {
-            let data_start = {
-                let offset = frag.trun.data_offset.unwrap_or_default() as i64;
-                (moof_start_val as i64 + offset) as usize
-            };
-
-            let mut offset = data_start;
-            let output_len = input_data.len();
-
-            for (trun_sample, senc_sample) in
-                frag.trun.sample_data.iter().zip(frag.senc.samples.iter())
-            {
-                let size = trun_sample.sample_size.unwrap_or_default() as usize;
-                if size == 0 {
-                    continue;
-                }
-
-                let end = offset + size;
-                if end > output_len {
-                    break;
-                }
-
-                decrypter.decrypt_sample_inplace(&mut input_data[offset..end], senc_sample);
-                offset = end;
+            if offset + clear_size + enc_size > len {
+                self.iv = *iv;
+                self.process_inplace(&mut data[offset..]);
+                return;
             }
-        }
 
-        Ok(input_data)
+            if enc_size > 0 {
+                if let CipherMode::Cbcs = self.mode {
+                    self.iv = *iv;
+                }
+                let start = offset + clear_size;
+                self.process_inplace(&mut data[start..start + enc_size]);
+            }
+
+            offset += clear_size + enc_size;
+        }
+    }
+
+    fn decrypt_full_blocks_inplace(&mut self, data: &mut [u8]) {
+        let blocks = (data.len() / 16) * 16;
+        if blocks > 0 {
+            self.process_inplace(&mut data[..blocks]);
+        }
     }
 }
