@@ -10,7 +10,10 @@ use std::io::{Read, Write};
 
 struct TrackEncInfo {
     scheme_type: u32,
-    tenc: TencBox,
+    per_sample_iv_size: u8,
+    constant_iv: Option<Vec<u8>>,
+    crypt_byte_block: u8,
+    skip_byte_block: u8,
 }
 
 pub struct CencDecrypter {
@@ -145,7 +148,10 @@ impl CencDecrypter {
                             let scheme = *current_schm.borrow();
                             *result.borrow_mut() = Some(TrackEncInfo {
                                 scheme_type: scheme,
-                                tenc,
+                                per_sample_iv_size: tenc.per_sample_iv_size,
+                                constant_iv: tenc.constant_iv,
+                                crypt_byte_block: tenc.crypt_byte_block,
+                                skip_byte_block: tenc.skip_byte_block,
                             });
                         }
                     }
@@ -199,8 +205,8 @@ impl CencDecrypter {
         let current_frag_trun = data!();
         let current_frag_senc = data!();
 
-        let iv_size = track.tenc.per_sample_iv_size;
-        let constant_iv = track.tenc.constant_iv.clone();
+        let iv_size = track.per_sample_iv_size;
+        let constant_iv = track.constant_iv.clone();
 
         let _ = Mp4Parser::new()
             .base_box("moof", {
@@ -259,8 +265,8 @@ impl CencDecrypter {
         let mut decrypter = CencProcessor::new(
             track.scheme_type,
             key,
-            track.tenc.crypt_byte_block,
-            track.tenc.skip_byte_block,
+            track.crypt_byte_block,
+            track.skip_byte_block,
         );
 
         for frag in frags.iter() {
