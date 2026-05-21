@@ -8,6 +8,7 @@ use crate::{
 };
 use std::io::{Read, Write};
 
+#[derive(Clone, Copy, Default)]
 struct TrackEncInfo {
     scheme_type: u32,
     per_sample_iv_size: u8,
@@ -127,63 +128,59 @@ impl CencDecrypter {
     }
 
     fn parse_track(init: &[u8]) -> Result<TrackEncInfo> {
-        let current_schm = data!(0u32);
-        let current_tenc: std::rc::Rc<std::cell::RefCell<Option<TencBox>>> = data!();
-        let result = data!();
+        let track = data!(Option::<TrackEncInfo>::None);
 
-        let _ = Mp4Parser::new()
+        Mp4Parser::new()
+            .base_box("enca", parser::audio_sample_entry)
+            .base_box("encv", parser::visual_sample_entry)
+            .base_box("mdia", parser::children)
+            .base_box("minf", parser::children)
             .base_box("moov", parser::children)
-            .base_box("trak", {
-                let current_schm = current_schm.clone();
-                let current_tenc = current_tenc.clone();
-                let result = result.clone();
-                move |box_| {
-                    *current_schm.borrow_mut() = 0;
-                    *current_tenc.borrow_mut() = None;
-
-                    parser::children(box_)?;
-
-                    if result.borrow().is_none() {
-                        if let Some(tenc) = current_tenc.borrow_mut().take() {
-                            let scheme = *current_schm.borrow();
-                            *result.borrow_mut() = Some(TrackEncInfo {
-                                scheme_type: scheme,
-                                per_sample_iv_size: tenc.per_sample_iv_size,
-                                constant_iv: tenc.constant_iv,
-                                crypt_byte_block: tenc.crypt_byte_block,
-                                skip_byte_block: tenc.skip_byte_block,
-                            });
-                        }
+            .base_box("schi", parser::children)
+            .base_box("sinf", parser::children)
+            .base_box("stbl", parser::children)
+            .full_box("stsd", parser::sample_description)
+            .full_box("schm", {
+                let track = track.clone();
+                move |mut box_| {
+                    if let Some(t) = &mut *track.borrow_mut() {
+                        t.scheme_type = SchmBox::new(&mut box_)?.scheme_type;
                     }
                     Ok(())
                 }
             })
-            .full_box("tkhd", |_| Ok(()))
-            .base_box("mdia", parser::children)
-            .base_box("minf", parser::children)
-            .base_box("stbl", parser::children)
-            .full_box("stsd", parser::sample_description)
-            .base_box("encv", parser::visual_sample_entry)
-            .base_box("enca", parser::audio_sample_entry)
-            .base_box("sinf", parser::children)
-            .full_box("schm", {
-                let current_schm = current_schm.clone();
-                move |mut box_| {
-                    *current_schm.borrow_mut() = SchmBox::new(&mut box_)?.scheme_type;
-                    Ok(())
-                }
-            })
-            .base_box("schi", parser::children)
             .full_box("tenc", {
-                let current_tenc = current_tenc.clone();
+                let track = track.clone();
                 move |mut box_| {
-                    *current_tenc.borrow_mut() = Some(TencBox::new(&mut box_)?);
+                    if let Some(t) = &mut *track.borrow_mut() {
+                        let tenc = TencBox::new(&mut box_)?;
+                        t.per_sample_iv_size = tenc.per_sample_iv_size;
+                        t.constant_iv = tenc.constant_iv;
+                        t.crypt_byte_block = tenc.crypt_byte_block;
+                        t.skip_byte_block = tenc.skip_byte_block;
+                    }
+                    box_.parser.stop();
                     Ok(())
                 }
             })
-            .parse(init, true, true);
+            .base_box("trak", {
+                let track = track.clone();
+                move |box_| {
+                    *track.borrow_mut() = Some(TrackEncInfo::default());
+                    parser::children(box_)?;
+                    let t = track.borrow();
 
-        result
+                    if let Some(t) = &*t
+                        && !(t.per_sample_iv_size > 0 || t.constant_iv.is_some())
+                    {
+                        *track.borrow_mut() = None;
+                    }
+                    Ok(())
+                }
+            })
+            .parse(init, true, true)?;
+
+        track
             .borrow_mut()
             .take()
             .ok_or_else(|| Error::InvalidMp4("No encrypted track found (no tenc box)".into()))
@@ -195,38 +192,44 @@ impl CencDecrypter {
             senc: SencBox,
         }
 
-        let moof_start = data!(0u64);
-        let fragments = data!(Vec::new());
+        #[derive(Default)]
+        struct FragmentParserState {
+            moof_start: u64,
+            fragments: Vec<FragmentInfo>,
+            current_frag_trun: Option<TrunBox>,
+            current_frag_senc: Option<SencBox>,
+        }
 
-        let current_frag_trun = data!();
-        let current_frag_senc = data!();
+        let state = data!(FragmentParserState::default());
 
         let iv_size = track.per_sample_iv_size;
         let constant_iv = track.constant_iv;
 
         let _ = Mp4Parser::new()
             .base_box("moof", {
-                let moof_start = moof_start.clone();
+                let state = state.clone();
                 move |box_| {
-                    *moof_start.borrow_mut() = box_.start;
+                    state.borrow_mut().moof_start = box_.start;
                     parser::children(box_)
                 }
             })
             .base_box("traf", {
-                let current_frag_trun = current_frag_trun.clone();
-                let current_frag_senc = current_frag_senc.clone();
-                let fragments = fragments.clone();
+                let state = state.clone();
                 move |box_| {
-                    *current_frag_trun.borrow_mut() = None;
-                    *current_frag_senc.borrow_mut() = None;
+                    {
+                        let mut s = state.borrow_mut();
+                        s.current_frag_trun = None;
+                        s.current_frag_senc = None;
+                    }
 
                     parser::children(box_)?;
 
-                    let trun = current_frag_trun.borrow_mut().take();
-                    let senc = current_frag_senc.borrow_mut().take();
+                    let mut s = state.borrow_mut();
+                    let trun = s.current_frag_trun.take();
+                    let senc = s.current_frag_senc.take();
 
                     if let (Some(trun), Some(senc)) = (trun, senc) {
-                        fragments.borrow_mut().push(FragmentInfo { trun, senc });
+                        s.fragments.push(FragmentInfo { trun, senc });
                     }
                     Ok(())
                 }
@@ -234,29 +237,30 @@ impl CencDecrypter {
             .full_box("tfhd", |_| Ok(()))
             .full_box("tfdt", |_| Ok(()))
             .full_box("trun", {
-                let current_frag_trun = current_frag_trun.clone();
+                let state = state.clone();
                 move |mut box_| {
-                    *current_frag_trun.borrow_mut() = Some(TrunBox::new(&mut box_)?);
+                    state.borrow_mut().current_frag_trun = Some(TrunBox::new(&mut box_)?);
                     Ok(())
                 }
             })
             .full_box("senc", {
-                let current_frag_senc = current_frag_senc.clone();
+                let state = state.clone();
                 let constant_iv = constant_iv;
                 move |mut box_| {
-                    *current_frag_senc.borrow_mut() =
+                    state.borrow_mut().current_frag_senc =
                         Some(SencBox::new(&mut box_, iv_size, constant_iv.as_ref())?);
                     Ok(())
                 }
             })
             .parse(&input, true, true);
 
-        let frags = fragments.borrow();
+        let mut state_borrow = state.borrow_mut();
+        let frags = std::mem::take(&mut state_borrow.fragments);
         if frags.is_empty() {
             return Ok(());
         }
 
-        let moof_start_val = *moof_start.borrow();
+        let moof_start_val = state_borrow.moof_start;
 
         let mut processor = CencProcessor::new(
             key,
