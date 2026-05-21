@@ -8,8 +8,8 @@ use crate::{
 };
 use std::io::{Read, Write};
 
-#[derive(Clone, Copy, Default)]
-struct TrackEncInfo {
+#[derive(Default)]
+struct Tenc {
     scheme_type: u32,
     per_sample_iv_size: u8,
     constant_iv: Option<[u8; 16]>,
@@ -19,7 +19,7 @@ struct TrackEncInfo {
 
 pub struct CencDecrypter {
     key: [u8; 16],
-    track: Option<TrackEncInfo>,
+    tenc: Option<Tenc>,
 }
 
 impl CencDecrypter {
@@ -28,13 +28,13 @@ impl CencDecrypter {
             key: hex::decode(key.to_ascii_lowercase().replace('-', ""))?
                 .try_into()
                 .map_err(|v: Vec<u8>| Error::InvalidKeySize(v.len()))?,
-            track: None,
+            tenc: None,
         })
     }
 
     pub fn with_init(key: &str, init: &[u8]) -> Result<Self> {
         let mut decrypter = Self::new(key)?;
-        decrypter.track = Some(Self::parse_track(init)?);
+        decrypter.tenc = Some(Self::parse_init(init)?);
         Ok(decrypter)
     }
 
@@ -45,12 +45,12 @@ impl CencDecrypter {
 
         let track;
         let track_ref = if let Some(init) = init {
-            track = Self::parse_track(init)?;
+            track = Self::parse_init(init)?;
             &track
-        } else if let Some(cached) = &self.track {
+        } else if let Some(cached) = &self.tenc {
             cached
         } else {
-            track = Self::parse_track(&input)?;
+            track = Self::parse_init(&input)?;
             &track
         };
 
@@ -77,7 +77,7 @@ impl CencDecrypter {
             }
         };
 
-        self.track = Some(Self::parse_track(&init_data)?);
+        self.tenc = Some(Self::parse_init(&init_data)?);
 
         if init.is_none() {
             writer.write_all(&init_data)?;
@@ -127,8 +127,8 @@ impl CencDecrypter {
         Ok(fragments)
     }
 
-    fn parse_track(init: &[u8]) -> Result<TrackEncInfo> {
-        let track = data!(Option::<TrackEncInfo>::None);
+    fn parse_init(init: &[u8]) -> Result<Tenc> {
+        let tenc = data!(Tenc::default());
 
         Mp4Parser::new()
             .base_box("enca", parser::audio_sample_entry)
@@ -140,53 +140,33 @@ impl CencDecrypter {
             .base_box("sinf", parser::children)
             .base_box("stbl", parser::children)
             .full_box("stsd", parser::sample_description)
+            .base_box("trak", parser::children)
             .full_box("schm", {
-                let track = track.clone();
+                let tenc = tenc.clone();
                 move |mut box_| {
-                    if let Some(t) = &mut *track.borrow_mut() {
-                        t.scheme_type = SchmBox::new(&mut box_)?.scheme_type;
-                    }
+                    tenc.borrow_mut().scheme_type = SchmBox::new(&mut box_)?.scheme_type;
                     Ok(())
                 }
             })
             .full_box("tenc", {
-                let track = track.clone();
+                let tenc = tenc.clone();
                 move |mut box_| {
-                    if let Some(t) = &mut *track.borrow_mut() {
-                        let tenc = TencBox::new(&mut box_)?;
-                        t.per_sample_iv_size = tenc.per_sample_iv_size;
-                        t.constant_iv = tenc.constant_iv;
-                        t.crypt_byte_block = tenc.crypt_byte_block;
-                        t.skip_byte_block = tenc.skip_byte_block;
-                    }
+                    let tenc_box = TencBox::new(&mut box_)?;
+                    let t = &mut *tenc.borrow_mut();
+                    t.per_sample_iv_size = tenc_box.per_sample_iv_size;
+                    t.constant_iv = tenc_box.constant_iv;
+                    t.crypt_byte_block = tenc_box.crypt_byte_block;
+                    t.skip_byte_block = tenc_box.skip_byte_block;
                     box_.parser.stop();
-                    Ok(())
-                }
-            })
-            .base_box("trak", {
-                let track = track.clone();
-                move |box_| {
-                    *track.borrow_mut() = Some(TrackEncInfo::default());
-                    parser::children(box_)?;
-                    let t = track.borrow();
-
-                    if let Some(t) = &*t
-                        && !(t.per_sample_iv_size > 0 || t.constant_iv.is_some())
-                    {
-                        *track.borrow_mut() = None;
-                    }
                     Ok(())
                 }
             })
             .parse(init, true, true)?;
 
-        track
-            .borrow_mut()
-            .take()
-            .ok_or_else(|| Error::InvalidMp4("No encrypted track found (no tenc box)".into()))
+        Ok(tenc.take())
     }
 
-    fn decrypt_fragment(key: &[u8; 16], track: &TrackEncInfo, input: &mut Vec<u8>) -> Result<()> {
+    fn decrypt_fragment(key: &[u8; 16], tenc: &Tenc, input: &mut Vec<u8>) -> Result<()> {
         struct FragmentInfo {
             trun: TrunBox,
             senc: SencBox,
@@ -202,8 +182,8 @@ impl CencDecrypter {
 
         let state = data!(FragmentParserState::default());
 
-        let iv_size = track.per_sample_iv_size;
-        let constant_iv = track.constant_iv;
+        let iv_size = tenc.per_sample_iv_size;
+        let constant_iv = tenc.constant_iv;
 
         let _ = Mp4Parser::new()
             .base_box("moof", {
@@ -264,9 +244,9 @@ impl CencDecrypter {
 
         let mut processor = CencProcessor::new(
             key,
-            track.crypt_byte_block,
-            track.skip_byte_block,
-            track.scheme_type,
+            tenc.crypt_byte_block,
+            tenc.skip_byte_block,
+            tenc.scheme_type,
         );
 
         for frag in frags.iter() {
