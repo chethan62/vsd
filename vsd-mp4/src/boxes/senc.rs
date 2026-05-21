@@ -12,20 +12,10 @@ pub struct SencSubsample {
 /// Sample encryption information for a single sample.
 #[derive(Debug, Clone)]
 pub struct SencSample {
-    /// The initialization vector for this sample.
-    pub iv: Vec<u8>,
+    /// The initialization vector for this sample (zero-padded to 16 bytes).
+    pub iv: [u8; 16],
     /// Subsample encryption entries (if present).
     pub subsamples: Vec<SencSubsample>,
-}
-
-impl SencSample {
-    /// Convert IV to a 16-byte array, padding with zeros if needed.
-    pub fn iv_as_array(&self) -> [u8; 16] {
-        let mut iv = [0u8; 16];
-        let len = self.iv.len().min(16);
-        iv[..len].copy_from_slice(&self.iv[..len]);
-        iv
-    }
 }
 
 /// Sample Encryption Box (senc) - contains per-sample encryption info.
@@ -47,7 +37,7 @@ impl SencBox {
     /// * `box_` - The parsed box to read from
     /// * `iv_size` - The IV size (from tenc per_sample_iv_size or default)
     /// * `constant_iv` - Optional constant IV (for CBCS when per_sample_iv_size is 0)
-    pub fn new(box_: &mut ParsedBox, iv_size: u8, constant_iv: Option<&[u8]>) -> Result<Self> {
+    pub fn new(box_: &mut ParsedBox, iv_size: u8, constant_iv: Option<&[u8; 16]>) -> Result<Self> {
         let reader = &mut box_.reader;
         let flags = box_.flags.unwrap_or(0);
 
@@ -57,13 +47,16 @@ impl SencBox {
         let mut samples = Vec::with_capacity(sample_count as usize);
 
         for _ in 0..sample_count {
-            // Read per-sample IV or use constant IV
-            let iv = if iv_size > 0 {
-                reader.read_bytes_u8(iv_size as usize)?
+            // Read per-sample IV or use constant IV (zero-padded to 16 bytes)
+            let iv = if iv_size > 0 && iv_size <= 16 {
+                let bytes = reader.read_bytes_u8(iv_size as usize)?;
+                let mut iv = [0u8; 16];
+                iv[..bytes.len()].copy_from_slice(&bytes);
+                iv
             } else if let Some(civ) = constant_iv {
-                civ.to_vec()
+                *civ
             } else {
-                vec![0u8; 8] // Default 8-byte zero IV
+                [0u8; 16]
             };
 
             // Read subsamples if present
@@ -87,15 +80,5 @@ impl SencBox {
         }
 
         Ok(Self { flags, samples })
-    }
-
-    /// Check if this senc box has subsample encryption info.
-    pub fn has_subsamples(&self) -> bool {
-        self.flags & 0x02 != 0
-    }
-
-    /// Get the number of samples.
-    pub fn sample_count(&self) -> usize {
-        self.samples.len()
     }
 }

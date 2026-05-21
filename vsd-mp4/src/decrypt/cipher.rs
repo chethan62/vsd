@@ -129,11 +129,10 @@ impl CencProcessor {
             return;
         }
 
-        let iv = sample.iv_as_array();
-        self.iv = iv;
+        self.iv = sample.iv;
 
         if !sample.subsamples.is_empty() {
-            self.decrypt_subsamples_inplace(data, &iv, &sample.subsamples);
+            self.decrypt_subsamples_inplace(data, &sample.iv, &sample.subsamples);
         } else if let CipherMode::Cbc1 | CipherMode::Cbcs = self.mode {
             self.decrypt_full_blocks_inplace(data);
         } else {

@@ -11,7 +11,7 @@ use std::io::{Read, Write};
 struct TrackEncInfo {
     scheme_type: u32,
     per_sample_iv_size: u8,
-    constant_iv: Option<Vec<u8>>,
+    constant_iv: Option<[u8; 16]>,
     crypt_byte_block: u8,
     skip_byte_block: u8,
 }
@@ -128,7 +128,7 @@ impl CencDecrypter {
 
     fn parse_track(init: &[u8]) -> Result<TrackEncInfo> {
         let current_schm = data!(0u32);
-        let current_tenc = data!();
+        let current_tenc: std::rc::Rc<std::cell::RefCell<Option<TencBox>>> = data!();
         let result = data!();
 
         let _ = Mp4Parser::new()
@@ -189,11 +189,7 @@ impl CencDecrypter {
             .ok_or_else(|| Error::InvalidMp4("No encrypted track found (no tenc box)".into()))
     }
 
-    fn decrypt_fragment(
-        key: &[u8; 16],
-        track: &TrackEncInfo,
-        input: &mut Vec<u8>,
-    ) -> Result<()> {
+    fn decrypt_fragment(key: &[u8; 16], track: &TrackEncInfo, input: &mut Vec<u8>) -> Result<()> {
         struct FragmentInfo {
             trun: TrunBox,
             senc: SencBox,
@@ -206,7 +202,7 @@ impl CencDecrypter {
         let current_frag_senc = data!();
 
         let iv_size = track.per_sample_iv_size;
-        let constant_iv = track.constant_iv.clone();
+        let constant_iv = track.constant_iv;
 
         let _ = Mp4Parser::new()
             .base_box("moof", {
@@ -246,10 +242,10 @@ impl CencDecrypter {
             })
             .full_box("senc", {
                 let current_frag_senc = current_frag_senc.clone();
-                let constant_iv = constant_iv.clone();
+                let constant_iv = constant_iv;
                 move |mut box_| {
                     *current_frag_senc.borrow_mut() =
-                        Some(SencBox::new(&mut box_, iv_size, constant_iv.as_deref())?);
+                        Some(SencBox::new(&mut box_, iv_size, constant_iv.as_ref())?);
                     Ok(())
                 }
             })

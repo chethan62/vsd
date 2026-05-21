@@ -28,7 +28,7 @@ pub struct TencBox {
     /// Only present in tenc version 1.
     pub skip_byte_block: u8,
     /// Constant IV for CBCS mode (when per_sample_iv_size is 0).
-    pub constant_iv: Option<Vec<u8>>,
+    pub constant_iv: Option<[u8; 16]>,
 }
 
 impl TencBox {
@@ -86,19 +86,17 @@ impl TencBox {
         default_kid.copy_from_slice(&kid_bytes);
 
         // Read constant IV if per_sample_iv_size is 0 (CBCS mode)
-        let constant_iv = if per_sample_iv_size == 0 {
-            if let Ok(constant_iv_size) = reader.read_u8() {
-                if constant_iv_size > 0 && constant_iv_size <= 16 {
-                    reader.read_bytes_u8(constant_iv_size as usize).ok()
-                } else {
-                    None
-                }
-            } else {
-                None
+        let mut constant_iv = None;
+
+        if per_sample_iv_size == 0 {
+            let constant_iv_size = reader.read_u8()?;
+            if constant_iv_size > 0 && constant_iv_size <= 16 {
+                let bytes = reader.read_bytes_u8(constant_iv_size as usize)?;
+                let mut iv = [0u8; 16];
+                iv[..bytes.len()].copy_from_slice(&bytes);
+                constant_iv = Some(iv);
             }
-        } else {
-            None
-        };
+        }
 
         Ok(Self {
             default_kid,
@@ -113,24 +111,5 @@ impl TencBox {
     /// Get the default KID as a hex string.
     pub fn default_kid_hex(&self) -> String {
         hex::encode(self.default_kid)
-    }
-
-    /// Check if pattern encryption is used (CENS or CBCS).
-    pub fn has_pattern(&self) -> bool {
-        self.crypt_byte_block > 0 || self.skip_byte_block > 0
-    }
-
-    /// Get the effective IV size for decryption.
-    ///
-    /// Returns the per_sample_iv_size if non-zero, otherwise the constant IV size.
-    pub fn effective_iv_size(&self) -> u8 {
-        if self.per_sample_iv_size > 0 {
-            self.per_sample_iv_size
-        } else {
-            self.constant_iv
-                .as_ref()
-                .map(|v| v.len() as u8)
-                .unwrap_or(16)
-        }
     }
 }
