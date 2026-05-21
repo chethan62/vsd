@@ -1,21 +1,23 @@
 use crate::{ParsedBox, Result};
 
+/// Track Fragment Header Box (tfhd) - provides default parameters for a track fragment.
+///
+/// The track fragment header specifies the track ID and can define overrides for sample parameters
+/// such as duration, size, and data offset.
+#[derive(Debug, Clone)]
 pub struct TfhdBox {
-    /// As per the spec: an integer that uniquely identifies this
-    /// track over the entire life‐time of this presentation
+    /// An integer that uniquely identifies this track over the entire lifetime of this presentation.
     pub track_id: u32,
-    /// If specified via flags, this overrides the default sample
-    /// duration in the Track Extends Box for this fragment
+    /// If specified via flags, this overrides the default sample duration in the Track Extends Box for this fragment.
     pub default_sample_duration: Option<u32>,
-    /// If specified via flags, this overrides the default sample
-    /// size in the Track Extends Box for this fragment
+    /// If specified via flags, this overrides the default sample size in the Track Extends Box for this fragment.
     pub default_sample_size: Option<u32>,
-    /// If specified via flags, this indicate the base data offset
+    /// If specified via flags, this indicates the base data offset.
     pub base_data_offset: Option<u64>,
 }
 
 impl TfhdBox {
-    /// Parses a TFHD Box.
+    /// Parses a `tfhd` box from a `ParsedBox`.
     pub fn new(box_: &mut ParsedBox) -> Result<Self> {
         let reader = &mut box_.reader;
         let flags = box_.flags.unwrap();

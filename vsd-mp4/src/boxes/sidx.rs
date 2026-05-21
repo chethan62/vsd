@@ -1,28 +1,30 @@
-/*
-    REFERENCES
-    ----------
-
-    1. https://github.com/shaka-project/shaka-player/blob/62c8367438d36c08db6440ba32f54223e0367f00/lib/dash/mp4_segment_index_parser.js
-
-*/
-
-//! Mp4 `SIDX` box parser.
-
 use crate::{Mp4Parser, ParsedBox, Result, bail, data};
 
-/// Segment range.
+/// A byte range for a subsegment or media fragment indexed by the `sidx` box.
+#[derive(Debug, Clone)]
 pub struct SidxRange {
+    /// The ending byte offset (inclusive) of the subsegment.
     pub end: u64,
+    /// The starting byte offset of the subsegment.
     pub start: u64,
 }
 
-/// Mp4 `SegmentBase@indexRange` parser.
-/// `sidx_offset` is the starting byte of sidx box.
+/// Segment Index Box (sidx) - provides index information for media subsegments.
+///
+/// This box defines the subsegment structure, mapping them to specific byte ranges
+/// inside the media container.
+#[derive(Debug, Clone)]
 pub struct SidxBox {
+    /// The list of byte ranges for the indexed subsegments.
     pub ranges: Vec<SidxRange>,
 }
 
 impl SidxBox {
+    /// Helper method to find and parse a `sidx` box from initialization or segment data.
+    ///
+    /// # Arguments
+    /// * `data` - The byte slice containing the box hierarchy.
+    /// * `offset` - The absolute starting byte offset of the `sidx` box.
     pub fn from_init(data: &[u8], offset: u64) -> Result<Option<Self>> {
         let sidx_box = data!();
         let sidx_box_c = sidx_box.clone();
@@ -37,6 +39,11 @@ impl SidxBox {
         Ok(sidx_box.take())
     }
 
+    /// Parses a `sidx` box from a `ParsedBox`.
+    ///
+    /// # Arguments
+    /// * `box_` - The parsed box to read from.
+    /// * `offset` - The absolute starting byte offset of the `sidx` box.
     pub fn new(box_: &mut ParsedBox, offset: u64) -> Result<Self> {
         if box_.version.is_none() {
             bail!("SIDX is a full box and should have a valid version.");

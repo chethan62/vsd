@@ -1,12 +1,3 @@
-/*
-    Track Encryption Box (tenc) - contains default encryption parameters.
-
-    REFERENCES
-    ----------
-    1. ISO/IEC 23001-7 (Common Encryption)
-    2. https://github.com/shaka-project/shaka-player/blob/main/lib/util/mp4_box_parsers.js
-*/
-
 use crate::{Mp4Parser, ParsedBox, Result, data, parser};
 
 /// Track Encryption Box (tenc) - default encryption parameters for a track.
@@ -60,7 +51,7 @@ impl TencBox {
         Ok(tenc_box.take())
     }
 
-    /// Parse a tenc box from a ParsedBox.
+    /// Parse a `tenc` box from a `ParsedBox`.
     pub fn new(box_: &mut ParsedBox) -> Result<Self> {
         let reader = &mut box_.reader;
         let version = box_.version.unwrap_or(0);
@@ -108,7 +99,7 @@ impl TencBox {
         })
     }
 
-    /// Get the default KID as a hex string.
+    /// Get the default Key ID as a hexadecimal string.
     pub fn default_kid_hex(&self) -> String {
         hex::encode(self.default_kid)
     }

@@ -1,15 +1,22 @@
 use crate::{ParsedBox, Result};
 
+/// Media Header Box (mdhd) - declares media-independent metadata and information.
+///
+/// The Media Header Box contains the overall information and media-independent metadata
+/// about the media within a track.
+#[derive(Debug, Clone)]
 pub struct MdhdBox {
-    /// As per the spec: an integer that specifies the time‐scale for this media;
-    /// this is the number of time units that pass in one second
+    /// The time-scale for this media. This is the number of time units that pass in one second.
     pub timescale: u32,
-    /// Language code for this media
+    /// The ISO 639-2/T 3-character language code for this media (e.g., "und", "eng").
     pub language: String,
 }
 
 impl MdhdBox {
-    /// Parses a MDHD Box.
+    /// Parses a `mdhd` box from a `ParsedBox`.
+    ///
+    /// This method parses the creation time, modification time, timescale, duration,
+    /// and language from the box payload according to the box version (0 or 1).
     pub fn new(box_: &mut ParsedBox) -> Result<Self> {
         let reader = &mut box_.reader;
         let version = box_.version.unwrap();
@@ -28,9 +35,6 @@ impl MdhdBox {
 
         let language = reader.read_u16()?;
 
-        // language is stored as an ISO-639-2/T code in an array of three
-        // 5-bit fields each field is the packed difference between its ASCII
-        // value and 0x60
         let language_string = String::from_utf16(&[
             (language >> 10) + 0x60,
             ((language & 0x03c0) >> 5) + 0x60,

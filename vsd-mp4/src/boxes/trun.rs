@@ -1,28 +1,29 @@
 use crate::{ParsedBox, Result};
 
+/// Sample data entry within a track fragment run.
+#[derive(Debug, Clone)]
 pub struct TrunSample {
     /// The length of the sample in timescale units.
     pub sample_duration: Option<u32>,
     /// The size of the sample in bytes.
     pub sample_size: Option<u32>,
-    /// The time since the start of the sample in timescale units. Time
-    /// offset is based of the start of the sample. If this value is
-    /// missing, the accumulated durations preceeding this time sample will
-    /// be used to create the start time.
+    /// The composition time offset of the sample (difference between composition time and decode time), in timescale units.
     pub sample_composition_time_offset: Option<i32>,
 }
 
+/// Track Fragment Run Box (trun) - provides details for each sample in a movie fragment.
+#[derive(Debug, Clone)]
 pub struct TrunBox {
-    /// As per the spec: the number of samples being added in this run;
+    /// The number of samples being added in this run.
     pub sample_count: u32,
-    /// An array of size sampleCount containing data for each sample
+    /// An array containing data for each sample in the run.
     pub sample_data: Vec<TrunSample>,
-    /// If specified via flags, this indicate the offset of the sample in bytes.
+    /// If specified via flags, this indicates the offset of the first sample's data in bytes.
     pub data_offset: Option<u32>,
 }
 
 impl TrunBox {
-    /// Parses a TRUN Box.
+    /// Parses a `trun` box from a `ParsedBox`.
     pub fn new(box_: &mut ParsedBox) -> Result<Self> {
         let reader = &mut box_.reader;
         let version = box_.version.unwrap();

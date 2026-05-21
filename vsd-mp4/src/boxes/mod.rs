@@ -1,3 +1,9 @@
+//! MP4 box structures and parsers.
+//!
+//! This module defines and parses standard MP4 boxes (ISO/IEC 14496-12) and
+//! Common Encryption boxes (ISO/IEC 23001-7) required for DASH/HLS decryption
+//! and segment indexing.
+
 #[cfg(feature = "decrypt-cenc")]
 mod schm;
 
@@ -54,6 +60,9 @@ mod trun;
 #[cfg_attr(docsrs, doc(cfg(any(feature = "decrypt-cenc", feature = "text-vtt"))))]
 pub use trun::{TrunBox, TrunSample};
 
+/// Helper macro to create a reference-counted, interior-mutable `Option` cell.
+///
+/// This macro is widely used in custom MP4 parsing chains to collect parsed boxes in parser closures.
 #[macro_export]
 macro_rules! data {
     () => {
@@ -63,3 +72,4 @@ macro_rules! data {
         std::rc::Rc::new(std::cell::RefCell::new($val))
     };
 }
+
