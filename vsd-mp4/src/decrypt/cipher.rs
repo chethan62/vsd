@@ -1,9 +1,8 @@
+use crate::boxes::{SencSample, SencSubsample};
 use aes::{
     Aes128,
     cipher::{BlockModeDecrypt, KeyIvInit, StreamCipher},
 };
-
-use crate::boxes::{SencSample, SencSubsample};
 
 type Aes128Ctr = ctr::Ctr128BE<Aes128>;
 type Aes128Cbc = cbc::Decryptor<Aes128>;
@@ -41,89 +40,6 @@ impl CencProcessor {
         }
     }
 
-    fn process_inplace(&mut self, data: &mut [u8]) {
-        match self.mode {
-            CipherMode::Cenc => self.process_ctr_inplace(data),
-            CipherMode::Cens => self.process_cens_pattern_inplace(data),
-            CipherMode::Cbc1 => self.process_cbc_inplace(data),
-            CipherMode::Cbcs => self.process_cbcs_pattern_inplace(data),
-            CipherMode::None => {}
-        }
-    }
-
-    fn process_ctr_inplace(&self, data: &mut [u8]) {
-        Aes128Ctr::new((&self.key).into(), (&self.iv).into()).apply_keystream(data);
-    }
-
-    fn process_cens_pattern_inplace(&self, data: &mut [u8]) {
-        if self.crypt_size == 0 && self.skip_size == 0 {
-            self.process_ctr_inplace(data);
-            return;
-        }
-
-        let len = data.len();
-        let mut cipher = Aes128Ctr::new((&self.key).into(), (&self.iv).into());
-        let mut offset = 0;
-
-        while offset < len {
-            let to_encrypt = (len - offset).min(self.crypt_size);
-            if to_encrypt > 0 {
-                cipher.apply_keystream(&mut data[offset..offset + to_encrypt]);
-                offset += to_encrypt;
-            }
-
-            if offset >= len {
-                break;
-            }
-
-            let to_skip = (len - offset).min(self.skip_size);
-            offset += to_skip;
-        }
-    }
-
-    fn process_cbc_inplace(&self, data: &mut [u8]) {
-        let blocks = (data.len() / 16) * 16;
-        if blocks == 0 {
-            return;
-        }
-
-        Aes128Cbc::new((&self.key).into(), (&self.iv).into())
-            .decrypt_padded::<cipher::block_padding::NoPadding>(&mut data[..blocks])
-            .unwrap();
-    }
-
-    fn process_cbcs_pattern_inplace(&mut self, data: &mut [u8]) {
-        if self.crypt_size == 0 && self.skip_size == 0 {
-            self.process_cbc_inplace(data);
-            return;
-        }
-
-        let len = data.len();
-        let mut offset = 0;
-        while offset < len {
-            let to_encrypt = (len - offset).min(self.crypt_size);
-            let blocks = (to_encrypt / 16) * 16;
-
-            if blocks > 0 {
-                let iv_start = offset + blocks - 16;
-                let mut next_iv = [0u8; 16];
-                next_iv.copy_from_slice(&data[iv_start..iv_start + 16]);
-
-                self.process_cbc_inplace(&mut data[offset..offset + blocks]);
-                self.iv = next_iv;
-            }
-
-            offset += to_encrypt;
-
-            if offset >= len {
-                break;
-            }
-
-            let to_skip = (len - offset).min(self.skip_size);
-            offset += to_skip;
-        }
-    }
-
     pub fn decrypt_sample_inplace(&mut self, data: &mut [u8], sample: &SencSample) {
         if let CipherMode::None = self.mode {
             return;
@@ -153,6 +69,23 @@ impl CencProcessor {
             _ => {
                 self.decrypt_subsamples_cbc_inplace(data, iv, subsamples);
             }
+        }
+    }
+
+    fn decrypt_full_blocks_inplace(&mut self, data: &mut [u8]) {
+        let blocks = (data.len() / 16) * 16;
+        if blocks > 0 {
+            self.process_inplace(&mut data[..blocks]);
+        }
+    }
+
+    fn process_inplace(&mut self, data: &mut [u8]) {
+        match self.mode {
+            CipherMode::Cenc => self.process_ctr_inplace(data),
+            CipherMode::Cens => self.process_cens_pattern_inplace(data),
+            CipherMode::Cbc1 => self.process_cbc_inplace(data),
+            CipherMode::Cbcs => self.process_cbcs_pattern_inplace(data),
+            CipherMode::None => (),
         }
     }
 
@@ -235,10 +168,76 @@ impl CencProcessor {
         }
     }
 
-    fn decrypt_full_blocks_inplace(&mut self, data: &mut [u8]) {
+    fn process_ctr_inplace(&self, data: &mut [u8]) {
+        Aes128Ctr::new((&self.key).into(), (&self.iv).into()).apply_keystream(data);
+    }
+
+    fn process_cens_pattern_inplace(&self, data: &mut [u8]) {
+        if self.crypt_size == 0 && self.skip_size == 0 {
+            self.process_ctr_inplace(data);
+            return;
+        }
+
+        let len = data.len();
+        let mut cipher = Aes128Ctr::new((&self.key).into(), (&self.iv).into());
+        let mut offset = 0;
+
+        while offset < len {
+            let to_encrypt = (len - offset).min(self.crypt_size);
+            if to_encrypt > 0 {
+                cipher.apply_keystream(&mut data[offset..offset + to_encrypt]);
+                offset += to_encrypt;
+            }
+
+            if offset >= len {
+                break;
+            }
+
+            let to_skip = (len - offset).min(self.skip_size);
+            offset += to_skip;
+        }
+    }
+
+    fn process_cbc_inplace(&self, data: &mut [u8]) {
         let blocks = (data.len() / 16) * 16;
-        if blocks > 0 {
-            self.process_inplace(&mut data[..blocks]);
+        if blocks == 0 {
+            return;
+        }
+
+        Aes128Cbc::new((&self.key).into(), (&self.iv).into())
+            .decrypt_padded::<cipher::block_padding::NoPadding>(&mut data[..blocks])
+            .unwrap();
+    }
+
+    fn process_cbcs_pattern_inplace(&mut self, data: &mut [u8]) {
+        if self.crypt_size == 0 && self.skip_size == 0 {
+            self.process_cbc_inplace(data);
+            return;
+        }
+
+        let len = data.len();
+        let mut offset = 0;
+        while offset < len {
+            let to_encrypt = (len - offset).min(self.crypt_size);
+            let blocks = (to_encrypt / 16) * 16;
+
+            if blocks > 0 {
+                let iv_start = offset + blocks - 16;
+                let mut next_iv = [0u8; 16];
+                next_iv.copy_from_slice(&data[iv_start..iv_start + 16]);
+
+                self.process_cbc_inplace(&mut data[offset..offset + blocks]);
+                self.iv = next_iv;
+            }
+
+            offset += to_encrypt;
+
+            if offset >= len {
+                break;
+            }
+
+            let to_skip = (len - offset).min(self.skip_size);
+            offset += to_skip;
         }
     }
 }
