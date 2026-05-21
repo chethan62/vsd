@@ -74,7 +74,7 @@ pub async fn download(
     let mut auto_increment_iv = false;
     let mut decrypter = Decrypter::None;
 
-    let init = stream.fetch_init(config).await?.map(Arc::new);
+    let init = stream.fetch_init(config).await?;
 
     let default_kid = if let Some(init) = &init {
         TencBox::from_init(init)?.map(|x| x.default_kid_hex())
@@ -173,9 +173,11 @@ pub async fn download(
                         };
 
                         info!("DrmKey [{}] {}:{}", "dec".magenta(), default_kid, key);
-                        decrypter = Decrypter::Cenc(Arc::new(
-                            CencDecrypter::new(&key)?,
-                        ));
+                        decrypter = Decrypter::Cenc(Arc::new(if let Some(init) = &init {
+                            CencDecrypter::with_init(&key, init)?
+                        } else {
+                            CencDecrypter::new(&key)?
+                        }));
                     }
                     _ => (),
                 }
@@ -192,7 +194,6 @@ pub async fn download(
             continue;
         }
 
-        let init = init.clone();
         let decrypter = decrypter.clone();
         let url = base_url.join(&segment.uri)?;
         let mut request = config.client.get(url.clone()).query(&config.query);
@@ -247,7 +248,7 @@ pub async fn download(
                 bytes = bytes.split_off(8)
             }
 
-            let bytes = decrypter.decrypt(bytes, init.as_deref().map(|x| x.as_ref()))?;
+            let bytes = decrypter.decrypt(bytes)?;
 
             let mut f = File::create(&temp_file).await?;
             f.write_all(&bytes).await?;
