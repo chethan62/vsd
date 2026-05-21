@@ -8,7 +8,7 @@ use crate::{
 };
 use std::io::{Read, Write};
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct Tenc {
     scheme_type: u32,
     per_sample_iv_size: u8,
@@ -17,6 +17,7 @@ struct Tenc {
     skip_byte_block: u8,
 }
 
+#[derive(Clone)]
 pub struct CencDecrypter {
     key: [u8; 16],
     tenc: Option<Tenc>,
@@ -43,18 +44,22 @@ impl CencDecrypter {
             return Ok(input);
         }
 
-        let track;
-        let track_ref = if let Some(init) = init {
-            track = Self::parse_init(init)?;
-            &track
+        let tenc;
+        let tenc_ref = if let Some(init) = init {
+            tenc = Self::parse_init(init)?;
+            &tenc
         } else if let Some(cached) = &self.tenc {
             cached
         } else {
-            track = Self::parse_init(&input)?;
-            &track
+            tenc = Self::parse_init(&input)?;
+            &tenc
         };
 
-        Self::decrypt_fragment(&self.key, track_ref, &mut input)?;
+        if tenc_ref.scheme_type == 0 {
+            return Ok(input);
+        }
+
+        Self::decrypt_fragment(&self.key, tenc_ref, &mut input)?;
         Ok(input)
     }
 
