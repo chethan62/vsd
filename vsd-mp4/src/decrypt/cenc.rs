@@ -258,11 +258,11 @@ impl CencDecrypter {
 
         let moof_start_val = *moof_start.borrow();
 
-        let mut decrypter = CencProcessor::new(
-            track.scheme_type,
+        let mut processor = CencProcessor::new(
             key,
             track.crypt_byte_block,
             track.skip_byte_block,
+            track.scheme_type,
         );
 
         for frag in frags.iter() {
@@ -287,7 +287,7 @@ impl CencDecrypter {
                     break;
                 }
 
-                decrypter.decrypt_sample_inplace(&mut input[offset..end], senc_sample);
+                processor.decrypt_sample_inplace(&mut input[offset..end], senc_sample);
                 offset = end;
             }
         }

@@ -16,16 +16,20 @@ enum CipherMode {
 }
 
 pub struct CencProcessor {
-    mode: CipherMode,
     key: [u8; 16],
     iv: [u8; 16],
     crypt_size: usize,
     skip_size: usize,
+    mode: CipherMode,
 }
 
 impl CencProcessor {
-    pub fn new(scheme_type: u32, key: &[u8; 16], crypt_blocks: u8, skip_blocks: u8) -> Self {
+    pub fn new(key: &[u8; 16], crypt_blocks: u8, skip_blocks: u8, scheme_type: u32) -> Self {
         Self {
+            key: *key,
+            iv: [0u8; 16],
+            crypt_size: crypt_blocks as usize * 16,
+            skip_size: skip_blocks as usize * 16,
             mode: match scheme_type {
                 0x63656E63 => CipherMode::Cenc,
                 0x63656E73 => CipherMode::Cens,
@@ -33,10 +37,6 @@ impl CencProcessor {
                 0x63626373 => CipherMode::Cbcs,
                 _ => CipherMode::None,
             },
-            key: *key,
-            iv: [0u8; 16],
-            crypt_size: crypt_blocks as usize * 16,
-            skip_size: skip_blocks as usize * 16,
         }
     }
 
