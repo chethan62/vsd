@@ -13,7 +13,7 @@ Add this to your Cargo.toml file.
 
 ```toml
 [dependencies]
-vsd-mp4 = "0.2.0"
+vsd-mp4 = "0.2.1"
 ```
 
 Or add from command line.
