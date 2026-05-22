@@ -17,6 +17,10 @@ struct Tenc {
     skip_byte_block: u8,
 }
 
+/// A decrypter for Common Encryption (CENC) protected ISO Base Media File Format (ISOBMFF) streams.
+///
+/// `CencDecrypter` provides utilities to decrypt fragmented MP4 files or individual fragments
+/// encrypted using common encryption schemes (e.g., `cenc`, `cbcs`, `cens`, `cbc1`).
 #[derive(Clone)]
 pub struct CencDecrypter {
     key: [u8; 16],
@@ -24,6 +28,13 @@ pub struct CencDecrypter {
 }
 
 impl CencDecrypter {
+    /// Creates a new `CencDecrypter` with a 16-byte decryption key.
+    ///
+    /// The `key` must be a hexadecimal string representing the 16-byte decryption key.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the hex string is invalid or if the decoded key is not exactly 16 bytes.
     pub fn new(key: &str) -> Result<Self> {
         Ok(Self {
             key: hex::decode(key.to_ascii_lowercase().replace('-', ""))?
@@ -33,6 +44,14 @@ impl CencDecrypter {
         })
     }
 
+    /// Creates a new `CencDecrypter` with a decryption key and pre-parse initialization data.
+    ///
+    /// The initialization data (`init`) represents the MP4 metadata/header (e.g., `moov` box),
+    /// which is parsed to extract the track encryption (`tenc`) and scheme type (`schm`) parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the key is invalid or if parsing the initialization data fails.
     pub fn with_init(key: &str, init: &[u8]) -> Result<Self> {
         let mut decrypter = Self::new(key)?;
         decrypter.tenc = Some(Self::parse_init(init)?);
@@ -78,6 +97,25 @@ impl CencDecrypter {
         Ok(tenc.take())
     }
 
+    /// Decrypts a single MP4 fragment in-place and returns the decrypted fragment.
+    ///
+    /// A fragment typically consists of a movie fragment box (`moof`) followed by a media data box (`mdat`).
+    ///
+    /// If `init` is provided, its track encryption parameters are parsed and used for decryption.
+    /// Otherwise, cached parameters are used. If both are missing, it attempts to parse
+    /// the track encryption parameters directly from the `input` fragment.
+    ///
+    /// # Limitations
+    ///
+    /// * **Single-Track Assumption**: The function assumes that the fragment contains media data
+    ///   for a single track, or that all encrypted tracks share the same encryption parameters.
+    ///   It does not differentiate between tracks using track IDs (e.g., `track_id` in `tenc`, `traf`,
+    ///   or `tfhd` boxes is ignored), and applies the parsed track encryption parameters to all samples
+    ///   sequentially.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if parsing the fragment, parsing the initialization data, or decryption fails.
     pub fn decrypt_fragment(&self, mut input: Vec<u8>, init: Option<&[u8]>) -> Result<Vec<u8>> {
         if input.is_empty() {
             return Ok(input);
@@ -165,6 +203,23 @@ impl CencDecrypter {
         Ok(input)
     }
 
+    /// Decrypts a fragmented MP4 stream from a reader and writes the decrypted output to a writer.
+    ///
+    /// If `init` is provided, it is parsed for track encryption parameters. Otherwise, the decrypter
+    /// will read the initialization data from the beginning of the stream.
+    ///
+    /// # Limitations
+    ///
+    /// * **Fragment Box Order**: It expects each fragment to consist of a `moof` box followed
+    ///   eventually by an `mdat` box. While typical for DASH/HLS fragmented streams, streams with
+    ///   complex interleaving or out-of-order boxes might not be handled correctly.
+    /// * **Unfragmented (Progressive) Streams**: Only fragmented MP4 streams or individual fragments
+    ///   are decrypted. If an unfragmented MP4 stream is processed (indicated by the absence of a `moof`
+    ///   box), it is written to the output unmodified without attempting decryption.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reading from the stream, parsing metadata, decrypting, or writing fails.
     pub fn decrypt_stream<R: Read, W: Write>(
         &mut self,
         reader: &mut R,

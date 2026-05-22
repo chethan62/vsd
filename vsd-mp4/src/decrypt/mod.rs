@@ -1,3 +1,5 @@
+//! Decryption utilities for protected MP4 and HLS streams.
+
 #[cfg(feature = "decrypt-hls")]
 mod hls;
 

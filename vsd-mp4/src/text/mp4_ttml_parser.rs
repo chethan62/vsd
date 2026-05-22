@@ -6,17 +6,19 @@
 
 */
 
+//! TTML subtitle parser for MP4 container streams.
+
 use crate::{
     Result, bail, data, parser,
     parser::Mp4Parser,
     text::{Subtitles, ttml_text_parser},
 };
 
-/// Parse ttml subtitles from mp4 files.
+/// A parser for extracting TTML subtitles from MP4 files.
 pub struct Mp4TtmlParser;
 
 impl Mp4TtmlParser {
-    /// Parse intialization segment, a valid `stpp` box should be present.
+    /// Creates a new `Mp4TtmlParser` from the given initialization segment.
     pub fn from_init(data: &[u8]) -> Result<Self> {
         let saw_stpp = data!(false);
         let saw_stpp_c = saw_stpp.clone();
@@ -42,7 +44,7 @@ impl Mp4TtmlParser {
         Ok(Self)
     }
 
-    /// Parse media segments, only if valid `mdat` box(s) are present.
+    /// Parses the given media segment data to extract subtitles.
     pub fn parse(&self, data: &[u8]) -> Result<Subtitles> {
         let saw_mdat = data!(false);
         let subtitles = data!(Subtitles::new());

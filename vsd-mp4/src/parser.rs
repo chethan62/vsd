@@ -13,7 +13,7 @@ use std::{collections::HashMap, rc::Rc};
 
 type CallbackResult = Result<(), Error>;
 
-/// Mp4 file parser.
+/// A parser for extracting structure and metadata from MP4 files.
 #[derive(Default)]
 pub struct Mp4Parser {
     // headers: HashMap<usize, BoxType>,
@@ -27,7 +27,7 @@ impl Mp4Parser {
         Self::default()
     }
 
-    /// Declare a box type as a Basic Box.
+    /// Registers a basic box type with its associated parser callback.
     pub fn base_box(
         mut self,
         type_: &str,
@@ -39,7 +39,7 @@ impl Mp4Parser {
         self
     }
 
-    /// Declare a box type as a Full Box.
+    /// Registers a full box type with its associated parser callback.
     pub fn full_box(
         mut self,
         type_: &str,
@@ -51,21 +51,17 @@ impl Mp4Parser {
         self
     }
 
-    /// Stop parsing. Useful for extracting information from partial segments and
-    /// avoiding an out-of-bounds error once you find what you are looking for.
+    /// Stops the parsing loop immediately.
     pub fn stop(&mut self) {
         self.done = true;
     }
 
-    /// Parse the given data using the added callbacks.
+    /// Parses the given MP4 data buffer using the registered callbacks.
     ///
     /// # Arguments
     ///
-    /// - `partial_okay` - If true, allow reading partial payloads
-    ///   from some boxes. If the goal is a child box, we can sometimes find it
-    ///   without enough data to find all child boxes.
-    /// - `stop_on_partial` - If true, stop reading if an incomplete
-    ///   box is detected.
+    /// * `partial_okay` - If true, allows parsing box structures even if payloads are incomplete.
+    /// * `stop_on_partial` - If true, halts reading when an incomplete box is encountered.
     pub fn parse(
         &mut self,
         data: &[u8],
@@ -87,12 +83,12 @@ impl Mp4Parser {
     ///
     /// # Arguments
     ///
-    /// - `abs_start` - The absolute start position in the original
+    /// * `abs_start` - The absolute start position in the original
     ///   byte array.
-    /// - `partial_okay` - If true, allow reading partial payloads
+    /// * `partial_okay` - If true, allow reading partial payloads
     ///   from some boxes. If the goal is a child box, we can sometimes find it
     ///   without enough data to find all child boxes.
-    /// - `stop_on_partial` - If true, stop reading if an incomplete
+    /// * `stop_on_partial` - If true, stop reading if an incomplete
     ///   box is detected.
     fn parse_next(
         &mut self,
@@ -377,15 +373,16 @@ pub fn type_to_string(type_: usize) -> Result<String, std::string::FromUtf8Error
     ])
 }
 
-/// An enum used to track the type of box so that the correct values can be
-/// read from the header.
+/// The format type of an MP4 box.
 #[derive(Clone)]
 pub enum BoxType {
+    /// A basic MP4 box consisting of a standard header and payload.
     BasicBox,
+    /// A full MP4 box that extends a basic box by adding version and flags fields to the header.
     FullBox,
 }
 
-/// Parsed mp4 box.
+/// A representation of a parsed MP4 box containing its header information and payload reader.
 pub struct ParsedBox<'a> {
     /// The box name, a 4-character string (fourcc).
     pub name: String,

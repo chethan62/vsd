@@ -1,24 +1,29 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-//! This crate contains a mp4 parser ported from [shaka-player](https://github.com/shaka-project/shaka-player) project.
-//! Also, some optional features are added for decryption, parsing subtitles, `PSSH`, and `SIDX` boxes.
+//! This crate contains an MP4 parser ported from the [shaka-player](https://github.com/shaka-project/shaka-player) project.
+//!
+//! It also includes optional features for decryption, parsing subtitles, and processing `PSSH` and `SIDX` boxes.
 //!
 //! # Optional Features
 //!
-//! The following are a list of [Cargo features](https://doc.rust-lang.org/stable/cargo/reference/features.html#the-features-section) that can be
-//! enabled or disabled:
+//! The following Cargo features can be enabled or disabled (all features are enabled by default):
 //!
-//! - **decrypt-cenc**: Enables support for decryption CENC.
-//! - **decrypt-hls**: Enables support for decryption HLS.
-//! - **pssh**: Enables support for parsing `PSSH` boxes.
-//! - **sidx**: Enables support for parsing `SIDX` boxes.
-//! - **text-ttml**: Enables support for extracting ttml subtitles.
-//! - **text-vtt**: Enables support for extracting vtt subtitles.
+//! | Feature            | Description                                                                   |
+//! | :---               | :---                                                                          |
+//! | **`decrypt-cenc`** | Enables support for Common Encryption (`CENC`) scheme decryption.               |
+//! | **`decrypt-hls`**  | Enables support for HTTP Live Streaming (`HLS`) segment decryption.             |
+//! | **`pssh`**         | Enables support for parsing Protection System Specific Header (`PSSH`) boxes. |
+//! | **`sidx`**         | Enables support for parsing Segment Index (`SIDX`) boxes.                     |
+//! | **`text-ttml`**    | Enables support for extracting subtitles from `STPP` boxes.                   |
+//! | **`text-vtt`**     | Enables support for extracting subtitles from `WVTT` boxes.                   |
 
 pub mod boxes;
 
 #[cfg(any(feature = "decrypt-cenc", feature = "decrypt-hls"))]
-#[cfg_attr(docsrs, doc(cfg(any(feature = "decrypt-cenc", feature = "decrypt-hls"))))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(feature = "decrypt-cenc", feature = "decrypt-hls")))
+)]
 pub mod decrypt;
 
 #[cfg(feature = "pssh")]

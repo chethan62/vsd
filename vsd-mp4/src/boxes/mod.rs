@@ -1,8 +1,4 @@
 //! MP4 box structures and parsers.
-//!
-//! This module defines and parses standard MP4 boxes (ISO/IEC 14496-12) and
-//! Common Encryption boxes (ISO/IEC 23001-7) required for DASH/HLS decryption
-//! and segment indexing.
 
 #[cfg(feature = "decrypt-cenc")]
 mod schm;
@@ -72,4 +68,3 @@ macro_rules! data {
         std::rc::Rc::new(std::cell::RefCell::new($val))
     };
 }
-

@@ -8,65 +8,85 @@
 
 */
 
-//! Parse ttml content.
+//! Parser and structures for raw TTML (Timed Text Markup Language) content.
 
 use crate::text::{Cue, Subtitles};
 pub use quick_xml::de::DeError;
 use serde::Deserialize;
 use std::num::ParseFloatError;
 
+/// The root element of a TTML document.
 #[derive(Debug, Deserialize)]
 pub struct TT {
+    /// The body containing the divisions and paragraphs of subtitles.
     #[serde(rename = "body", default)]
     pub body: Body,
 }
 
+/// The body container element of a TTML document.
 #[derive(Debug, Default, Deserialize)]
 pub struct Body {
+    /// The collection of divisions in the TTML body.
     #[serde(rename = "div", default)]
     pub divs: Vec<Div>,
 }
 
+/// A division element inside a TTML body.
 #[derive(Debug, Deserialize)]
 pub struct Div {
+    /// The collection of paragraphs within this division.
     #[serde(rename = "p", default)]
     pub paragraphs: Vec<Paragraph>,
 }
 
+/// A paragraph element in a TTML document, representing a single timed subtitle cue.
 #[derive(Debug, Deserialize)]
 pub struct Paragraph {
+    /// The start time timestamp of the subtitle.
     #[serde(rename = "@begin")]
     pub begin: String,
+    /// The end time timestamp of the subtitle.
     #[serde(rename = "@end")]
     pub end: String,
+    /// The nested content elements of this paragraph.
     #[serde(rename = "$value", default)]
     pub content: Vec<TtmlContent>,
 }
 
+/// Content types that can appear inside a TTML paragraph or span.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TtmlContent {
+    /// A raw text node.
     #[serde(rename = "$text")]
     Text(String),
+    /// A styled span element containing child content.
     Span(Span),
+    /// A line break element.
     #[serde(rename = "br")]
     Br,
 }
 
+/// A span of text within a TTML paragraph with optional styling.
 #[derive(Debug, Deserialize)]
 pub struct Span {
+    /// The text foreground color.
     #[serde(rename = "@tts:color", alias = "@color")]
     pub color: Option<String>,
 
+    /// The text font style (e.g., italic).
     #[serde(rename = "@tts:fontStyle", alias = "@fontStyle")]
     pub font_style: Option<String>,
 
+    /// The text font weight (e.g., bold).
     #[serde(rename = "@tts:fontWeight", alias = "@fontWeight")]
     pub font_weight: Option<String>,
 
+    /// The text decoration style (e.g., underline).
     #[serde(rename = "@tts:textDecoration", alias = "@textDecoration")]
     pub text_decoration: Option<String>,
 
+    /// The nested content elements within this span.
     #[serde(rename = "$value", default)]
     pub content: Vec<TtmlContent>,
 }
@@ -130,6 +150,7 @@ impl TT {
         cues
     }
 
+    /// Converts the TTML document into a [`Subtitles`] object.
     pub fn into_subtitles(self) -> Subtitles {
         let mut subs = Subtitles::new();
         subs.extend_cues(self.into_cues());
@@ -137,12 +158,20 @@ impl TT {
     }
 }
 
-/// Parse xml as ttml content.
+/// Parses a TTML document from an XML string.
+///
+/// # Errors
+///
+/// Returns a [`DeError`] if the XML parsing or deserialization fails.
 pub fn parse(xml: &str) -> Result<TT, DeError> {
     quick_xml::de::from_str(xml)
 }
 
-/// Parse bytes as ttml content.
+/// Parses a TTML document from a raw XML byte slice.
+///
+/// # Errors
+///
+/// Returns a [`DeError`] if the XML parsing or deserialization fails.
 pub fn parse_bytes(bytes: &[u8]) -> Result<TT, DeError> {
     quick_xml::de::from_reader(bytes)
 }

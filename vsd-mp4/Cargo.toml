@@ -1,7 +1,7 @@
 [package]
 authors = ["clitic <clitic21@gmail.com>"]
 categories = ["parser-implementations", "parsing"]
-description = "Port of mp4 parser from shaka-player project."
+description = "MP4 parser ported from shaka-player with decryption and subtitle extraction support."
 documentation = "https://docs.rs/vsd-mp4"
 edition = "2024"
 keywords = ["mp4"]

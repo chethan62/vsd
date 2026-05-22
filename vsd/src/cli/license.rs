@@ -91,7 +91,7 @@ impl License {
 
         if Path::new(&self.input).exists() {
             PsshBox::from_init(&fs::read(&self.input)?)?
-                .data
+                .boxes
                 .into_iter()
                 .for_each(|x| {
                     let _ = pssh_data.insert(x.data);

@@ -207,7 +207,7 @@ impl MasterPlaylist {
                     default_kid = Some(kid);
                 }
 
-                for data in PsshBox::from_init(&bytes)?.data {
+                for data in PsshBox::from_init(&bytes)?.boxes {
                     let _ = pssh.insert(data.as_base64());
                 }
             }

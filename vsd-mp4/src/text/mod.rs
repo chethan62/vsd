@@ -1,4 +1,4 @@
-//! Mp4 parsers related to some subtitles text processing.
+//! Subtitle extraction and parsing utilities for MP4 streams.
 
 #[cfg(feature = "text-ttml")]
 mod mp4_ttml_parser;

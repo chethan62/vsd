@@ -1,7 +1,8 @@
-//! Mp4 `PSSH` box parser.
+//! MP4 protection system-specific header (PSSH) box parsing.
 
 mod parser;
 mod playready;
 mod widevine;
+mod wrm_header;
 
-pub use parser::{KeyId, PsshBox, SystemId};
+pub use parser::{PsshBox, PsshData, SystemId};

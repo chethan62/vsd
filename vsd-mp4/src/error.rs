@@ -1,11 +1,14 @@
-/// [Result] alias where the `Err` variant is [Error].
+/// A specialized [`Result`] type for operations that can fail in `vsd-mp4`.
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// The returned error type.
+/// The error type returned by functions in `vsd-mp4`.
 #[derive(Debug)]
 pub enum Error {
+    /// The decryption key size is invalid (expected 16 bytes).
     InvalidKeySize(usize),
+    /// An I/O error occurred during reading or writing.
     Io(std::io::Error),
+    /// A generic or custom error accompanied by a message.
     Other(String),
 }
 
@@ -44,25 +47,27 @@ impl From<std::string::FromUtf16Error> for Error {
 #[cfg(any(feature = "decrypt-cenc", feature = "pssh"))]
 impl From<hex::FromHexError> for Error {
     fn from(e: hex::FromHexError) -> Self {
-        Self::Other(format!("hex decode error, {e}"))
+        Self::Other(format!("hex decode error: {e}"))
     }
 }
 
 #[cfg(feature = "pssh")]
 impl From<prost::DecodeError> for Error {
     fn from(e: prost::DecodeError) -> Self {
-        Self::Other(format!("protobuf decode error, {e}"))
+        Self::Other(format!("protobuf decode error: {e}"))
     }
 }
 
 #[cfg(feature = "pssh")]
 impl From<quick_xml::de::DeError> for Error {
     fn from(e: quick_xml::de::DeError) -> Self {
-        Self::Other(format!("xml parse error, {e}"))
+        Self::Other(format!("xml parse error: {e}"))
     }
 }
 
-/// Early-return with [`Error::Other`]. Accepts the same arguments as [`format!`].
+/// Early-returns with an [`Error::Other`] variant.
+///
+/// This macro accepts the same format arguments as [`format!`].
 #[macro_export]
 macro_rules! bail {
     ($($arg:tt)*) => {

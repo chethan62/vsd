@@ -99,7 +99,7 @@ pub async fn dump_pssh_info(config: &DownloadConfig, streams: &[MediaPlaylist]) 
     for bytes in &init_segments {
         let pssh = PsshBox::from_init(bytes)?;
 
-        for pssh in pssh.data {
+        for pssh in pssh.boxes {
             let pssh_base64 = pssh.as_base64();
             if !seen.insert(pssh_base64.clone()) {
                 continue;
@@ -114,8 +114,8 @@ pub async fn dump_pssh_info(config: &DownloadConfig, streams: &[MediaPlaylist]) 
                 info!(
                     "DrmKid [{}] {}{}",
                     pssh.system_id.to_string().magenta(),
-                    kid.0,
-                    if default_kids.contains(&kid.0) {
+                    kid,
+                    if default_kids.contains(kid) {
                         " (required)".bold().red()
                     } else {
                         "".normal()

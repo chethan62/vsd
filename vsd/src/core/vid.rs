@@ -156,11 +156,11 @@ pub async fn download(
 
                             if let Some(bytes) = &init {
                                 for kid in PsshBox::from_init(bytes)?
-                                    .data
+                                    .boxes
                                     .into_iter()
                                     .flat_map(|x| x.key_ids)
                                 {
-                                    if let Some(v) = config.keys.get(&kid.0) {
+                                    if let Some(v) = config.keys.get(&kid) {
                                         found = Some(v.to_owned());
                                         break;
                                     }

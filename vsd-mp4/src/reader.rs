@@ -1,11 +1,3 @@
-/*
-    REFERENCES
-    ----------
-
-    1. https://github.com/shaka-project/shaka-player/blob/f539147d480fff9cc8d685f3aac0e6f5dc28a182/lib/util/data_view_reader.js
-
-*/
-
 use std::io::{Cursor, Error, ErrorKind, Read, Result};
 
 enum Endianness {
@@ -13,13 +5,14 @@ enum Endianness {
     Little,
 }
 
-/// Reader for parsing mp4 files.
+/// A reader for parsing binary data of MP4 containers with support for big-endian and little-endian formats.
 pub struct Reader {
     endian: Endianness,
     inner: Cursor<Vec<u8>>,
 }
 
 impl Reader {
+    /// Creates a new big-endian `Reader` for the given data.
     pub fn new_big_endian(data: &[u8]) -> Self {
         Self {
             endian: Endianness::Big,
@@ -27,6 +20,7 @@ impl Reader {
         }
     }
 
+    /// Creates a new little-endian `Reader` for the given data.
     pub fn new_little_endian(data: &[u8]) -> Self {
         Self {
             endian: Endianness::Little,
@@ -34,22 +28,31 @@ impl Reader {
         }
     }
 
+    /// Returns a slice referencing the underlying data.
     pub fn as_bytes(&self) -> &[u8] {
         self.inner.get_ref()
     }
 
+    /// Returns `true` if there is more data to be read.
     pub fn has_more_data(&self) -> bool {
         self.inner.position() < (self.inner.get_ref().len() as u64)
     }
 
+    /// Returns the total length of the data in bytes.
     pub fn get_length(&self) -> u64 {
         self.inner.get_ref().len() as u64
     }
 
+    /// Returns the current read position.
     pub fn get_position(&self) -> u64 {
         self.inner.position()
     }
 
+    /// Skips the specified number of bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the new position exceeds the total data length.
     pub fn skip(&mut self, bytes: u64) -> Result<()> {
         let position = self.get_position() + bytes;
 
@@ -64,12 +67,22 @@ impl Reader {
         Ok(())
     }
 
+    /// Reads a 8-bit unsigned integer.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is not enough data left to read.
     pub fn read_u8(&mut self) -> Result<u8> {
         let mut buf = [0; 1];
         self.inner.read_exact(&mut buf)?;
         Ok(buf[0])
     }
 
+    /// Reads a 16-bit unsigned integer according to the configured endianness.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is not enough data left to read.
     pub fn read_u16(&mut self) -> Result<u16> {
         let mut buf = [0; 2];
         self.inner.read_exact(&mut buf)?;
@@ -80,6 +93,11 @@ impl Reader {
         }
     }
 
+    /// Reads a 32-bit unsigned integer according to the configured endianness.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is not enough data left to read.
     pub fn read_u32(&mut self) -> Result<u32> {
         let mut buf = [0; 4];
         self.inner.read_exact(&mut buf)?;
@@ -90,6 +108,11 @@ impl Reader {
         }
     }
 
+    /// Reads a 64-bit unsigned integer according to the configured endianness.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is not enough data left to read.
     pub fn read_u64(&mut self) -> Result<u64> {
         let mut buf = [0; 8];
         self.inner.read_exact(&mut buf)?;
@@ -100,12 +123,22 @@ impl Reader {
         }
     }
 
+    /// Reads the specified number of bytes into a vector.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is not enough data left to read.
     pub fn read_bytes_u8(&mut self, bytes: usize) -> Result<Vec<u8>> {
         let mut buf = vec![0; bytes];
         self.inner.read_exact(&mut buf)?;
         Ok(buf)
     }
 
+    /// Reads 16-bit unsigned integers from the configured number of bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is not enough data left to read.
     pub fn read_bytes_u16(&mut self, bytes: usize) -> Result<Vec<u16>> {
         Ok(self
             .read_bytes_u8(bytes)?
@@ -117,6 +150,11 @@ impl Reader {
             .collect())
     }
 
+    /// Reads a 32-bit signed integer according to the configured endianness.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is not enough data left to read.
     pub fn read_i32(&mut self) -> Result<i32> {
         let mut buf = [0; 4];
         self.inner.read_exact(&mut buf)?;

@@ -7,6 +7,8 @@
 
 */
 
+//! Subtitle representation and formatting utilities.
+
 use std::fmt::Write;
 
 pub(crate) struct Cue {
@@ -16,7 +18,7 @@ pub(crate) struct Cue {
     pub(crate) start_time: f32,
 }
 
-/// Subtitles builder.
+/// A builder and representation of subtitles consisting of parsed cues.
 #[derive(Default)]
 pub struct Subtitles {
     cues: Vec<Cue>,

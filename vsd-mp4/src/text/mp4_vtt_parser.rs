@@ -6,6 +6,8 @@
 
 */
 
+//! WebVTT subtitle parser for MP4 container streams.
+
 use crate::{
     Error, Reader, Result, bail,
     boxes::{MdhdBox, TfdtBox, TfhdBox, TrunBox, TrunSample},
@@ -15,14 +17,13 @@ use crate::{
 };
 use std::{cell::RefCell, rc::Rc};
 
-/// Parse vtt subtitles from mp4 files.
+/// A parser for extracting WebVTT (VTT) subtitles from MP4 files.
 pub struct Mp4VttParser {
-    /// The current time scale used by the VTT parser.
     pub timescale: u32,
 }
 
 impl Mp4VttParser {
-    /// Parse intialization segment, a valid `wvtt` box should be present.
+    /// Creates a new `Mp4VttParser` from the given initialization segment.
     pub fn from_init(data: &[u8]) -> Result<Self> {
         let saw_wvtt = data!(false);
         let timescale = data!();
@@ -68,7 +69,7 @@ impl Mp4VttParser {
         }
     }
 
-    /// Parse media segments, only if valid `mdat` box(s) are present.
+    /// Parses the given media segment data to extract subtitles.
     pub fn parse(&self, data: &[u8], period_start: Option<f32>) -> Result<Subtitles> {
         let period_start = period_start.unwrap_or_default();
         let timescale = self.timescale;
