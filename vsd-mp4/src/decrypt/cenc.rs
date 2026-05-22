@@ -172,9 +172,7 @@ impl CencDecrypter {
         init: Option<&[u8]>,
     ) -> Result<()> {
         let mut next = if let Some(init) = init {
-            if self.tenc.is_none() {
-                self.tenc = Some(Self::parse_init(init)?);
-            }
+            self.tenc = Some(Self::parse_init(init)?);
             Mp4Reader::header(reader)?
         } else {
             let (init, moof) = Mp4Reader::init(reader)?;
@@ -185,10 +183,7 @@ impl CencDecrypter {
                 return Ok(());
             }
 
-            if self.tenc.is_none() {
-                self.tenc = Some(Self::parse_init(&init)?);
-            }
-
+            self.tenc = Some(Self::parse_init(&init)?);
             moof
         };
 
