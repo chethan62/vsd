@@ -1,13 +1,13 @@
 use std::io::{ErrorKind, Read, Result};
 
-pub struct BoxHeader {
+pub struct Mp4Reader {
     pub box_type: [u8; 4],
     pub header_bytes: Vec<u8>,
     pub total_size: u64,
 }
 
-impl BoxHeader {
-    pub fn read_header<R: Read>(reader: &mut R) -> Result<Option<Self>> {
+impl Mp4Reader {
+    pub fn header<R: Read>(reader: &mut R) -> Result<Option<Self>> {
         let mut buf = [0u8; 8];
         match reader.read_exact(&mut buf) {
             Ok(()) => (),
@@ -25,13 +25,13 @@ impl BoxHeader {
             let mut header = Vec::with_capacity(16);
             header.extend_from_slice(&buf);
             header.extend_from_slice(&ext);
-            Ok(Some(BoxHeader {
+            Ok(Some(Self {
                 box_type,
                 total_size,
                 header_bytes: header,
             }))
         } else {
-            Ok(Some(BoxHeader {
+            Ok(Some(Self {
                 box_type,
                 header_bytes: buf.to_vec(),
                 total_size: size,
@@ -39,7 +39,7 @@ impl BoxHeader {
         }
     }
 
-    pub fn read_data<R: Read>(&self, reader: &mut R) -> Result<Vec<u8>> {
+    pub fn data<R: Read>(&self, reader: &mut R) -> Result<Vec<u8>> {
         if self.total_size == 0 {
             let mut data = Vec::from(self.header_bytes.as_slice());
             reader.read_to_end(&mut data)?;
@@ -55,22 +55,22 @@ impl BoxHeader {
         Ok(data)
     }
 
-    pub fn read_init<R: Read>(reader: &mut R) -> Result<(Vec<u8>, Option<BoxHeader>)> {
+    pub fn init<R: Read>(reader: &mut R) -> Result<(Vec<u8>, Option<Self>)> {
         let mut init_data = Vec::new();
-    
+
         loop {
-            let Some(header) = BoxHeader::read_header(reader)? else {
+            let Some(header) = Self::header(reader)? else {
                 break;
             };
-    
+
             if &header.box_type == b"moof" {
                 return Ok((init_data, Some(header)));
             }
-    
-            let box_data = header.read_data(reader)?;
+
+            let box_data = header.data(reader)?;
             init_data.extend_from_slice(&box_data);
         }
-    
+
         Ok((init_data, None))
     }
 }

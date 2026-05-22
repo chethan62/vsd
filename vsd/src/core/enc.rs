@@ -25,7 +25,7 @@ impl Decrypter {
 
     pub fn decrypt(&self, input: Vec<u8>) -> Result<Vec<u8>> {
         Ok(match self {
-            Decrypter::Cenc(processor) => processor.decrypt(input, None)?,
+            Decrypter::Cenc(processor) => processor.decrypt_fragment(input, None)?,
             Decrypter::Aes128(processor) => processor.decrypt(input),
             Decrypter::SampleAes(processor) => processor.decrypt(input),
             Decrypter::None => input,

@@ -1,6 +1,5 @@
 use crate::error::Result;
 use clap::Args;
-use log::info;
 use std::{
     fs::{self, File},
     io::{BufReader, BufWriter},
@@ -34,25 +33,24 @@ pub struct Decrypt {
 
 impl Decrypt {
     pub async fn execute(self) -> Result<()> {
-        let mut processor = CencDecrypter::new(&self.key)?;
-        let output = self.output.unwrap_or(
-            PathBuf::from(format!(
-                "{}.dec.{}",
-                self.input.with_extension("").to_string_lossy(),
-                self.input.extension().and_then(|e| e.to_str()).unwrap_or("mp4")
-            ))
-        );
+        let output = self.output.unwrap_or(PathBuf::from(format!(
+            "{}.dec.{}",
+            self.input.with_extension("").to_string_lossy(),
+            self.input
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("mp4")
+        )));
+        let mut decrypter = CencDecrypter::new(&self.key)?;
 
-        let fragments = tokio::task::spawn_blocking(move || {
-            processor.decrypt_stream(
+        tokio::task::spawn_blocking(move || {
+            decrypter.decrypt_stream(
                 &mut BufReader::new(File::open(&self.input)?),
                 &mut BufWriter::new(File::create(&output)?),
                 self.init.map(|x| fs::read(x)).transpose()?.as_deref(),
             )
         })
         .await??;
-
-        info!("Total {} fragments decrypted.", fragments);
         Ok(())
     }
 }

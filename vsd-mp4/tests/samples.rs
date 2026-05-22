@@ -31,7 +31,7 @@ macro_rules! sample {
             } else {
                 AUDIO_KEY
             })?
-            .decrypt(segment_data, Some(init_data.as_slice()))?;
+            .decrypt_fragment(segment_data, Some(init_data.as_slice()))?;
 
             let mut f = File::create(OUTPUT_DIR.join(concat!($scheme, "-", $track, ".mp4")))?;
             f.write_all(&init_data)?;

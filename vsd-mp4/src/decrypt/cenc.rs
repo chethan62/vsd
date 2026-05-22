@@ -2,7 +2,7 @@ use crate::{
     Mp4Parser,
     boxes::{SchmBox, SencBox, TencBox, TrunBox},
     data,
-    decrypt::{cipher::CencProcessor, reader::BoxHeader},
+    decrypt::{cipher::CencProcessor, reader::Mp4Reader},
     error::{Error, Result},
     parser,
 };
@@ -78,7 +78,7 @@ impl CencDecrypter {
         Ok(tenc.take())
     }
 
-    pub fn decrypt(&self, mut input: Vec<u8>, init: Option<&[u8]>) -> Result<Vec<u8>> {
+    pub fn decrypt_fragment(&self, mut input: Vec<u8>, init: Option<&[u8]>) -> Result<Vec<u8>> {
         if input.is_empty() {
             return Ok(input);
         }
@@ -170,11 +170,11 @@ impl CencDecrypter {
         reader: &mut R,
         writer: &mut W,
         init: Option<&[u8]>,
-    ) -> Result<u64> {
+    ) -> Result<()> {
         let (init_data, first_moof_header) = match init {
             Some(data) => (data.to_vec(), None),
             None => {
-                let (data, moof) = BoxHeader::read_init(reader)?;
+                let (data, moof) = Mp4Reader::init(reader)?;
                 if moof.is_none() {
                     return Err(Error::InvalidMp4(
                         "no moof box found, input does not appear to be a fragmented mp4.".into(),
@@ -191,27 +191,26 @@ impl CencDecrypter {
         }
 
         let mut pending = first_moof_header;
-        let mut fragments: u64 = 0;
 
         loop {
             let header = match pending.take() {
                 Some(h) => h,
-                None => match BoxHeader::read_header(reader)? {
+                None => match Mp4Reader::header(reader)? {
                     Some(h) => h,
                     None => break,
                 },
             };
 
             if &header.box_type == b"moof" {
-                let moof_data = header.read_data(reader)?;
+                let moof_data = header.data(reader)?;
                 let mut fragment = moof_data;
 
                 loop {
-                    let Some(next) = BoxHeader::read_header(reader)? else {
+                    let Some(next) = Mp4Reader::header(reader)? else {
                         break;
                     };
 
-                    let next_data = next.read_data(reader)?;
+                    let next_data = next.data(reader)?;
                     fragment.extend_from_slice(&next_data);
 
                     if &next.box_type == b"mdat" {
@@ -219,18 +218,16 @@ impl CencDecrypter {
                     }
                 }
 
-                let decrypted = self.decrypt(fragment, None)?;
+                let decrypted = self.decrypt_fragment(fragment, None)?;
                 writer.write_all(&decrypted)?;
-
-                fragments += 1;
             } else {
-                let box_data = header.read_data(reader)?;
+                let box_data = header.data(reader)?;
                 writer.write_all(&box_data)?;
             }
         }
 
         writer.flush()?;
 
-        Ok(fragments)
+        Ok(())
     }
 }
