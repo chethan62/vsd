@@ -2,7 +2,7 @@ use crate::error::Result;
 use clap::{Args, ValueEnum};
 use std::path::PathBuf;
 use tokio::fs;
-use vsd_mp4::text::{Mp4TtmlParser, Mp4VttParser};
+use vsd_mp4::sub::{StppSubsParser, WvttSubsParser};
 
 /// Extract subtitles from a fragmented mp4 file.
 #[derive(Args, Clone, Debug)]
@@ -35,9 +35,9 @@ impl Extract {
         let data = fs::read(self.input).await?;
         let subtitles;
 
-        if let Ok(vtt) = Mp4VttParser::from_init(&data) {
+        if let Ok(vtt) = WvttSubsParser::from_init(&data) {
             subtitles = vtt.parse(&data, None)?;
-        } else if let Ok(ttml) = Mp4TtmlParser::from_init(&data) {
+        } else if let Ok(ttml) = StppSubsParser::from_init(&data) {
             subtitles = ttml.parse(&data)?;
         } else {
             bail!(

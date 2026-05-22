@@ -1,4 +1,4 @@
-//! MP4 protection system-specific header (PSSH) box parsing.
+//! MP4 protection system-specific header (`PSSH`) box parsing.
 
 mod parser;
 mod playready;

@@ -28,32 +28,32 @@ mod sidx;
 #[cfg_attr(docsrs, doc(cfg(feature = "sidx")))]
 pub use sidx::{SidxBox, SidxRange};
 
-#[cfg(feature = "text-vtt")]
+#[cfg(feature = "sub-vtt")]
 mod mdhd;
 
-#[cfg(feature = "text-vtt")]
-#[cfg_attr(docsrs, doc(cfg(feature = "text-vtt")))]
+#[cfg(feature = "sub-vtt")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sub-vtt")))]
 pub use mdhd::MdhdBox;
 
-#[cfg(feature = "text-vtt")]
+#[cfg(feature = "sub-vtt")]
 mod tfdt;
 
-#[cfg(feature = "text-vtt")]
-#[cfg_attr(docsrs, doc(cfg(feature = "text-vtt")))]
+#[cfg(feature = "sub-vtt")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sub-vtt")))]
 pub use tfdt::TfdtBox;
 
-#[cfg(any(feature = "decrypt-cenc", feature = "text-vtt"))]
+#[cfg(any(feature = "decrypt-cenc", feature = "sub-vtt"))]
 mod tfhd;
 
-#[cfg(any(feature = "decrypt-cenc", feature = "text-vtt"))]
-#[cfg_attr(docsrs, doc(cfg(any(feature = "decrypt-cenc", feature = "text-vtt"))))]
+#[cfg(any(feature = "decrypt-cenc", feature = "sub-vtt"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "decrypt-cenc", feature = "sub-vtt"))))]
 pub use tfhd::TfhdBox;
 
-#[cfg(any(feature = "decrypt-cenc", feature = "text-vtt"))]
+#[cfg(any(feature = "decrypt-cenc", feature = "sub-vtt"))]
 mod trun;
 
-#[cfg(any(feature = "decrypt-cenc", feature = "text-vtt"))]
-#[cfg_attr(docsrs, doc(cfg(any(feature = "decrypt-cenc", feature = "text-vtt"))))]
+#[cfg(any(feature = "decrypt-cenc", feature = "sub-vtt"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "decrypt-cenc", feature = "sub-vtt"))))]
 pub use trun::{TrunBox, TrunSample};
 
 /// Helper macro to create a reference-counted, interior-mutable `Option` cell.

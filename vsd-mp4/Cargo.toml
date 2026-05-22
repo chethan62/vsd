@@ -28,19 +28,9 @@ prost-build = { version = "0.14", optional = true }
 
 [features]
 default = ["full"]
-full = ["decrypt-cenc", "decrypt-hls", "pssh", "sidx", "text-ttml", "text-vtt"]
-decrypt-cenc = [
-    "dep:aes",
-    "dep:cbc",
-    "dep:cipher",
-    "dep:ctr",
-    "dep:hex",
-]
-decrypt-hls = [
-    "dep:aes",
-    "dep:cbc",
-    "dep:iori-ssa",
-]
+full = ["decrypt-cenc", "decrypt-hls", "pssh", "sidx", "sub-ttml", "sub-vtt"]
+decrypt-cenc = ["dep:aes", "dep:cbc", "dep:cipher", "dep:ctr", "dep:hex"]
+decrypt-hls = ["dep:aes", "dep:cbc", "dep:iori-ssa"]
 pssh = [
     "dep:base64",
     "dep:hex",
@@ -50,8 +40,8 @@ pssh = [
     "dep:quick-xml",
 ]
 sidx = []
-text-ttml = ["dep:serde", "dep:quick-xml"]
-text-vtt = []
+sub-ttml = ["dep:serde", "dep:quick-xml"]
+sub-vtt = []
 
 [package.metadata.docs.rs]
 all-features = true

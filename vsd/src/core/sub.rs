@@ -10,7 +10,7 @@ use log::{debug, info, warn};
 use reqwest::{Url, header};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::{fs::File, io::AsyncWriteExt, task::JoinSet};
-use vsd_mp4::text::{Mp4TtmlParser, Mp4VttParser, ttml_text_parser};
+use vsd_mp4::sub::{StppSubsParser, WvttSubsParser, ttml};
 
 enum SubtitleType {
     Mp4Vtt,
@@ -37,9 +37,9 @@ fn detect_codec(codecs: Option<&str>, data: &[u8], ext: &str) -> (&'static str, 
         ("srt", SubtitleType::SrtText)
     } else if data.starts_with(b"<?xml") || data.starts_with(b"<tt") || ext == "ttml" {
         ("srt", SubtitleType::TtmlText)
-    } else if Mp4VttParser::from_init(data).is_ok() {
+    } else if WvttSubsParser::from_init(data).is_ok() {
         ("vtt", SubtitleType::Mp4Vtt)
-    } else if Mp4TtmlParser::from_init(data).is_ok() {
+    } else if StppSubsParser::from_init(data).is_ok() {
         ("srt", SubtitleType::Mp4Ttml)
     } else {
         warn!("Stream uses unknown subtitle codec.");
@@ -170,17 +170,17 @@ pub async fn download(
     let output = match codec {
         SubtitleType::Mp4Vtt => {
             debug!("Extracting wvtt subtitles.");
-            let vtt = Mp4VttParser::from_init(&data)?;
+            let vtt = WvttSubsParser::from_init(&data)?;
             vtt.parse(&data, None)?.as_vtt().into_bytes()
         }
         SubtitleType::Mp4Ttml => {
             debug!("Extracting stpp subtitles.");
-            let ttml = Mp4TtmlParser::from_init(&data)?;
+            let ttml = StppSubsParser::from_init(&data)?;
             ttml.parse(&data)?.as_srt().into_bytes()
         }
         SubtitleType::TtmlText => {
             debug!("Extracting ttml+xml subtitles.");
-            ttml_text_parser::parse_bytes(&data)
+            ttml::parse_bytes(&data)
                 .map_err(|e| Error::Other(e.to_string()))?
                 .into_subtitles()
                 .as_srt()

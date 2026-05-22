@@ -10,7 +10,7 @@
 
 //! Parser and structures for raw TTML (Timed Text Markup Language) content.
 
-use crate::text::{Cue, Subtitles};
+use crate::sub::builder::{Cue, Subtitles};
 pub use quick_xml::de::DeError;
 use serde::Deserialize;
 use std::num::ParseFloatError;

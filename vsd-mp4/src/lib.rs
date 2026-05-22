@@ -10,12 +10,12 @@
 //!
 //! | Feature            | Description                                                                   |
 //! | :---               | :---                                                                          |
-//! | **`decrypt-cenc`** | Enables support for Common Encryption (`CENC`) scheme decryption.               |
-//! | **`decrypt-hls`**  | Enables support for HTTP Live Streaming (`HLS`) segment decryption.             |
+//! | **`decrypt-cenc`** | Enables support for Common Encryption (`CENC`) scheme decryption.             |
+//! | **`decrypt-hls`**  | Enables support for HTTP Live Streaming (`HLS`) segment decryption.           |
 //! | **`pssh`**         | Enables support for parsing Protection System Specific Header (`PSSH`) boxes. |
 //! | **`sidx`**         | Enables support for parsing Segment Index (`SIDX`) boxes.                     |
-//! | **`text-ttml`**    | Enables support for extracting subtitles from `STPP` boxes.                   |
-//! | **`text-vtt`**     | Enables support for extracting subtitles from `WVTT` boxes.                   |
+//! | **`sub-ttml`**     | Enables support for extracting subtitles from `STPP` boxes.                   |
+//! | **`sub-vtt`**      | Enables support for extracting subtitles from `WVTT` boxes.                   |
 
 pub mod boxes;
 
@@ -30,9 +30,9 @@ pub mod decrypt;
 #[cfg_attr(docsrs, doc(cfg(feature = "pssh")))]
 pub mod pssh;
 
-#[cfg(any(feature = "text-ttml", feature = "text-vtt"))]
-#[cfg_attr(docsrs, doc(cfg(any(feature = "text-ttml", feature = "text-vtt"))))]
-pub mod text;
+#[cfg(any(feature = "sub-ttml", feature = "sub-vtt"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "sub-ttml", feature = "sub-vtt"))))]
+pub mod sub;
 
 mod error;
 mod parser;

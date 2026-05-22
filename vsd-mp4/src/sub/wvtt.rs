@@ -13,16 +13,16 @@ use crate::{
     boxes::{MdhdBox, TfdtBox, TfhdBox, TrunBox, TrunSample},
     data,
     parser::{self, Mp4Parser},
-    text::{Cue, Subtitles},
+    sub::builder::{Cue, Subtitles},
 };
 use std::{cell::RefCell, rc::Rc};
 
 /// A parser for extracting WebVTT (VTT) subtitles from MP4 files.
-pub struct Mp4VttParser {
+pub struct WvttSubsParser {
     pub timescale: u32,
 }
 
-impl Mp4VttParser {
+impl WvttSubsParser {
     /// Creates a new `Mp4VttParser` from the given initialization segment.
     pub fn from_init(data: &[u8]) -> Result<Self> {
         let saw_wvtt = data!(false);
