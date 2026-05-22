@@ -246,11 +246,7 @@ impl CencDecrypter {
             if &header.box_type == b"moof" {
                 let mut fragment = header.data(reader)?;
 
-                loop {
-                    let Some(next) = Mp4Reader::header(reader)? else {
-                        break;
-                    };
-
+                while let Some(next) = Mp4Reader::header(reader)? {
                     fragment.append(&mut next.data(reader)?);
 
                     if &next.box_type == b"mdat" {

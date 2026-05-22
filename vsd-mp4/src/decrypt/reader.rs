@@ -58,11 +58,7 @@ impl Mp4Reader {
     pub fn init<R: Read>(reader: &mut R) -> Result<(Vec<u8>, Option<Self>)> {
         let mut init = Vec::new();
 
-        loop {
-            let Some(header) = Self::header(reader)? else {
-                break;
-            };
-
+        while let Some(header) = Self::header(reader)? {
             if &header.box_type == b"moof" {
                 return Ok((init, Some(header)));
             }

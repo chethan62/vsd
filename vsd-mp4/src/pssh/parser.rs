@@ -45,7 +45,7 @@ impl PsshBox {
             .full_box("pssh", {
                 let boxes = boxes.clone();
                 move |mut box_| {
-                    Self::new(&mut box_, &mut *boxes.borrow_mut())?;
+                    Self::parse(&mut box_, &mut boxes.borrow_mut())?;
                     Ok(())
                 }
             })
@@ -56,7 +56,7 @@ impl PsshBox {
         })
     }
 
-    fn new(box_: &mut ParsedBox, boxes: &mut Vec<PsshData>) -> Result<()> {
+    fn parse(box_: &mut ParsedBox, boxes: &mut Vec<PsshData>) -> Result<()> {
         let Some(box_version) = box_.version else {
             bail!("PSSH boxes are full boxes and must have a valid version.");
         };

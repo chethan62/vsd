@@ -47,7 +47,7 @@ impl Decrypt {
             decrypter.decrypt_stream(
                 &mut BufReader::new(File::open(&self.input)?),
                 &mut BufWriter::new(File::create(&output)?),
-                self.init.map(|x| fs::read(x)).transpose()?.as_deref(),
+                self.init.map(fs::read).transpose()?.as_deref(),
             )
         })
         .await??;
