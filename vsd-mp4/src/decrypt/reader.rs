@@ -56,7 +56,7 @@ impl Mp4Reader {
     }
 
     pub fn init<R: Read>(reader: &mut R) -> Result<(Vec<u8>, Option<Self>)> {
-        let mut init_data = Vec::new();
+        let mut init = Vec::new();
 
         loop {
             let Some(header) = Self::header(reader)? else {
@@ -64,13 +64,12 @@ impl Mp4Reader {
             };
 
             if &header.box_type == b"moof" {
-                return Ok((init_data, Some(header)));
+                return Ok((init, Some(header)));
             }
 
-            let box_data = header.data(reader)?;
-            init_data.extend_from_slice(&box_data);
+            init.append(&mut header.data(reader)?);
         }
 
-        Ok((init_data, None))
+        Ok((init, None))
     }
 }
