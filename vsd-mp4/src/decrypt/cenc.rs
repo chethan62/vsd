@@ -171,9 +171,11 @@ impl CencDecrypter {
         writer: &mut W,
         init: Option<&[u8]>,
     ) -> Result<()> {
-        let mut moof = if let Some(init) = init {
-            self.tenc = Some(Self::parse_init(init)?);
-            None
+        let mut next = if let Some(init) = init {
+            if self.tenc.is_none() {
+                self.tenc = Some(Self::parse_init(init)?);
+            }
+            Mp4Reader::header(reader)?
         } else {
             let (init, moof) = Mp4Reader::init(reader)?;
             writer.write_all(&init)?;
@@ -183,19 +185,14 @@ impl CencDecrypter {
                 return Ok(());
             }
 
-            self.tenc = Some(Self::parse_init(&init)?);
+            if self.tenc.is_none() {
+                self.tenc = Some(Self::parse_init(&init)?);
+            }
+
             moof
         };
 
-        loop {
-            let header = if let Some(h) = moof.take() {
-                h
-            } else if let Some(h) = Mp4Reader::header(reader)? {
-                h
-            } else {
-                break;
-            };
-
+        while let Some(header) = next {
             if &header.box_type == b"moof" {
                 let mut fragment = header.data(reader)?;
 
@@ -216,6 +213,8 @@ impl CencDecrypter {
             } else {
                 writer.write_all(&header.data(reader)?)?;
             }
+
+            next = Mp4Reader::header(reader)?;
         }
 
         writer.flush()?;

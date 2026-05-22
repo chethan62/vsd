@@ -5,7 +5,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug)]
 pub enum Error {
     InvalidKeySize(usize),
-    InvalidMp4(String),
     Io(std::io::Error),
     Other(String),
 }
@@ -16,10 +15,9 @@ impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Error::InvalidKeySize(x) => {
-                write!(f, "invalid key size, expected 16 bytes got {0} bytes.", x)
+                write!(f, "invalid key size: expected 16 bytes got {0} bytes.", x)
             }
-            Error::InvalidMp4(x) => write!(f, "invalid mp4 format, {}", x),
-            Error::Io(x) => write!(f, "i/o error, {}", x),
+            Error::Io(x) => write!(f, "i/o error: {}", x),
             Error::Other(x) => write!(f, "{}", x),
         }
     }
