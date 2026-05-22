@@ -1,21 +1,11 @@
 <h1 align="center">vsd-mp4</h1>
 
-<p align="center">
-  <a href="https://crates.io/crates/vsd-mp4">
-    <img src="https://img.shields.io/crates/d/vsd-mp4?style=flat-square">
-  </a>
-  <a href="https://crates.io/crates/vsd-mp4">
-    <img src="https://img.shields.io/crates/v/vsd-mp4?style=flat-square">
-  </a>
-  <a href="https://docs.rs/vsd-mp4">
-    <img src="https://img.shields.io/docsrs/vsd-mp4?logo=docsdotrs&style=flat-square">
-  </a>
-  <a href="https://github.com/clitic/vsd/blob/main/vsd-mp4/README.md#license">
-    <img src="https://img.shields.io/crates/l/vsd-mp4?style=flat-square">
-  </a>
-</p>
+[![Crate Downloads](https://img.shields.io/crates/d/vsd-mp4?style=flat-square)](https://crates.io/crates/vsd-mp4)
+[![Crate Version](https://img.shields.io/crates/v/vsd-mp4?style=flat-square)](https://crates.io/crates/vsd-mp4)
+[![Docs Status](https://img.shields.io/docsrs/vsd-mp4?logo=docsdotrs&style=flat-square)](https://docs.rs/vsd-mp4)
+[![Crate License](https://img.shields.io/crates/l/vsd-mp4?style=flat-square)](https://crates.io/crates/vsd-mp4)
 
-This crate contains a mp4 parser ported from [shaka-player](https://github.com/shaka-project/shaka-player) project. Also, some optional features are added for parsing subtitles, `PSSH` and `SIDX` boxes.
+This crate contains an MP4 parser ported from the [shaka-player](https://github.com/shaka-project/shaka-player) project. It includes optional features for decryption, subtitle extraction, and processing `PSSH` and `SIDX` boxes.
 
 ## Getting Started
 
@@ -23,13 +13,13 @@ Add this to your Cargo.toml file.
 
 ```toml
 [dependencies]
-vsd-mp4 = "0.1.4"
+vsd-mp4 = "0.2.0"
 ```
 
 Or add from command line.
 
 ```bash
-$ cargo add vsd-mp4
+cargo add vsd-mp4
 ```
 
 See [docs](https://docs.rs/vsd-mp4) and [examples](https://github.com/clitic/vsd/tree/main/vsd-mp4/examples) to 

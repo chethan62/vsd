@@ -25,7 +25,7 @@
 - [x] Supports decryption for `AES-128`, `SAMPLE-AES`, `CENC`, `CENS`, `CBC1` and `CBCS`.
 - [ ] Live stream downloading, consider [contributing](https://github.com/clitic/vsd/fork) this feature.
 
-## Installation [🡵](https://clitic.github.io/vsd/install)
+## [Installation](https://clitic.github.io/vsd/install)
   
 ### Dependencies
 
@@ -62,7 +62,7 @@ cargo install vsd
 - [Build Instructions](https://clitic.github.io/vsd/build)
 - [Changelog](https://clitic.github.io/vsd/CHANGELOG)
 
-## Usage [🡵](https://clitic.github.io/vsd/usage)
+## [Usage](https://clitic.github.io/vsd/usage)
 
 Below are some example commands. For additional usage details, see [cli reference](https://clitic.github.io/vsd/cli).
 
