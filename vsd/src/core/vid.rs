@@ -7,15 +7,13 @@ use crate::{
 use colored::Colorize;
 use log::{debug, info, trace, warn};
 use reqwest::{StatusCode, Url, header};
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
+use std::sync::Arc;
 use tokio::{
     fs::{self, File},
     io::{self, AsyncWriteExt},
     task::JoinSet,
 };
+use tokio_util::sync::CancellationToken;
 use vsd_mp4::{
     boxes::TencBox,
     decrypt::{CencDecrypter, HlsAes128Decrypter, HlsSampleAesDecrypter},
@@ -26,8 +24,8 @@ const PNG_HEADER: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
 pub async fn download(
     config: &DownloadConfig,
-    running: &AtomicBool,
-    pb: Progress,
+    progress: Progress,
+    token: &CancellationToken,
     stream: &MediaPlaylist,
 ) -> Result<Stream> {
     if let Some(Segment {
@@ -69,7 +67,7 @@ pub async fn download(
 
     let base_url = stream.uri.parse::<Url>()?;
     let ext = stream.extension();
-    let pb_handle = pb.spawn();
+    let progress_handle = progress.spawn();
     let temp_dir = temp_file.with_extension("");
     let mut auto_increment_iv = false;
     let mut decrypter = Decrypter::None;
@@ -97,14 +95,14 @@ pub async fn download(
     let mut set: JoinSet<Result<usize>> = JoinSet::new();
 
     for (i, segment) in stream.segments.iter().enumerate() {
-        if !running.load(Ordering::SeqCst) {
+        if token.is_cancelled() {
             break;
         }
 
         while set.len() >= max_threads {
             if let Some(Ok(result)) = set.join_next().await {
                 match result {
-                    Ok(bytes) => pb.update(bytes),
+                    Ok(bytes) => progress.update(bytes),
                     Err(e) => {
                         set.abort_all();
                         return Err(e);
@@ -190,7 +188,7 @@ pub async fn download(
 
         if out_file.exists() {
             let size = fs::metadata(&out_file).await?.len();
-            pb.skip(size as usize);
+            progress.skip(size as usize);
             continue;
         }
 
@@ -261,7 +259,7 @@ pub async fn download(
 
     while let Some(Ok(result)) = set.join_next().await {
         match result {
-            Ok(bytes) => pb.update(bytes),
+            Ok(bytes) => progress.update(bytes),
             Err(e) => {
                 set.abort_all();
                 return Err(e);
@@ -269,10 +267,10 @@ pub async fn download(
         }
     }
 
-    pb_handle.abort();
-    pb.finish();
+    progress_handle.abort();
+    progress.finish();
 
-    if !running.load(Ordering::SeqCst) {
+    if token.is_cancelled() {
         return Err(Error::DownloadInterrupted);
     }
 

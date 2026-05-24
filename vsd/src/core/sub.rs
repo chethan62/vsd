@@ -8,8 +8,8 @@ use crate::{
 use colored::Colorize;
 use log::{debug, info, warn};
 use reqwest::{Url, header};
-use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::{fs::File, io::AsyncWriteExt, task::JoinSet};
+use tokio_util::sync::CancellationToken;
 use vsd_mp4::sub::{StppSubsParser, WvttSubsParser, ttml};
 
 enum SubtitleType {
@@ -49,8 +49,8 @@ fn detect_codec(codecs: Option<&str>, data: &[u8], ext: &str) -> (&'static str, 
 
 pub async fn download(
     config: &DownloadConfig,
-    running: &AtomicBool,
-    pb: Progress,
+    progress: Progress,
+    token: &CancellationToken,
     stream: &MediaPlaylist,
 ) -> Result<Stream> {
     let base_url = stream.uri.parse::<Url>()?;
@@ -99,18 +99,18 @@ pub async fn download(
         );
     }
 
-    pb.update(size);
+    progress.update(size);
 
     let remaining = &stream.segments[1..];
 
     if !remaining.is_empty() {
-        let pb_handle = pb.spawn();
+        let progress_handle = progress.spawn();
         let max_threads = config.max_threads as usize;
         let mut set: JoinSet<Result<(usize, Vec<u8>)>> = JoinSet::new();
         let mut results = vec![None; remaining.len()];
 
         for (i, segment) in remaining.iter().enumerate() {
-            if !running.load(Ordering::SeqCst) {
+            if token.is_cancelled() {
                 break;
             }
 
@@ -123,7 +123,7 @@ pub async fn download(
                             return Err(e);
                         }
                     };
-                    pb.update(bytes.len());
+                    progress.update(bytes.len());
                     results[i] = Some(bytes);
                 }
             }
@@ -150,7 +150,7 @@ pub async fn download(
                     return Err(e);
                 }
             };
-            pb.update(bytes.len());
+            progress.update(bytes.len());
             results[i] = Some(bytes);
         }
 
@@ -158,12 +158,12 @@ pub async fn download(
             data.append(&mut bytes);
         }
 
-        pb_handle.abort();
+        progress_handle.abort();
     }
 
-    pb.finish();
+    progress.finish();
 
-    if !running.load(Ordering::SeqCst) {
+    if token.is_cancelled() {
         return Err(Error::DownloadInterrupted);
     }
 

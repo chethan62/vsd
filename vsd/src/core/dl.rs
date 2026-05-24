@@ -6,13 +6,8 @@ use crate::{
 };
 use colored::Colorize;
 use log::{info, warn};
-use std::{
-    collections::HashSet,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-};
+use std::collections::HashSet;
+use tokio_util::sync::CancellationToken;
 use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
 
 pub async fn download_streams(
@@ -23,13 +18,13 @@ pub async fn download_streams(
         dump_pssh_info(config, &streams).await?;
     }
 
-    let running = Arc::new(AtomicBool::new(true));
-    let ctrlc = running.clone();
+    let token = CancellationToken::new();
+    let ctrlc_token = token.clone();
 
     tokio::spawn(async move {
-        if tokio::signal::ctrl_c().await.is_ok() && ctrlc.load(Ordering::SeqCst) {
+        if tokio::signal::ctrl_c().await.is_ok() && !ctrlc_token.is_cancelled() {
             warn!("Aborting download due to Ctrl+C.");
-            ctrlc.store(false, Ordering::SeqCst);
+            ctrlc_token.cancel();
         }
 
         if tokio::signal::ctrl_c().await.is_ok() {
@@ -39,7 +34,6 @@ pub async fn download_streams(
     });
 
     let mut muxer = Muxer(Vec::new());
-    let running = running.clone();
     let total = streams.len();
 
     for (i, stream) in streams.iter().enumerate() {
@@ -60,11 +54,11 @@ pub async fn download_streams(
         if stream.media_type == MediaType::Subtitles {
             muxer
                 .0
-                .push(sub::download(config, &running, pb, stream).await?);
+                .push(sub::download(config, pb, &token, stream).await?);
         } else {
             muxer
                 .0
-                .push(vid::download(config, &running, pb, stream).await?);
+                .push(vid::download(config, pb, &token, stream).await?);
         }
     }
 

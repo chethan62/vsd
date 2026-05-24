@@ -3,16 +3,14 @@
 // [dependencies]
 // vsd = { version = "0.5", default-features = false, features = ["rustls-tls"]}
 
-use std::{
-    path::PathBuf,
-    sync::{Arc, atomic::AtomicBool},
-};
+use std::{path::PathBuf, sync::Arc};
 use vsd::{
     Downloader, Error, Muxer, Result,
     playlist::MediaType,
     progress::{ProgressCallback, ProgressState},
     reqwest::Client,
     tokio,
+    tokio_util::sync::CancellationToken,
 };
 
 struct Progress;
@@ -46,8 +44,8 @@ async fn main() -> Result<()> {
         )
         .await?;
 
-    // You can clone this var and pause download by setting its value to false.
-    let running = Arc::new(AtomicBool::new(true));
+    // You can clone this token and call .cancel() to pause a download.
+    let token = CancellationToken::new();
     let mut muxer = Muxer(Vec::new());
 
     // Download first subtitle stream.
@@ -59,7 +57,7 @@ async fn main() -> Result<()> {
             );
 
             // If stream is already downloaded then no progress updates will be triggered.
-            let dl_info = match stream.download(&config, &running, Arc::new(Progress)).await {
+            let dl_info = match stream.download(&config, Arc::new(Progress), &token).await {
                 Ok(info) => info,
                 Err(Error::UnsupportedEncryption(e)) => {
                     println!("Unsupported encryption {}", e);
@@ -69,8 +67,8 @@ async fn main() -> Result<()> {
                     println!("Stream has no segments");
                     continue;
                 }
-                Err(Error::MissingKey(kid)) => {
-                    println!("Missing decryption key for {kid}");
+                Err(Error::MissingKey(key_id)) => {
+                    println!("Missing decryption key for {key_id}");
                     continue;
                 }
                 Err(Error::DownloadInterrupted) => {

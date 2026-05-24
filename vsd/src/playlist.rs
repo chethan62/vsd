@@ -12,13 +12,8 @@ use reqwest::{
     header::{self, HeaderValue},
 };
 use serde::Serialize;
-use std::{
-    cmp::Reverse,
-    collections::HashSet,
-    fmt::Display,
-    path::PathBuf,
-    sync::{Arc, atomic::AtomicBool},
-};
+use std::{cmp::Reverse, collections::HashSet, fmt::Display, path::PathBuf, sync::Arc};
+use tokio_util::sync::CancellationToken;
 use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
 
 #[derive(Debug, Serialize)]
@@ -277,18 +272,18 @@ impl MediaPlaylist {
     pub async fn download(
         &self,
         config: &DownloadConfig,
-        running: &AtomicBool,
-        callback: Arc<dyn ProgressCallback>,
+        progress: Arc<dyn ProgressCallback>,
+        token: &CancellationToken,
     ) -> Result<Stream> {
         if self.segments.is_empty() {
             return Err(Error::MissingSegments);
         }
 
-        let pb = Progress::new(&self.id, self.segments.len(), Some(callback));
+        let progress = Progress::new(&self.id, self.segments.len(), Some(progress));
         let temp_file = if self.media_type == MediaType::Subtitles {
-            core::sub::download(config, running, pb, self).await?
+            core::sub::download(config, progress, token, self).await?
         } else {
-            core::vid::download(config, running, pb, self).await?
+            core::vid::download(config, progress, token, self).await?
         };
 
         Ok(temp_file)

@@ -21,5 +21,6 @@ pub use core::{DownloadConfig, Downloader, Muxer, Stream};
 pub use error::{Error, Result};
 pub use reqwest;
 pub use tokio;
+pub use tokio_util;
 pub use utils::find_ffmpeg;
 pub use vsd_mp4;
