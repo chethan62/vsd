@@ -80,28 +80,29 @@ pub async fn dump_pssh_info(config: &DownloadConfig, streams: &[MediaPlaylist]) 
             continue;
         };
 
-        if let Some(kid) = TencBox::from_init(&bytes)?.and_then(|x| {
-            let kid = x.default_kid_hex();
-            if kid == "00000000000000000000000000000000" {
+        if let Some(key_id) = TencBox::from_init(&bytes)?.and_then(|x| {
+            let key_id = x.default_kid_hex();
+            if key_id == "00000000000000000000000000000000" {
                 stream.default_kid()
             } else {
-                Some(kid)
+                Some(key_id)
             }
         }) {
-            default_kids.insert(kid);
+            default_kids.insert(key_id);
         }
 
         init_segments.push(bytes);
     }
 
-    let mut seen = HashSet::new();
+    let mut boxes = HashSet::new();
+    let mut key_ids = HashSet::new();
 
     for bytes in &init_segments {
         let pssh = PsshBox::from_init(bytes)?;
 
         for pssh in pssh.boxes {
             let pssh_base64 = pssh.as_base64();
-            if !seen.insert(pssh_base64.clone()) {
+            if !boxes.insert(pssh_base64.clone()) {
                 continue;
             }
 
@@ -110,12 +111,16 @@ pub async fn dump_pssh_info(config: &DownloadConfig, streams: &[MediaPlaylist]) 
                 pssh.system_id.to_string().magenta(),
                 pssh_base64,
             );
-            for kid in &pssh.key_ids {
+            for key_id in &pssh.key_ids {
+                if !key_ids.insert(key_id.clone()) {
+                    continue;
+                }
+
                 info!(
                     "DrmKid [{}] {}{}",
                     pssh.system_id.to_string().magenta(),
-                    kid,
-                    if default_kids.contains(kid) {
+                    key_id,
+                    if default_kids.contains(key_id) {
                         " (required)".bold().red()
                     } else {
                         "".normal()
