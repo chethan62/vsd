@@ -337,18 +337,18 @@ mod tests {
         }
     }
 
-    fn aud(language: Option<&str>) -> MediaPlaylist {
+    fn aud(language: &str) -> MediaPlaylist {
         MediaPlaylist {
             media_type: MediaType::Audio,
-            language: language.map(String::from),
+            language: Some(language.to_owned()),
             ..Default::default()
         }
     }
 
-    fn sub(language: Option<&str>) -> MediaPlaylist {
+    fn sub(language: &str) -> MediaPlaylist {
         MediaPlaylist {
             media_type: MediaType::Subtitles,
-            language: language.map(String::from),
+            language: Some(language.to_owned()),
             ..Default::default()
         }
     }
@@ -362,7 +362,7 @@ mod tests {
 
     #[test]
     fn test_simple_selection() {
-        let streams = vec![vid(1920, 1080), aud(Some("en")), sub(Some("es"))];
+        let streams = vec![vid(1920, 1080), aud("en"), sub("es")];
 
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("1,3");
@@ -457,7 +457,7 @@ mod tests {
 
     #[test]
     fn test_audio_exact_language() {
-        let streams = vec![aud(Some("en")), aud(Some("fr")), aud(Some("es"))];
+        let streams = vec![aud("en"), aud("fr"), aud("es")];
 
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("a=fr");
@@ -469,7 +469,7 @@ mod tests {
 
     #[test]
     fn test_audio_similar_language() {
-        let streams = vec![aud(Some("en-US")), aud(Some("fr-FR"))];
+        let streams = vec![aud("en-US"), aud("fr-FR")];
 
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("a=en");
@@ -481,7 +481,7 @@ mod tests {
 
     #[test]
     fn test_audio_all() {
-        let streams = vec![aud(Some("en")), aud(Some("fr"))];
+        let streams = vec![aud("en"), aud("fr")];
 
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("a=all");
@@ -494,7 +494,7 @@ mod tests {
 
     #[test]
     fn test_audio_skip() {
-        let streams = vec![aud(Some("en")), aud(Some("fr")), aud(Some("es"))];
+        let streams = vec![aud("en"), aud("fr"), aud("es")];
 
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("a=skip,fr");
@@ -507,7 +507,7 @@ mod tests {
 
     #[test]
     fn test_audio_fallback() {
-        let streams = vec![aud(Some("en")), aud(Some("fr"))];
+        let streams = vec![aud("en"), aud("fr")];
 
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("");
