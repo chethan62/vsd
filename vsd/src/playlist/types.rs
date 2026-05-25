@@ -1,14 +1,14 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct MasterPlaylist {
     pub playlist_type: PlaylistType,
     pub uri: String,
     pub streams: Vec<MediaPlaylist>,
 }
 
-#[derive(Default, Debug, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct MediaPlaylist {
     pub bandwidth: Option<u64>,
     pub channels: Option<f32>,
@@ -27,7 +27,7 @@ pub struct MediaPlaylist {
     pub uri: String,
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Segment {
     pub duration: f32,
     pub key: Option<Key>,
@@ -36,7 +36,7 @@ pub struct Segment {
     pub uri: String,
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Key {
     pub default_kid: Option<String>,
     pub iv: Option<String>,
@@ -44,16 +44,16 @@ pub struct Key {
     pub uri: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Map {
     pub range: Option<Range>,
     pub uri: String,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Range(pub u64, pub u64);
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub enum MediaType {
     Video,
     Audio,
@@ -62,14 +62,14 @@ pub enum MediaType {
     Undefined,
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub enum PlaylistType {
     Dash,
     #[default]
     Hls,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub enum KeyMethod {
     Aes128,
     Cenc,
@@ -79,7 +79,7 @@ pub enum KeyMethod {
     SampleAes,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct StreamMetadata {
     pub bandwidth: Option<u64>,
     pub channels: Option<f32>,

@@ -7,7 +7,7 @@ use std::{path::PathBuf, sync::Arc};
 use vsd::{
     Downloader, Error, Muxer, Result,
     playlist::MediaType,
-    progress::{ProgressCallback, ProgressState},
+    progress::{ByteSize, Eta, ProgressCallback, ProgressState},
     reqwest::Client,
     tokio,
     tokio_util::sync::CancellationToken,
@@ -18,16 +18,18 @@ struct Progress;
 impl ProgressCallback for Progress {
     fn on_progress(&self, state: &ProgressState) {
         println!(
-            "{}% ({}/{})",
-            state.percent, state.downloaded_parts, state.total_parts
+            "{}% | {}/~{} | {}/{} | {}",
+            state.percent,
+            ByteSize(state.downloaded_bytes),
+            ByteSize(state.estimated_bytes),
+            state.downloaded_parts,
+            state.total_parts,
+            Eta(state.eta_seconds)
         );
     }
 
     fn on_finish(&self, state: &ProgressState) {
-        println!(
-            "{}% ({}/{})",
-            state.percent, state.downloaded_parts, state.total_parts
-        );
+        self.on_progress(state);
     }
 }
 
