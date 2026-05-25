@@ -163,3 +163,80 @@ impl Preferences {
         false
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_simple_solo_index() {
+        let filters = SelectFilters::new("1");
+        assert!(filters.strict_indices);
+        assert_eq!(filters.stream_indices.len(), 1);
+        assert!(filters.stream_indices.contains(&0));
+
+        let filters = SelectFilters::new(" 10 ");
+        assert!(filters.strict_indices);
+        assert_eq!(filters.stream_indices.len(), 1);
+        assert!(filters.stream_indices.contains(&9));
+    }
+
+    #[test]
+    fn test_simple_multi_index() {
+        let filters = SelectFilters::new("1,2,3");
+        assert!(filters.strict_indices);
+        assert_eq!(filters.stream_indices.len(), 3);
+        assert!(filters.stream_indices.contains(&0));
+        assert!(filters.stream_indices.contains(&1));
+        assert!(filters.stream_indices.contains(&2));
+    }
+
+    #[test]
+    fn test_complex_indices() {
+        let filters = SelectFilters::new("v=1:a=2:s=3");
+        assert!(!filters.strict_indices);
+        assert_eq!(filters.stream_indices.len(), 3);
+        assert!(filters.stream_indices.contains(&0));
+        assert!(filters.stream_indices.contains(&1));
+        assert!(filters.stream_indices.contains(&2));
+    }
+
+    #[test]
+    fn test_complex_filters() {
+        let filters = SelectFilters::new("v=best,1080p,1920x1080:a=en,skip:s=all");
+        assert!(!filters.strict_indices);
+
+        assert!(matches!(filters.vid.quality, Quality::Best));
+        assert!(filters.vid.resolutions.contains(&(1920, 1080)));
+        assert!(!filters.vid.all);
+        assert!(!filters.vid.skip);
+
+        assert!(filters.aud.skip);
+        assert!(filters.aud.languages.contains("en"));
+        assert!(!filters.aud.all);
+        assert!(matches!(filters.aud.quality, Quality::None));
+
+        assert!(filters.sub.all);
+        assert!(!filters.sub.skip);
+        assert!(filters.sub.languages.is_empty());
+    }
+
+    #[test]
+    fn test_complex_resolutions() {
+        let filters = SelectFilters::new("v=720p,4k,qhd,hd,360p");
+        let res = &filters.vid.resolutions;
+        assert!(res.contains(&(1280, 720)));
+        assert!(res.contains(&(3840, 2160)));
+        assert!(res.contains(&(2560, 1440)));
+        assert!(res.contains(&(640, 360)));
+    }
+
+    #[test]
+    fn test_complex_quality() {
+        let filters = SelectFilters::new("v=high,worst");
+        assert!(matches!(filters.vid.quality, Quality::Worst));
+
+        let filters = SelectFilters::new("a=low,best");
+        assert!(matches!(filters.aud.quality, Quality::Best));
+    }
+}
