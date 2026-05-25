@@ -21,7 +21,7 @@ pub async fn download_streams(
     let token = CancellationToken::new();
     let ctrlc_token = token.clone();
 
-    tokio::spawn(async move {
+    let ctrlc_handle = tokio::spawn(async move {
         if tokio::signal::ctrl_c().await.is_ok() && !ctrlc_token.is_cancelled() {
             warn!("Aborting download due to Ctrl+C.");
             ctrlc_token.cancel();
@@ -61,6 +61,7 @@ pub async fn download_streams(
         }
     }
 
+    ctrlc_handle.abort();
     Ok(muxer)
 }
 
