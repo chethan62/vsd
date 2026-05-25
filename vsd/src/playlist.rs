@@ -2,7 +2,7 @@ use crate::{
     core::{self, DownloadConfig, Stream},
     error::{Error, Result},
     progress::{ByteSize, Progress, ProgressCallback},
-    select::{SelectType, SelectFilters, StreamSelector},
+    select::{SelectFilters, SelectType, StreamSelector},
     utils,
 };
 use log::debug;
@@ -177,14 +177,18 @@ impl MasterPlaylist {
     }
 
     pub(crate) fn select_streams(
-        self,
-        opts: &mut SelectFilters,
-        interaction: SelectType,
+        mut self,
+        select_filters: &SelectFilters,
+        select_type: SelectType,
     ) -> Result<Self> {
-        Ok(Self {
-            streams: StreamSelector::new(self.streams, interaction).select(opts)?,
-            ..self
-        })
+        let selected = StreamSelector::new(&self.streams).select(select_filters, select_type)?;
+        self.streams = self
+            .streams
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, s)| if selected.contains(&i) { Some(s) } else { None })
+            .collect();
+        Ok(self)
     }
 
     pub async fn metadata(&self, config: &DownloadConfig) -> Result<Vec<StreamMetadata>> {

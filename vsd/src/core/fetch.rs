@@ -90,7 +90,7 @@ impl FetchedPlaylist {
     pub async fn parse(
         &self,
         config: &DownloadConfig,
-        mut select_opts: SelectFilters,
+        select_opts: SelectFilters,
         interaction: SelectType,
         partial_parse: bool,
     ) -> Result<MasterPlaylist> {
@@ -103,7 +103,7 @@ impl FetchedPlaylist {
                 let mut pl = dash::parse_as_master(&self.url, &mpd).sort_streams();
 
                 if partial_parse {
-                    pl = pl.select_streams(&mut select_opts, interaction)?;
+                    pl = pl.select_streams(&select_opts, interaction)?;
                 }
 
                 for stream in &mut pl.streams {
@@ -120,7 +120,7 @@ impl FetchedPlaylist {
                         let mut pl = hls::parse_as_master(&self.url, &m3u8).sort_streams();
 
                         if partial_parse {
-                            pl = pl.select_streams(&mut select_opts, interaction)?;
+                            pl = pl.select_streams(&select_opts, interaction)?;
                         }
 
                         for stream in &mut pl.streams {

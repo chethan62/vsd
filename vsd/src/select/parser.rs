@@ -30,8 +30,8 @@ pub struct SelectFilters {
     pub vid: Preferences,
     pub aud: Preferences,
     pub sub: Preferences,
-    pub stream_indices: HashSet<usize>,
-    pub strict_indices: bool,
+    pub indices: HashSet<usize>,
+    pub simple: bool,
 }
 
 impl SelectFilters {
@@ -45,19 +45,19 @@ impl SelectFilters {
             .ok()
             .and_then(|x| x.checked_sub(1))
         {
-            filters.stream_indices.insert(solo);
-            filters.strict_indices = true;
+            filters.indices.insert(solo);
+            filters.simple = true;
             return filters;
         }
 
         // Simple format (multi): "1,2,3"
         if s.contains(',') && !s.contains([':', 'v', 'a', 's', '=']) {
-            filters.stream_indices = s
+            filters.indices = s
                 .split(',')
                 .filter_map(|x| x.trim().parse::<usize>().ok())
                 .filter_map(|x| x.checked_sub(1))
                 .collect();
-            filters.strict_indices = true;
+            filters.simple = true;
             return filters;
         }
 
@@ -69,7 +69,7 @@ impl SelectFilters {
 
             for query in queries.split_terminator(',').map(|x| x.trim()) {
                 if let Some(idx) = query.parse::<usize>().ok().and_then(|x| x.checked_sub(1)) {
-                    filters.stream_indices.insert(idx);
+                    filters.indices.insert(idx);
                     continue;
                 }
 
@@ -137,33 +137,6 @@ impl SelectFilters {
     }
 }
 
-impl Preferences {
-    pub fn contains_exact_lang(&mut self, lang: &str) -> bool {
-        if self.languages.contains(lang) {
-            self.languages.remove(lang);
-            return true;
-        }
-        false
-    }
-
-    pub fn contains_siml_lang(&mut self, lang: &str) -> bool {
-        let code = lang.to_lowercase();
-        let code = code.get(0..2);
-
-        let lang = self
-            .languages
-            .iter()
-            .find(|x| x.to_lowercase().get(0..2) == code)
-            .cloned();
-
-        if let Some(lang) = lang {
-            self.languages.remove(&lang);
-            return true;
-        }
-        false
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,40 +144,40 @@ mod tests {
     #[test]
     fn test_simple_solo_index() {
         let filters = SelectFilters::new("1");
-        assert!(filters.strict_indices);
-        assert_eq!(filters.stream_indices.len(), 1);
-        assert!(filters.stream_indices.contains(&0));
+        assert!(filters.simple);
+        assert_eq!(filters.indices.len(), 1);
+        assert!(filters.indices.contains(&0));
 
         let filters = SelectFilters::new(" 10 ");
-        assert!(filters.strict_indices);
-        assert_eq!(filters.stream_indices.len(), 1);
-        assert!(filters.stream_indices.contains(&9));
+        assert!(filters.simple);
+        assert_eq!(filters.indices.len(), 1);
+        assert!(filters.indices.contains(&9));
     }
 
     #[test]
     fn test_simple_multi_index() {
         let filters = SelectFilters::new("1,2,3");
-        assert!(filters.strict_indices);
-        assert_eq!(filters.stream_indices.len(), 3);
-        assert!(filters.stream_indices.contains(&0));
-        assert!(filters.stream_indices.contains(&1));
-        assert!(filters.stream_indices.contains(&2));
+        assert!(filters.simple);
+        assert_eq!(filters.indices.len(), 3);
+        assert!(filters.indices.contains(&0));
+        assert!(filters.indices.contains(&1));
+        assert!(filters.indices.contains(&2));
     }
 
     #[test]
     fn test_complex_indices() {
         let filters = SelectFilters::new("v=1:a=2:s=3");
-        assert!(!filters.strict_indices);
-        assert_eq!(filters.stream_indices.len(), 3);
-        assert!(filters.stream_indices.contains(&0));
-        assert!(filters.stream_indices.contains(&1));
-        assert!(filters.stream_indices.contains(&2));
+        assert!(!filters.simple);
+        assert_eq!(filters.indices.len(), 3);
+        assert!(filters.indices.contains(&0));
+        assert!(filters.indices.contains(&1));
+        assert!(filters.indices.contains(&2));
     }
 
     #[test]
     fn test_complex_filters() {
         let filters = SelectFilters::new("v=best,1080p,1920x1080:a=en,skip:s=all");
-        assert!(!filters.strict_indices);
+        assert!(!filters.simple);
 
         assert!(matches!(filters.vid.quality, Quality::Best));
         assert!(filters.vid.resolutions.contains(&(1920, 1080)));
