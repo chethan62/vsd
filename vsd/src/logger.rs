@@ -18,7 +18,9 @@ impl log::Log for Logger {
                             println!("{}", record.args());
                         }
                         _ => {
-                            println!("{} {}", label(record.level()), record.args());
+                            let mut label = label(record.level());
+                            label.input = label.input.trim_start().to_owned();
+                            println!("{} {}", label, record.args());
                         }
                     }
                 }
