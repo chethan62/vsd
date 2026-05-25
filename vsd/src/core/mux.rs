@@ -20,10 +20,7 @@ pub struct Stream {
 pub struct Muxer(pub Vec<Stream>);
 
 impl Muxer {
-    pub fn should_mux(&self, config: &DownloadConfig, output: &Option<PathBuf>) -> bool {
-        if output.is_none() {
-            return false;
-        }
+    pub fn should_mux(&self, config: &DownloadConfig) -> bool {
         if config.skip_decrypt {
             warn!("--output is ignored when --no-decrypt is used.");
             return false;
@@ -46,10 +43,15 @@ impl Muxer {
     }
 
     pub async fn mux(&self, ffmpeg: &Path, output: &Path, subs_codec: &str) -> Result<()> {
-        let temp_files = [MediaType::Video, MediaType::Audio, MediaType::Subtitles]
-            .iter()
-            .flat_map(|mt| self.0.iter().filter(move |x| x.media_type == *mt))
-            .collect::<Vec<_>>();
+        let temp_files = [
+            MediaType::Video,
+            MediaType::Audio,
+            MediaType::Subtitles,
+            MediaType::Undefined,
+        ]
+        .iter()
+        .flat_map(|mt| self.0.iter().filter(move |x| x.media_type == *mt))
+        .collect::<Vec<_>>();
 
         if temp_files.is_empty() {
             bail!("No streams available for muxing.");

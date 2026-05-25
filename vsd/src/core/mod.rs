@@ -184,13 +184,13 @@ impl Downloader {
         let mp = self.parse(uri, true).await?;
         let muxer = dl::download_streams(&self.config, mp.streams).await?;
 
-        if muxer.should_mux(&self.config, &self.output) {
+        if let Some(output) = &self.output
+            && muxer.should_mux(&self.config)
+        {
             let Some(ffmpeg) = utils::find_ffmpeg() else {
                 bail!("ffmpeg couldn't be located, it's required to continue further.");
             };
-            muxer
-                .mux(&ffmpeg, self.output.as_ref().unwrap(), &self.subs_codec)
-                .await?;
+            muxer.mux(&ffmpeg, output, &self.subs_codec).await?;
             muxer.clean(self.config.directory.as_deref()).await?;
         }
 

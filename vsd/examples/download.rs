@@ -86,9 +86,13 @@ async fn main() -> Result<()> {
     }
 
     println!("Muxing to output.srt");
-    let ffmpeg = vsd::find_ffmpeg().unwrap();
-    let output = PathBuf::from("output.srt");
-    muxer.mux(&ffmpeg, &output, "srt").await?;
+    muxer
+        .mux(
+            &vsd::find_ffmpeg().unwrap(),
+            &PathBuf::from("output.srt"),
+            "srt",
+        )
+        .await?;
     muxer.clean(config.directory.as_deref()).await?;
 
     Ok(())
