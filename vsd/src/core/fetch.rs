@@ -3,7 +3,7 @@ use crate::{
     error::{Error, Result},
     hls,
     playlist::{MasterPlaylist, MediaPlaylist, PlaylistType},
-    select::{SelectType, SelectFilters},
+    select::{SelectFilters, SelectType},
     utils,
 };
 use base64::Engine;
@@ -90,8 +90,8 @@ impl FetchedPlaylist {
     pub async fn parse(
         &self,
         config: &DownloadConfig,
-        select_opts: SelectFilters,
-        interaction: SelectType,
+        select_filters: SelectFilters,
+        select_type: SelectType,
         partial_parse: bool,
     ) -> Result<MasterPlaylist> {
         match self.playlist_type()? {
@@ -103,7 +103,7 @@ impl FetchedPlaylist {
                 let mut pl = dash::parse_as_master(&self.url, &mpd).sort_streams();
 
                 if partial_parse {
-                    pl = pl.select_streams(&select_opts, interaction)?;
+                    pl = pl.select_streams(&select_filters, select_type)?;
                 }
 
                 for stream in &mut pl.streams {
@@ -120,7 +120,7 @@ impl FetchedPlaylist {
                         let mut pl = hls::parse_as_master(&self.url, &m3u8).sort_streams();
 
                         if partial_parse {
-                            pl = pl.select_streams(&select_opts, interaction)?;
+                            pl = pl.select_streams(&select_filters, select_type)?;
                         }
 
                         for stream in &mut pl.streams {
