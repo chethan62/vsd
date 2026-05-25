@@ -48,17 +48,16 @@ pub async fn download_streams(
             continue;
         }
 
-        let label = format!("{}/{}", i + 1, total);
-        let pb = Progress::new(&label, stream.segments.len(), None);
+        let progress = Progress::new(&format!("{}/{}", i + 1, total), stream.segments.len(), None);
 
         if stream.media_type == MediaType::Subtitles {
             muxer
                 .0
-                .push(sub::download(config, pb, &token, stream).await?);
+                .push(sub::download(config, progress, &token, stream).await?);
         } else {
             muxer
                 .0
-                .push(vid::download(config, pb, &token, stream).await?);
+                .push(vid::download(config, progress, &token, stream).await?);
         }
     }
 

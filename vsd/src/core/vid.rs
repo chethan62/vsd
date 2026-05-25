@@ -105,7 +105,11 @@ pub async fn download(
         }
 
         if !config.skip_decrypt {
-            if decrypter.is_hls() && segment.key.is_none() && auto_increment_iv {
+            if decrypter.is_hls()
+                && segment.key.is_none()
+                && auto_increment_iv
+                && stream.segments.len() > 1
+            {
                 decrypter.increment_iv();
             }
 
@@ -283,7 +287,7 @@ pub async fn download(
             io::copy(&mut File::open(&init_path).await?, &mut output).await?;
         }
 
-        for i in 0..stream.segments.len() {
+        for i in 0..segments.len() {
             let path = temp_dir.join(format!("{}.{}", i, ext));
 
             if path.exists() {
@@ -317,7 +321,7 @@ fn check_unsupported_enc(stream: &MediaPlaylist) -> Result<()> {
     Ok(())
 }
 
-async fn split_single_seg<'a>(
+async fn split_single_seg(
     config: &DownloadConfig,
     base_url: &Url,
     segment: &Segment,
