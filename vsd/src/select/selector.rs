@@ -11,8 +11,6 @@ use std::{
     io::{self, Write},
 };
 
-type ChoicesWithMapping = (Vec<Choice<(String, bool)>>, Vec<Option<usize>>);
-
 pub struct StreamSelector<'a> {
     indices: HashSet<usize>,
     streams: &'a [MediaPlaylist],
@@ -27,7 +25,7 @@ impl<'a> StreamSelector<'a> {
     }
 
     pub fn select(
-        mut self,
+        &mut self,
         filters: &SelectFilters,
         select_type: SelectType,
     ) -> Result<HashSet<usize>> {
@@ -61,7 +59,7 @@ impl<'a> StreamSelector<'a> {
                         }
                     );
                 }
-                Ok(self.indices)
+                Ok(self.indices.clone())
             }
         }
     }
@@ -192,7 +190,7 @@ impl<'a> StreamSelector<'a> {
         }
     }
 
-    fn build_choices(&self) -> ChoicesWithMapping {
+    fn choices(&self) -> (Vec<Choice<(String, bool)>>, Vec<Option<usize>>) {
         let mut choices = Vec::new();
         let mut choice_to_stream = Vec::new();
 
@@ -202,22 +200,22 @@ impl<'a> StreamSelector<'a> {
             (MediaType::Subtitles, "────── Subtitle Streams ──────"),
             (MediaType::Undefined, "───── Undefined Streams ──────"),
         ] {
-            let type_streams = self
+            let streams = self
                 .streams
                 .iter()
                 .enumerate()
                 .filter(|(_, s)| s.media_type == media_type)
                 .collect::<Vec<_>>();
 
-            if type_streams.is_empty() {
+            if streams.is_empty() {
                 continue;
             }
 
-            choices.push(requestty::Separator(header.into()));
+            choices.push(Choice::Separator(header.to_owned()));
             choice_to_stream.push(None);
 
-            for (i, stream) in type_streams {
-                choices.push(requestty::Choice((
+            for (i, stream) in streams {
+                choices.push(Choice::Choice((
                     stream.to_string(),
                     self.indices.contains(&i),
                 )));
@@ -228,12 +226,10 @@ impl<'a> StreamSelector<'a> {
         (choices, choice_to_stream)
     }
 
-    fn interact_modern(self) -> Result<HashSet<usize>> {
-        let (choices, choice_to_stream) = self.build_choices();
-
+    fn interact_modern(&self) -> Result<HashSet<usize>> {
+        let (choices, choice_to_stream) = self.choices();
         let question = Question::multi_select("streams")
             .message("Select streams to download")
-            .should_loop(false)
             .choices_with_default(choices)
             .transform(|choices, _, backend| {
                 let summary = choices
@@ -250,7 +246,6 @@ impl<'a> StreamSelector<'a> {
                 backend.write_styled(&requestty::prompt::style::Stylize::cyan(&summary))
             })
             .build();
-
         let answer = requestty::prompt_one(question)?;
         let selected = answer
             .as_list_items()
@@ -258,31 +253,33 @@ impl<'a> StreamSelector<'a> {
             .iter()
             .filter_map(|item| choice_to_stream[item.index])
             .collect();
-
         Ok(selected)
     }
 
-    fn interact_raw(self) -> Result<HashSet<usize>> {
-        let (choices, choice_to_stream) = self.build_choices();
-        let stream_order: Vec<usize> = choice_to_stream.iter().filter_map(|x| *x).collect();
+    fn interact_raw(&self) -> Result<HashSet<usize>> {
+        let (choices, choice_to_stream) = self.choices();
+        let stream_order = choice_to_stream
+            .iter()
+            .filter_map(|x| *x)
+            .collect::<Vec<_>>();
 
         info!("Select streams to download:");
 
         let mut choice_num = 1_usize;
         let mut defaults = HashSet::new();
 
-        for choice in &choices {
+        for choice in choices {
             match choice {
-                requestty::Separator(header) => info!("{}", header.replace('─', "-").cyan()),
-                requestty::Choice((msg, selected)) => {
-                    if *selected {
+                Choice::Separator(header) => info!("{}", header.replace('─', "-").cyan()),
+                Choice::Choice((choice, selected)) => {
+                    if selected {
                         defaults.insert(choice_num);
                     }
                     info!(
                         "{:>2}) [{}] {}",
                         choice_num,
-                        if *selected { "x".green() } else { " ".normal() },
-                        msg
+                        if selected { "x".green() } else { " ".normal() },
+                        choice
                     );
                     choice_num += 1;
                 }
@@ -308,10 +305,10 @@ impl<'a> StreamSelector<'a> {
                 .collect()
         };
 
-        let selected: HashSet<usize> = user_choices
+        let selected = user_choices
             .into_iter()
             .filter_map(|n| stream_order.get(n.checked_sub(1)?).copied())
-            .collect();
+            .collect::<HashSet<_>>();
 
         for &i in &selected {
             if let Some(stream) = self.streams.get(i) {
