@@ -324,3 +324,259 @@ impl<'a> StreamSelector<'a> {
         Ok(selected)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_mock_video(resolution: Option<(u64, u64)>) -> MediaPlaylist {
+        MediaPlaylist {
+            media_type: MediaType::Video,
+            resolution,
+            ..Default::default()
+        }
+    }
+
+    fn create_mock_audio(language: Option<&str>) -> MediaPlaylist {
+        MediaPlaylist {
+            media_type: MediaType::Audio,
+            language: language.map(String::from),
+            ..Default::default()
+        }
+    }
+
+    fn create_mock_subtitle(language: Option<&str>) -> MediaPlaylist {
+        MediaPlaylist {
+            media_type: MediaType::Subtitles,
+            language: language.map(String::from),
+            ..Default::default()
+        }
+    }
+
+    fn create_mock_undefined() -> MediaPlaylist {
+        MediaPlaylist {
+            media_type: MediaType::Undefined,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_simple_selection() {
+        let streams = vec![
+            create_mock_video(Some((1920, 1080))),
+            create_mock_audio(Some("en")),
+            create_mock_subtitle(Some("es")),
+        ];
+        
+        let mut selector = StreamSelector::new(&streams);
+        let mut filters = SelectFilters::default();
+        filters.simple = true;
+        filters.indices.insert(0);
+        filters.indices.insert(2);
+
+        let selected = selector.select(&filters, SelectType::None).unwrap();
+        assert_eq!(selected.len(), 2);
+        assert!(selected.contains(&0));
+        assert!(selected.contains(&2));
+    }
+
+    #[test]
+    fn test_video_quality_best() {
+        let streams = vec![
+            create_mock_video(Some((1920, 1080))),
+            create_mock_video(Some((1280, 720))),
+        ];
+        
+        let mut selector = StreamSelector::new(&streams);
+        let mut filters = SelectFilters::default();
+        filters.vid.quality = Quality::Best;
+
+        let selected = selector.select(&filters, SelectType::None).unwrap();
+        assert_eq!(selected.len(), 1);
+        assert!(selected.contains(&0));
+    }
+
+    #[test]
+    fn test_video_quality_worst() {
+        let streams = vec![
+            create_mock_video(Some((1920, 1080))),
+            create_mock_video(Some((1280, 720))),
+        ];
+        
+        let mut selector = StreamSelector::new(&streams);
+        let mut filters = SelectFilters::default();
+        filters.vid.quality = Quality::Worst;
+
+        let selected = selector.select(&filters, SelectType::None).unwrap();
+        assert_eq!(selected.len(), 1);
+        assert!(selected.contains(&1));
+    }
+
+    #[test]
+    fn test_video_resolutions() {
+        let streams = vec![
+            create_mock_video(Some((1920, 1080))),
+            create_mock_video(Some((1280, 720))),
+            create_mock_video(Some((640, 360))),
+        ];
+        
+        let mut selector = StreamSelector::new(&streams);
+        let mut filters = SelectFilters::default();
+        filters.vid.resolutions.insert((1280, 720));
+
+        let selected = selector.select(&filters, SelectType::None).unwrap();
+        assert_eq!(selected.len(), 1);
+        assert!(selected.contains(&1));
+    }
+
+    #[test]
+    fn test_video_all() {
+        let streams = vec![
+            create_mock_video(Some((1920, 1080))),
+            create_mock_video(Some((1280, 720))),
+        ];
+        
+        let mut selector = StreamSelector::new(&streams);
+        let mut filters = SelectFilters::default();
+        filters.vid.all = true;
+
+        let selected = selector.select(&filters, SelectType::None).unwrap();
+        assert_eq!(selected.len(), 2);
+        assert!(selected.contains(&0));
+        assert!(selected.contains(&1));
+    }
+
+    #[test]
+    fn test_video_skip() {
+        let streams = vec![
+            create_mock_video(Some((1920, 1080))),
+            create_mock_video(Some((1280, 720))),
+            create_mock_video(Some((640, 360))),
+        ];
+        
+        let mut selector = StreamSelector::new(&streams);
+        let mut filters = SelectFilters::default();
+        filters.vid.resolutions.insert((1280, 720));
+        filters.vid.skip = true;
+
+        let selected = selector.select(&filters, SelectType::None).unwrap();
+        assert_eq!(selected.len(), 2);
+        assert!(selected.contains(&0));
+        assert!(selected.contains(&2));
+    }
+
+    #[test]
+    fn test_video_fallback() {
+        let streams = vec![
+            create_mock_video(Some((1920, 1080))),
+            create_mock_video(Some((1280, 720))),
+        ];
+        
+        let mut selector = StreamSelector::new(&streams);
+        let filters = SelectFilters::default();
+
+        let selected = selector.select(&filters, SelectType::None).unwrap();
+        assert_eq!(selected.len(), 1);
+        assert!(selected.contains(&0));
+    }
+
+    #[test]
+    fn test_audio_exact_language() {
+        let streams = vec![
+            create_mock_audio(Some("en")),
+            create_mock_audio(Some("fr")),
+            create_mock_audio(Some("es")),
+        ];
+        
+        let mut selector = StreamSelector::new(&streams);
+        let mut filters = SelectFilters::default();
+        filters.aud.languages.insert("fr".to_string());
+
+        let selected = selector.select(&filters, SelectType::None).unwrap();
+        assert_eq!(selected.len(), 1);
+        assert!(selected.contains(&1));
+    }
+
+    #[test]
+    fn test_audio_similar_language() {
+        let streams = vec![
+            create_mock_audio(Some("en-US")),
+            create_mock_audio(Some("fr-FR")),
+        ];
+        
+        let mut selector = StreamSelector::new(&streams);
+        let mut filters = SelectFilters::default();
+        filters.aud.languages.insert("en".to_string());
+
+        let selected = selector.select(&filters, SelectType::None).unwrap();
+        assert_eq!(selected.len(), 1);
+        assert!(selected.contains(&0));
+    }
+
+    #[test]
+    fn test_audio_all() {
+        let streams = vec![
+            create_mock_audio(Some("en")),
+            create_mock_audio(Some("fr")),
+        ];
+        
+        let mut selector = StreamSelector::new(&streams);
+        let mut filters = SelectFilters::default();
+        filters.aud.all = true;
+
+        let selected = selector.select(&filters, SelectType::None).unwrap();
+        assert_eq!(selected.len(), 2);
+        assert!(selected.contains(&0));
+        assert!(selected.contains(&1));
+    }
+
+    #[test]
+    fn test_audio_skip() {
+        let streams = vec![
+            create_mock_audio(Some("en")),
+            create_mock_audio(Some("fr")),
+            create_mock_audio(Some("es")),
+        ];
+        
+        let mut selector = StreamSelector::new(&streams);
+        let mut filters = SelectFilters::default();
+        filters.aud.languages.insert("fr".to_string());
+        filters.aud.skip = true;
+
+        let selected = selector.select(&filters, SelectType::None).unwrap();
+        assert_eq!(selected.len(), 2);
+        assert!(selected.contains(&0));
+        assert!(selected.contains(&2));
+    }
+
+    #[test]
+    fn test_audio_fallback() {
+        let streams = vec![
+            create_mock_audio(Some("en")),
+            create_mock_audio(Some("fr")),
+        ];
+        
+        let mut selector = StreamSelector::new(&streams);
+        let filters = SelectFilters::default();
+
+        let selected = selector.select(&filters, SelectType::None).unwrap();
+        assert_eq!(selected.len(), 1);
+        assert!(selected.contains(&0));
+    }
+
+    #[test]
+    fn test_undefined_streams() {
+        let streams = vec![
+            create_mock_video(Some((1920, 1080))),
+            create_mock_undefined(),
+        ];
+        
+        let mut selector = StreamSelector::new(&streams);
+        let filters = SelectFilters::default();
+
+        let selected = selector.select(&filters, SelectType::None).unwrap();
+        assert_eq!(selected.len(), 2);
+        assert!(selected.contains(&0));
+        assert!(selected.contains(&1));
+    }
+}
