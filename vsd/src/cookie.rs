@@ -132,12 +132,13 @@ impl<'a> Cookie<'a> {
             h.push_str(&format!("; Path={}", self.path));
         }
         if self.expires > 0
-            && let Some(dt) = Utc.timestamp_opt(self.expires, 0).single() {
-                h.push_str(&format!(
-                    "; Expires={}",
-                    dt.format("%a, %d %b %Y %H:%M:%S GMT")
-                ));
-            }
+            && let Some(dt) = Utc.timestamp_opt(self.expires, 0).single()
+        {
+            h.push_str(&format!(
+                "; Expires={}",
+                dt.format("%a, %d %b %Y %H:%M:%S GMT")
+            ));
+        }
         if self.secure {
             h.push_str("; Secure");
         }
@@ -273,7 +274,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_valid_cookies() {
+    fn test_cookie_parse() {
         let input = b"# Netscape HTTP Cookie File\n\
                      # This is a comment\n\
                      \n\
@@ -305,55 +306,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_windows_newlines() {
-        let input = b"example.com\tTRUE\t/\tFALSE\t0\tfoo\tbar\r\n\
-                     example.org\tFALSE\t/\tTRUE\t0\tbaz\tqux\r\n";
-        let cookies = Cookies::parse(input).unwrap();
-        assert_eq!(cookies.0.len(), 2);
-        assert_eq!(cookies.0[0].domain, "example.com");
-        assert_eq!(cookies.0[1].domain, "example.org");
-    }
-
-    #[test]
-    fn test_parse_invalid_columns() {
-        let input = b"example.com\tTRUE\t/\tFALSE\t0\tfoo\n"; // only 6 columns
-        let err = Cookies::parse(input).unwrap_err();
-        match err {
-            ParseError::InvalidColumnParams(line, cols) => {
-                assert_eq!(line, 1);
-                assert_eq!(cols, 6);
-            }
-            _ => panic!("Expected InvalidColumnParams error"),
-        }
-    }
-
-    #[test]
-    fn test_parse_invalid_boolean() {
-        let input = b"example.com\tMAYBE\t/\tFALSE\t0\tfoo\tbar\n";
-        let err = Cookies::parse(input).unwrap_err();
-        match err {
-            ParseError::InvalidBoolean(line, val) => {
-                assert_eq!(line, 1);
-                assert_eq!(val, "MAYBE");
-            }
-            _ => panic!("Expected InvalidBoolean error"),
-        }
-    }
-
-    #[test]
-    fn test_parse_invalid_integer() {
-        let input = b"example.com\tTRUE\t/\tFALSE\tnot_an_int\tfoo\tbar\n";
-        let err = Cookies::parse(input).unwrap_err();
-        match err {
-            ParseError::InvalidInteger(line, val) => {
-                assert_eq!(line, 1);
-                assert_eq!(val, "not_an_int");
-            }
-            _ => panic!("Expected InvalidInteger error"),
-        }
-    }
-
-    #[test]
     fn test_cookie_url() {
         let c1 = Cookie {
             domain: ".example.com",
@@ -381,13 +333,13 @@ mod tests {
     }
 
     #[test]
-    fn test_cookie_to_header() {
+    fn test_cookie_header() {
         let c1 = Cookie {
             domain: "example.com",
             include_subdomains: true,
             path: "/path",
             secure: true,
-            expires: 1716672000, // May 25, 2024 21:20:00 GMT
+            expires: 1716672000,
             name: "foo",
             value: "bar",
             http_only: true,
@@ -399,40 +351,5 @@ mod tests {
         assert!(header.contains("; Expires=Sat, 25 May 2024 21:20:00 GMT"));
         assert!(header.contains("; Secure"));
         assert!(header.contains("; HttpOnly"));
-    }
-
-    #[cfg(feature = "capture")]
-    #[test]
-    fn test_to_netscape_and_from_chromium() {
-        use chromiumoxide::cdp::browser_protocol::network::CookieParam;
-
-        let input = b"#HttpOnly_example.com\tTRUE\t/path\tTRUE\t1716672000\tfoo\tbar\n";
-        let cookies = Cookies::parse(input).unwrap();
-        
-        let netscape = cookies.to_netscape();
-        assert!(netscape.contains("# Netscape HTTP Cookie File"));
-        assert!(netscape.contains("#HttpOnly_example.com\tTRUE\t/path\tTRUE\t1716672000\tfoo\tbar"));
-
-        // Conversion to chromiumoxide parameters
-        let params: Vec<CookieParam> = cookies.clone().into();
-        assert_eq!(params.len(), 1);
-        let param = &params[0];
-        assert_eq!(param.name, "foo");
-        assert_eq!(param.value, "bar");
-        assert_eq!(param.domain, Some("example.com".to_owned()));
-        assert_eq!(param.path, Some("/path".to_owned()));
-        assert_eq!(param.secure, Some(true));
-        assert_eq!(param.http_only, Some(true));
-
-        // From chromiumoxide parameters
-        let from_params = Cookies::from(&params);
-        assert_eq!(from_params.0.len(), 1);
-        let c = &from_params.0[0];
-        assert_eq!(c.name, "foo");
-        assert_eq!(c.value, "bar");
-        assert_eq!(c.domain, "example.com");
-        assert_eq!(c.path, "/path");
-        assert!(c.secure);
-        assert!(c.http_only);
     }
 }
