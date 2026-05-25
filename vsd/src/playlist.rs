@@ -1,9 +1,8 @@
 use crate::{
     core::{self, DownloadConfig, Stream},
     error::{Error, Result},
-    options::{Interaction, SelectOptions},
     progress::{ByteSize, Progress, ProgressCallback},
-    selector::StreamSelector,
+    select::{SelectType, SelectFilters, StreamSelector},
     utils,
 };
 use log::debug;
@@ -179,8 +178,8 @@ impl MasterPlaylist {
 
     pub(crate) fn select_streams(
         self,
-        opts: &mut SelectOptions,
-        interaction: Interaction,
+        opts: &mut SelectFilters,
+        interaction: SelectType,
     ) -> Result<Self> {
         Ok(Self {
             streams: StreamSelector::new(self.streams, interaction).select(opts)?,

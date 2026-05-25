@@ -1,7 +1,7 @@
 use crate::{
     error::Result,
-    options::{Interaction, Quality, SelectOptions},
     playlist::{MediaPlaylist, MediaType},
+    select::parser::{Quality, SelectFilters, SelectType},
 };
 use colored::Colorize;
 use log::info;
@@ -12,21 +12,21 @@ use std::{
 };
 
 pub struct StreamSelector {
-    interaction: Interaction,
+    select_type: SelectType,
     selected_indices: HashSet<usize>,
     streams: Vec<(usize, MediaPlaylist)>,
 }
 
 impl StreamSelector {
-    pub fn new(streams: Vec<MediaPlaylist>, interaction: Interaction) -> Self {
+    pub fn new(streams: Vec<MediaPlaylist>, select_type: SelectType) -> Self {
         Self {
-            interaction,
+            select_type,
             selected_indices: HashSet::new(),
             streams: streams.into_iter().enumerate().collect(),
         }
     }
 
-    pub fn select(mut self, opts: &mut SelectOptions) -> Result<Vec<MediaPlaylist>> {
+    pub fn select(mut self, opts: &mut SelectFilters) -> Result<Vec<MediaPlaylist>> {
         if opts.strict_indices {
             self.selected_indices = opts.stream_indices.clone();
         } else {
@@ -35,14 +35,14 @@ impl StreamSelector {
             self.select_sub_streams(opts);
         }
 
-        match self.interaction {
-            Interaction::Modern => self.interact_modern(),
-            Interaction::None => self.interact_none(),
-            Interaction::Raw => self.interact_raw(),
+        match self.select_type {
+            SelectType::Modern => self.interact_modern(),
+            SelectType::None => self.interact_none(),
+            SelectType::Raw => self.interact_raw(),
         }
     }
 
-    fn select_vid_streams(&mut self, opts: &SelectOptions) {
+    fn select_vid_streams(&mut self, opts: &SelectFilters) {
         let vid_data = self
             .streams
             .iter()
@@ -103,7 +103,7 @@ impl StreamSelector {
         }
     }
 
-    fn select_aud_streams(&mut self, opts: &mut SelectOptions) {
+    fn select_aud_streams(&mut self, opts: &mut SelectFilters) {
         let aud_data = self
             .streams
             .iter()
@@ -158,7 +158,7 @@ impl StreamSelector {
         }
     }
 
-    fn select_sub_streams(&mut self, opts: &mut SelectOptions) {
+    fn select_sub_streams(&mut self, opts: &mut SelectFilters) {
         let sub_data = self
             .streams
             .iter()

@@ -1,19 +1,19 @@
 use std::collections::HashSet;
 
-#[derive(Clone)]
-pub enum Interaction {
+#[derive(Clone, Default)]
+pub enum SelectType {
     Modern,
+    #[default]
     None,
     Raw,
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct SelectOptions {
-    pub vid: Preferences,
-    pub aud: Preferences,
-    pub sub: Preferences,
-    pub stream_indices: HashSet<usize>,
-    pub strict_indices: bool,
+pub enum Quality {
+    Best,
+    #[default]
+    None,
+    Worst,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -26,18 +26,17 @@ pub struct Preferences {
 }
 
 #[derive(Clone, Debug, Default)]
-pub enum Quality {
-    Best,
-    #[default]
-    None,
-    Worst,
+pub struct SelectFilters {
+    pub vid: Preferences,
+    pub aud: Preferences,
+    pub sub: Preferences,
+    pub stream_indices: HashSet<usize>,
+    pub strict_indices: bool,
 }
 
-impl std::str::FromStr for SelectOptions {
-    type Err = std::convert::Infallible;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut opts = Self::default();
+impl SelectFilters {
+    pub fn new(s: &str) -> Self {
+        let mut filters = Self::default();
 
         // Simple format (solo): "1"
         if let Some(solo) = s
@@ -46,20 +45,20 @@ impl std::str::FromStr for SelectOptions {
             .ok()
             .and_then(|x| x.checked_sub(1))
         {
-            opts.stream_indices.insert(solo);
-            opts.strict_indices = true;
-            return Ok(opts);
+            filters.stream_indices.insert(solo);
+            filters.strict_indices = true;
+            return filters;
         }
 
         // Simple format (multi): "1,2,3"
         if s.contains(',') && !s.contains([':', 'v', 'a', 's', '=']) {
-            opts.stream_indices = s
+            filters.stream_indices = s
                 .split(',')
                 .filter_map(|x| x.trim().parse::<usize>().ok())
                 .filter_map(|x| x.checked_sub(1))
                 .collect();
-            opts.strict_indices = true;
-            return Ok(opts);
+            filters.strict_indices = true;
+            return filters;
         }
 
         // Complex format: "v=best:a=en:s=skip"
@@ -70,24 +69,24 @@ impl std::str::FromStr for SelectOptions {
 
             for query in queries.split_terminator(',').map(|x| x.trim()) {
                 if let Some(idx) = query.parse::<usize>().ok().and_then(|x| x.checked_sub(1)) {
-                    opts.stream_indices.insert(idx);
+                    filters.stream_indices.insert(idx);
                     continue;
                 }
 
                 match code {
-                    "v" => Self::parse_vid_query(query, &mut opts.vid),
-                    "a" => Self::parse_lang_query(query, &mut opts.aud),
-                    "s" => Self::parse_lang_query(query, &mut opts.sub),
+                    "v" => Self::parse_vid_query(query, &mut filters.vid),
+                    "a" => Self::parse_lang_query(query, &mut filters.aud),
+                    "s" => Self::parse_lang_query(query, &mut filters.sub),
                     _ => (),
                 }
             }
         }
 
-        Ok(opts)
+        filters
     }
 }
 
-impl SelectOptions {
+impl SelectFilters {
     const RESOLUTIONS: &[(&str, (u16, u16))] = &[
         ("144p", (256, 144)),
         ("240p", (426, 240)),

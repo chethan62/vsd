@@ -5,12 +5,13 @@ mod mux;
 
 pub(crate) mod sub;
 pub(crate) mod vid;
+
 pub use mux::{Muxer, Stream};
 
 use crate::{
     error::Result,
-    options::{Interaction, SelectOptions},
     playlist::MasterPlaylist,
+    select::{SelectFilters, SelectType},
     utils,
 };
 use reqwest::{Client, Url};
@@ -34,8 +35,8 @@ pub struct Downloader {
     base_url: Option<Url>,
     output: Option<PathBuf>,
     subs_codec: String,
-    interaction_type: Interaction,
-    select_options: SelectOptions,
+    interaction_type: SelectType,
+    select_options: SelectFilters,
 }
 
 impl Downloader {
@@ -55,8 +56,8 @@ impl Downloader {
             base_url: None,
             output: None,
             subs_codec: "copy".to_owned(),
-            interaction_type: Interaction::None,
-            select_options: "v=best:s=en".parse().unwrap(),
+            interaction_type: SelectType::None,
+            select_options: SelectFilters::new("v=best:s=en"),
         }
     }
 
@@ -88,15 +89,15 @@ impl Downloader {
 
     pub fn interactive(mut self, raw: bool) -> Self {
         if raw {
-            self.interaction_type = Interaction::Raw;
+            self.interaction_type = SelectType::Raw;
         } else {
-            self.interaction_type = Interaction::Modern;
+            self.interaction_type = SelectType::Modern;
         }
         self
     }
 
     pub fn select_streams(mut self, select_streams: &str) -> Self {
-        self.select_options = select_streams.parse().unwrap();
+        self.select_options = SelectFilters::new(select_streams);
         self
     }
 
@@ -166,7 +167,7 @@ impl Downloader {
             fp.parse(
                 &self.config,
                 self.select_options.clone(),
-                Interaction::None,
+                SelectType::None,
                 false,
             )
             .await?

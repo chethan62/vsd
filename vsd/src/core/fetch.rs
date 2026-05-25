@@ -2,8 +2,8 @@ use crate::{
     DownloadConfig, dash,
     error::{Error, Result},
     hls,
-    options::{Interaction, SelectOptions},
     playlist::{MasterPlaylist, MediaPlaylist, PlaylistType},
+    select::{SelectType, SelectFilters},
     utils,
 };
 use base64::Engine;
@@ -90,8 +90,8 @@ impl FetchedPlaylist {
     pub async fn parse(
         &self,
         config: &DownloadConfig,
-        mut select_opts: SelectOptions,
-        interaction: Interaction,
+        mut select_opts: SelectFilters,
+        interaction: SelectType,
         partial_parse: bool,
     ) -> Result<MasterPlaylist> {
         match self.playlist_type()? {

@@ -7,8 +7,7 @@ mod core;
 mod dash;
 mod hls;
 mod logger;
-mod options;
-mod selector;
+mod select;
 mod utils;
 
 pub mod playlist;
