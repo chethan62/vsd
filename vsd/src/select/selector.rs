@@ -329,15 +329,15 @@ impl<'a> StreamSelector<'a> {
 mod tests {
     use super::*;
 
-    fn create_mock_video(resolution: Option<(u64, u64)>) -> MediaPlaylist {
+    fn vid(width: u64, height: u64) -> MediaPlaylist {
         MediaPlaylist {
             media_type: MediaType::Video,
-            resolution,
+            resolution: Some((width, height)),
             ..Default::default()
         }
     }
 
-    fn create_mock_audio(language: Option<&str>) -> MediaPlaylist {
+    fn aud(language: Option<&str>) -> MediaPlaylist {
         MediaPlaylist {
             media_type: MediaType::Audio,
             language: language.map(String::from),
@@ -345,7 +345,7 @@ mod tests {
         }
     }
 
-    fn create_mock_subtitle(language: Option<&str>) -> MediaPlaylist {
+    fn sub(language: Option<&str>) -> MediaPlaylist {
         MediaPlaylist {
             media_type: MediaType::Subtitles,
             language: language.map(String::from),
@@ -353,7 +353,7 @@ mod tests {
         }
     }
 
-    fn create_mock_undefined() -> MediaPlaylist {
+    fn und() -> MediaPlaylist {
         MediaPlaylist {
             media_type: MediaType::Undefined,
             ..Default::default()
@@ -362,12 +362,8 @@ mod tests {
 
     #[test]
     fn test_simple_selection() {
-        let streams = vec![
-            create_mock_video(Some((1920, 1080))),
-            create_mock_audio(Some("en")),
-            create_mock_subtitle(Some("es")),
-        ];
-        
+        let streams = vec![vid(1920, 1080), aud(Some("en")), sub(Some("es"))];
+
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("1,3");
 
@@ -379,11 +375,8 @@ mod tests {
 
     #[test]
     fn test_video_quality_best() {
-        let streams = vec![
-            create_mock_video(Some((1920, 1080))),
-            create_mock_video(Some((1280, 720))),
-        ];
-        
+        let streams = vec![vid(1920, 1080), vid(1280, 720)];
+
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("v=best");
 
@@ -394,11 +387,8 @@ mod tests {
 
     #[test]
     fn test_video_quality_worst() {
-        let streams = vec![
-            create_mock_video(Some((1920, 1080))),
-            create_mock_video(Some((1280, 720))),
-        ];
-        
+        let streams = vec![vid(1920, 1080), vid(1280, 720)];
+
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("v=worst");
 
@@ -410,11 +400,11 @@ mod tests {
     #[test]
     fn test_video_resolutions() {
         let streams = vec![
-            create_mock_video(Some((1920, 1080))),
-            create_mock_video(Some((1280, 720))),
-            create_mock_video(Some((640, 360))),
+            vid(1920, 1080),
+            vid(1280, 720),
+            vid(640, 360),
         ];
-        
+
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("v=720p");
 
@@ -425,11 +415,8 @@ mod tests {
 
     #[test]
     fn test_video_all() {
-        let streams = vec![
-            create_mock_video(Some((1920, 1080))),
-            create_mock_video(Some((1280, 720))),
-        ];
-        
+        let streams = vec![vid(1920, 1080), vid(1280, 720)];
+
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("v=all");
 
@@ -442,11 +429,11 @@ mod tests {
     #[test]
     fn test_video_skip() {
         let streams = vec![
-            create_mock_video(Some((1920, 1080))),
-            create_mock_video(Some((1280, 720))),
-            create_mock_video(Some((640, 360))),
+            vid(1920, 1080),
+            vid(1280, 720),
+            vid(640, 360),
         ];
-        
+
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("v=skip,720p");
 
@@ -458,11 +445,8 @@ mod tests {
 
     #[test]
     fn test_video_fallback() {
-        let streams = vec![
-            create_mock_video(Some((1920, 1080))),
-            create_mock_video(Some((1280, 720))),
-        ];
-        
+        let streams = vec![vid(1920, 1080), vid(1280, 720)];
+
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("");
 
@@ -473,12 +457,8 @@ mod tests {
 
     #[test]
     fn test_audio_exact_language() {
-        let streams = vec![
-            create_mock_audio(Some("en")),
-            create_mock_audio(Some("fr")),
-            create_mock_audio(Some("es")),
-        ];
-        
+        let streams = vec![aud(Some("en")), aud(Some("fr")), aud(Some("es"))];
+
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("a=fr");
 
@@ -489,11 +469,8 @@ mod tests {
 
     #[test]
     fn test_audio_similar_language() {
-        let streams = vec![
-            create_mock_audio(Some("en-US")),
-            create_mock_audio(Some("fr-FR")),
-        ];
-        
+        let streams = vec![aud(Some("en-US")), aud(Some("fr-FR"))];
+
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("a=en");
 
@@ -504,11 +481,8 @@ mod tests {
 
     #[test]
     fn test_audio_all() {
-        let streams = vec![
-            create_mock_audio(Some("en")),
-            create_mock_audio(Some("fr")),
-        ];
-        
+        let streams = vec![aud(Some("en")), aud(Some("fr"))];
+
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("a=all");
 
@@ -520,12 +494,8 @@ mod tests {
 
     #[test]
     fn test_audio_skip() {
-        let streams = vec![
-            create_mock_audio(Some("en")),
-            create_mock_audio(Some("fr")),
-            create_mock_audio(Some("es")),
-        ];
-        
+        let streams = vec![aud(Some("en")), aud(Some("fr")), aud(Some("es"))];
+
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("a=skip,fr");
 
@@ -537,11 +507,8 @@ mod tests {
 
     #[test]
     fn test_audio_fallback() {
-        let streams = vec![
-            create_mock_audio(Some("en")),
-            create_mock_audio(Some("fr")),
-        ];
-        
+        let streams = vec![aud(Some("en")), aud(Some("fr"))];
+
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("");
 
@@ -552,11 +519,8 @@ mod tests {
 
     #[test]
     fn test_undefined_streams() {
-        let streams = vec![
-            create_mock_video(Some((1920, 1080))),
-            create_mock_undefined(),
-        ];
-        
+        let streams = vec![vid(1920, 1080), und()];
+
         let mut selector = StreamSelector::new(&streams);
         let filters = SelectFilters::new("");
 
