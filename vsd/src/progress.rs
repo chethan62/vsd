@@ -142,10 +142,15 @@ impl Progress {
         inner.session_bytes += chunk_bytes;
     }
 
-    pub fn skip(&self, file_bytes: usize) {
+    pub fn update_total(&self, total: usize) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.total = total;
+    }
+
+    pub fn skip(&self, chunk_bytes: usize) {
         let mut inner = self.inner.lock().unwrap();
         inner.counter += 1;
-        inner.total_bytes += file_bytes;
+        inner.total_bytes += chunk_bytes;
     }
 
     pub fn spawn(&self) -> JoinHandle<()> {
@@ -187,7 +192,6 @@ impl Progress {
         }
 
         let state = inner.state();
-
         let stderr = io::stderr();
         let mut handle = stderr.lock();
         write!(

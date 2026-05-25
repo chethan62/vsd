@@ -1,7 +1,7 @@
 use crate::{
     core::{DownloadConfig, enc::Decrypter, mux::Stream},
     error::{Error, Result},
-    playlist::{Key, KeyMethod, MediaPlaylist, Segment},
+    playlist::{Key, KeyMethod, MediaPlaylist, Range, Segment},
     progress::Progress,
 };
 use colored::Colorize;
@@ -28,20 +28,7 @@ pub async fn download(
     token: &CancellationToken,
     stream: &MediaPlaylist,
 ) -> Result<Stream> {
-    if let Some(Segment {
-        key:
-            Some(
-                Key {
-                    method: KeyMethod::Other(x),
-                    ..
-                },
-                ..,
-            ),
-        ..
-    }) = stream.segments.first()
-    {
-        return Err(Error::UnsupportedEncryption(x.to_owned()));
-    }
+    check_unsupported_enc(stream)?;
 
     let temp_file = stream.path(config.directory.as_ref());
     let temp_stream = Stream {
@@ -67,10 +54,12 @@ pub async fn download(
 
     let base_url = stream.uri.parse::<Url>()?;
     let ext = stream.extension();
+    let max_threads = config.max_threads as usize;
     let progress_handle = progress.spawn();
     let temp_dir = temp_file.with_extension("");
     let mut auto_increment_iv = false;
     let mut decrypter = Decrypter::None;
+    let mut set = JoinSet::new();
 
     let init = stream.fetch_init(config).await?;
 
@@ -91,10 +80,14 @@ pub async fn download(
         f.flush().await?;
     }
 
-    let max_threads = config.max_threads as usize;
-    let mut set: JoinSet<Result<usize>> = JoinSet::new();
+    let segments = if stream.segments.len() == 1 {
+        &split_single_seg(config, &base_url, &stream.segments[0]).await?
+    } else {
+        &stream.segments
+    };
+    progress.update_total(segments.len());
 
-    for (i, segment) in stream.segments.iter().enumerate() {
+    for (i, segment) in segments.iter().enumerate() {
         if token.is_cancelled() {
             break;
         }
@@ -298,9 +291,81 @@ pub async fn download(
             }
         }
 
-        debug!("Deleting '{}' directory.", temp_dir.to_string_lossy());
+        debug!("Deleting {} directory.", temp_dir.to_string_lossy());
         fs::remove_dir_all(&temp_dir).await?;
     }
 
     Ok(temp_stream)
+}
+
+fn check_unsupported_enc(stream: &MediaPlaylist) -> Result<()> {
+    if let Some(Segment {
+        key:
+            Some(
+                Key {
+                    method: KeyMethod::Other(x),
+                    ..
+                },
+                ..,
+            ),
+        ..
+    }) = stream.segments.first()
+    {
+        return Err(Error::UnsupportedEncryption(x.to_owned()));
+    }
+
+    Ok(())
+}
+
+async fn split_single_seg<'a>(
+    config: &DownloadConfig,
+    base_url: &Url,
+    segment: &Segment,
+) -> Result<Vec<Segment>> {
+    let url = base_url.join(&segment.uri)?;
+    debug!("Fetching {} (segment@head)", url);
+    let response = config
+        .client
+        .head(url.clone())
+        .query(&config.query)
+        .send()
+        .await?;
+    let status = response.status();
+
+    if !status.is_success() {
+        return Err(Error::RequestFailed {
+            url: url.to_string(),
+            status,
+            body: "HEAD".to_owned(),
+        });
+    }
+
+    let content_length = response
+        .headers()
+        .get(header::CONTENT_LENGTH)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
+
+    if content_length == 0 {
+        return Ok(vec![segment.clone()]);
+    }
+
+    let chunk_size = 1024 * 1024 * 5; // 5 MiB
+    let mut map = segment.map.clone();
+    let mut key = segment.key.clone();
+    let mut segments = Vec::new();
+
+    for start in (0..content_length).step_by(chunk_size as usize) {
+        let end = (start + chunk_size - 1).min(content_length - 1);
+        segments.push(Segment {
+            map: map.take(),
+            key: key.take(),
+            duration: segment.duration,
+            range: Some(Range(start, end)),
+            uri: segment.uri.clone(),
+        });
+    }
+
+    Ok(segments)
 }

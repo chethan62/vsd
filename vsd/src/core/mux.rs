@@ -163,14 +163,14 @@ impl Muxer {
     pub async fn clean(&self, directory: Option<&Path>) -> Result<()> {
         for stream in &self.0 {
             if stream.path.exists() {
-                debug!("Deleting '{}' file.", stream.path.to_string_lossy());
+                debug!("Deleting {} file.", stream.path.to_string_lossy());
                 fs::remove_file(&stream.path).await?;
             }
         }
         if let Some(directory) = directory
             && directory.read_dir()?.next().is_none()
         {
-            debug!("Deleting '{}' directory.", directory.to_string_lossy());
+            debug!("Deleting {} directory.", directory.to_string_lossy());
             fs::remove_dir(directory).await?;
         }
         Ok(())

@@ -10,7 +10,7 @@ pub use mux::{Muxer, Stream};
 use crate::{
     error::Result,
     options::{Interaction, SelectOptions},
-    playlist::{MasterPlaylist, MediaType},
+    playlist::MasterPlaylist,
     utils,
 };
 use reqwest::{Client, Url};
@@ -154,7 +154,7 @@ impl Downloader {
 
     pub async fn parse(&self, uri: &str, partial_parse: bool) -> Result<MasterPlaylist> {
         let fp = fetch::playlist(&self.config, &self.base_url, uri).await?;
-        let mut mp = if partial_parse {
+        let mp = if partial_parse {
             fp.parse(
                 &self.config,
                 self.select_options.clone(),
@@ -171,13 +171,6 @@ impl Downloader {
             )
             .await?
         };
-
-        for stream in &mut mp.streams {
-            if stream.media_type != MediaType::Subtitles {
-                stream.fetch_split(&self.config).await?;
-            }
-        }
-
         Ok(mp)
     }
 
