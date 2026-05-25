@@ -74,7 +74,8 @@ cargo run -p vsd --example docs --all-features
 
     !!! note
 
-        If you are not building for termux, then you can remove `rpath` link arg.
+        - If you are not building for termux, then you can remove `rpath` link arg.
+        - Building with `rustls-tls` feature on android requires some [additional setup](https://docs.rs/rustls-platform-verifier/latest/rustls_platform_verifier/#android) to work properly.
 
 #### Termux
 
