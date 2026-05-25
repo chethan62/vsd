@@ -369,10 +369,7 @@ mod tests {
         ];
         
         let mut selector = StreamSelector::new(&streams);
-        let mut filters = SelectFilters::default();
-        filters.simple = true;
-        filters.indices.insert(0);
-        filters.indices.insert(2);
+        let filters = SelectFilters::new("1,3");
 
         let selected = selector.select(&filters, SelectType::None).unwrap();
         assert_eq!(selected.len(), 2);
@@ -388,8 +385,7 @@ mod tests {
         ];
         
         let mut selector = StreamSelector::new(&streams);
-        let mut filters = SelectFilters::default();
-        filters.vid.quality = Quality::Best;
+        let filters = SelectFilters::new("v=best");
 
         let selected = selector.select(&filters, SelectType::None).unwrap();
         assert_eq!(selected.len(), 1);
@@ -404,8 +400,7 @@ mod tests {
         ];
         
         let mut selector = StreamSelector::new(&streams);
-        let mut filters = SelectFilters::default();
-        filters.vid.quality = Quality::Worst;
+        let filters = SelectFilters::new("v=worst");
 
         let selected = selector.select(&filters, SelectType::None).unwrap();
         assert_eq!(selected.len(), 1);
@@ -421,8 +416,7 @@ mod tests {
         ];
         
         let mut selector = StreamSelector::new(&streams);
-        let mut filters = SelectFilters::default();
-        filters.vid.resolutions.insert((1280, 720));
+        let filters = SelectFilters::new("v=720p");
 
         let selected = selector.select(&filters, SelectType::None).unwrap();
         assert_eq!(selected.len(), 1);
@@ -437,8 +431,7 @@ mod tests {
         ];
         
         let mut selector = StreamSelector::new(&streams);
-        let mut filters = SelectFilters::default();
-        filters.vid.all = true;
+        let filters = SelectFilters::new("v=all");
 
         let selected = selector.select(&filters, SelectType::None).unwrap();
         assert_eq!(selected.len(), 2);
@@ -455,9 +448,7 @@ mod tests {
         ];
         
         let mut selector = StreamSelector::new(&streams);
-        let mut filters = SelectFilters::default();
-        filters.vid.resolutions.insert((1280, 720));
-        filters.vid.skip = true;
+        let filters = SelectFilters::new("v=skip,720p");
 
         let selected = selector.select(&filters, SelectType::None).unwrap();
         assert_eq!(selected.len(), 2);
@@ -473,7 +464,7 @@ mod tests {
         ];
         
         let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::default();
+        let filters = SelectFilters::new("");
 
         let selected = selector.select(&filters, SelectType::None).unwrap();
         assert_eq!(selected.len(), 1);
@@ -489,8 +480,7 @@ mod tests {
         ];
         
         let mut selector = StreamSelector::new(&streams);
-        let mut filters = SelectFilters::default();
-        filters.aud.languages.insert("fr".to_string());
+        let filters = SelectFilters::new("a=fr");
 
         let selected = selector.select(&filters, SelectType::None).unwrap();
         assert_eq!(selected.len(), 1);
@@ -505,8 +495,7 @@ mod tests {
         ];
         
         let mut selector = StreamSelector::new(&streams);
-        let mut filters = SelectFilters::default();
-        filters.aud.languages.insert("en".to_string());
+        let filters = SelectFilters::new("a=en");
 
         let selected = selector.select(&filters, SelectType::None).unwrap();
         assert_eq!(selected.len(), 1);
@@ -521,8 +510,7 @@ mod tests {
         ];
         
         let mut selector = StreamSelector::new(&streams);
-        let mut filters = SelectFilters::default();
-        filters.aud.all = true;
+        let filters = SelectFilters::new("a=all");
 
         let selected = selector.select(&filters, SelectType::None).unwrap();
         assert_eq!(selected.len(), 2);
@@ -539,9 +527,7 @@ mod tests {
         ];
         
         let mut selector = StreamSelector::new(&streams);
-        let mut filters = SelectFilters::default();
-        filters.aud.languages.insert("fr".to_string());
-        filters.aud.skip = true;
+        let filters = SelectFilters::new("a=skip,fr");
 
         let selected = selector.select(&filters, SelectType::None).unwrap();
         assert_eq!(selected.len(), 2);
@@ -557,7 +543,7 @@ mod tests {
         ];
         
         let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::default();
+        let filters = SelectFilters::new("");
 
         let selected = selector.select(&filters, SelectType::None).unwrap();
         assert_eq!(selected.len(), 1);
@@ -572,7 +558,7 @@ mod tests {
         ];
         
         let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::default();
+        let filters = SelectFilters::new("");
 
         let selected = selector.select(&filters, SelectType::None).unwrap();
         assert_eq!(selected.len(), 2);
