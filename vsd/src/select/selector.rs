@@ -363,11 +363,9 @@ mod tests {
     #[test]
     fn test_simple_selection() {
         let streams = vec![vid(1920, 1080), aud("en"), sub("es")];
-
-        let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::new("1,3");
-
-        let selected = selector.select(&filters, SelectType::None).unwrap();
+        let selected = StreamSelector::new(&streams)
+            .select(&SelectFilters::new("1,3"), SelectType::None)
+            .unwrap();
         assert_eq!(selected.len(), 2);
         assert!(selected.contains(&0));
         assert!(selected.contains(&2));
@@ -376,11 +374,9 @@ mod tests {
     #[test]
     fn test_video_quality_best() {
         let streams = vec![vid(1920, 1080), vid(1280, 720)];
-
-        let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::new("v=best");
-
-        let selected = selector.select(&filters, SelectType::None).unwrap();
+        let selected = StreamSelector::new(&streams)
+            .select(&SelectFilters::new("v=best"), SelectType::None)
+            .unwrap();
         assert_eq!(selected.len(), 1);
         assert!(selected.contains(&0));
     }
@@ -388,27 +384,19 @@ mod tests {
     #[test]
     fn test_video_quality_worst() {
         let streams = vec![vid(1920, 1080), vid(1280, 720)];
-
-        let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::new("v=worst");
-
-        let selected = selector.select(&filters, SelectType::None).unwrap();
+        let selected = StreamSelector::new(&streams)
+            .select(&SelectFilters::new("v=worst"), SelectType::None)
+            .unwrap();
         assert_eq!(selected.len(), 1);
         assert!(selected.contains(&1));
     }
 
     #[test]
     fn test_video_resolutions() {
-        let streams = vec![
-            vid(1920, 1080),
-            vid(1280, 720),
-            vid(640, 360),
-        ];
-
-        let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::new("v=720p");
-
-        let selected = selector.select(&filters, SelectType::None).unwrap();
+        let streams = vec![vid(1920, 1080), vid(1280, 720), vid(640, 360)];
+        let selected = StreamSelector::new(&streams)
+            .select(&SelectFilters::new("v=720p"), SelectType::None)
+            .unwrap();
         assert_eq!(selected.len(), 1);
         assert!(selected.contains(&1));
     }
@@ -416,11 +404,9 @@ mod tests {
     #[test]
     fn test_video_all() {
         let streams = vec![vid(1920, 1080), vid(1280, 720)];
-
-        let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::new("v=all");
-
-        let selected = selector.select(&filters, SelectType::None).unwrap();
+        let selected = StreamSelector::new(&streams)
+            .select(&SelectFilters::new("v=all"), SelectType::None)
+            .unwrap();
         assert_eq!(selected.len(), 2);
         assert!(selected.contains(&0));
         assert!(selected.contains(&1));
@@ -428,16 +414,10 @@ mod tests {
 
     #[test]
     fn test_video_skip() {
-        let streams = vec![
-            vid(1920, 1080),
-            vid(1280, 720),
-            vid(640, 360),
-        ];
-
-        let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::new("v=skip,720p");
-
-        let selected = selector.select(&filters, SelectType::None).unwrap();
+        let streams = vec![vid(1920, 1080), vid(1280, 720), vid(640, 360)];
+        let selected = StreamSelector::new(&streams)
+            .select(&SelectFilters::new("v=skip,720p"), SelectType::None)
+            .unwrap();
         assert_eq!(selected.len(), 2);
         assert!(selected.contains(&0));
         assert!(selected.contains(&2));
@@ -446,11 +426,9 @@ mod tests {
     #[test]
     fn test_video_fallback() {
         let streams = vec![vid(1920, 1080), vid(1280, 720)];
-
-        let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::new("");
-
-        let selected = selector.select(&filters, SelectType::None).unwrap();
+        let selected = StreamSelector::new(&streams)
+            .select(&SelectFilters::new(""), SelectType::None)
+            .unwrap();
         assert_eq!(selected.len(), 1);
         assert!(selected.contains(&0));
     }
@@ -458,11 +436,9 @@ mod tests {
     #[test]
     fn test_audio_exact_language() {
         let streams = vec![aud("en"), aud("fr"), aud("es")];
-
-        let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::new("a=fr");
-
-        let selected = selector.select(&filters, SelectType::None).unwrap();
+        let selected = StreamSelector::new(&streams)
+            .select(&SelectFilters::new("a=fr"), SelectType::None)
+            .unwrap();
         assert_eq!(selected.len(), 1);
         assert!(selected.contains(&1));
     }
@@ -470,11 +446,9 @@ mod tests {
     #[test]
     fn test_audio_similar_language() {
         let streams = vec![aud("en-US"), aud("fr-FR")];
-
-        let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::new("a=en");
-
-        let selected = selector.select(&filters, SelectType::None).unwrap();
+        let selected = StreamSelector::new(&streams)
+            .select(&SelectFilters::new("a=en"), SelectType::None)
+            .unwrap();
         assert_eq!(selected.len(), 1);
         assert!(selected.contains(&0));
     }
@@ -482,11 +456,9 @@ mod tests {
     #[test]
     fn test_audio_all() {
         let streams = vec![aud("en"), aud("fr")];
-
-        let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::new("a=all");
-
-        let selected = selector.select(&filters, SelectType::None).unwrap();
+        let selected = StreamSelector::new(&streams)
+            .select(&SelectFilters::new("a=all"), SelectType::None)
+            .unwrap();
         assert_eq!(selected.len(), 2);
         assert!(selected.contains(&0));
         assert!(selected.contains(&1));
@@ -495,11 +467,9 @@ mod tests {
     #[test]
     fn test_audio_skip() {
         let streams = vec![aud("en"), aud("fr"), aud("es")];
-
-        let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::new("a=skip,fr");
-
-        let selected = selector.select(&filters, SelectType::None).unwrap();
+        let selected = StreamSelector::new(&streams)
+            .select(&SelectFilters::new("a=skip,fr"), SelectType::None)
+            .unwrap();
         assert_eq!(selected.len(), 2);
         assert!(selected.contains(&0));
         assert!(selected.contains(&2));
@@ -508,11 +478,9 @@ mod tests {
     #[test]
     fn test_audio_fallback() {
         let streams = vec![aud("en"), aud("fr")];
-
-        let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::new("");
-
-        let selected = selector.select(&filters, SelectType::None).unwrap();
+        let selected = StreamSelector::new(&streams)
+            .select(&SelectFilters::new(""), SelectType::None)
+            .unwrap();
         assert_eq!(selected.len(), 1);
         assert!(selected.contains(&0));
     }
@@ -520,11 +488,9 @@ mod tests {
     #[test]
     fn test_undefined_streams() {
         let streams = vec![vid(1920, 1080), und()];
-
-        let mut selector = StreamSelector::new(&streams);
-        let filters = SelectFilters::new("");
-
-        let selected = selector.select(&filters, SelectType::None).unwrap();
+        let selected = StreamSelector::new(&streams)
+            .select(&SelectFilters::new(""), SelectType::None)
+            .unwrap();
         assert_eq!(selected.len(), 2);
         assert!(selected.contains(&0));
         assert!(selected.contains(&1));
