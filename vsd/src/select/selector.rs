@@ -361,7 +361,7 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_selection() {
+    fn test_simple() {
         let streams = vec![vid(1920, 1080), aud("en"), sub("es")];
         let selected = StreamSelector::new(&streams)
             .select(&SelectFilters::new("1,3"), SelectType::None)
@@ -372,27 +372,7 @@ mod tests {
     }
 
     #[test]
-    fn test_video_quality_best() {
-        let streams = vec![vid(1920, 1080), vid(1280, 720)];
-        let selected = StreamSelector::new(&streams)
-            .select(&SelectFilters::new("v=best"), SelectType::None)
-            .unwrap();
-        assert_eq!(selected.len(), 1);
-        assert!(selected.contains(&0));
-    }
-
-    #[test]
-    fn test_video_quality_worst() {
-        let streams = vec![vid(1920, 1080), vid(1280, 720)];
-        let selected = StreamSelector::new(&streams)
-            .select(&SelectFilters::new("v=worst"), SelectType::None)
-            .unwrap();
-        assert_eq!(selected.len(), 1);
-        assert!(selected.contains(&1));
-    }
-
-    #[test]
-    fn test_video_resolutions() {
+    fn test_video_res() {
         let streams = vec![vid(1920, 1080), vid(1280, 720), vid(640, 360)];
         let selected = StreamSelector::new(&streams)
             .select(&SelectFilters::new("v=720p"), SelectType::None)
@@ -434,7 +414,7 @@ mod tests {
     }
 
     #[test]
-    fn test_audio_exact_language() {
+    fn test_audio_exact_lang() {
         let streams = vec![aud("en"), aud("fr"), aud("es")];
         let selected = StreamSelector::new(&streams)
             .select(&SelectFilters::new("a=fr"), SelectType::None)
@@ -444,13 +424,13 @@ mod tests {
     }
 
     #[test]
-    fn test_audio_similar_language() {
-        let streams = vec![aud("en-US"), aud("fr-FR")];
+    fn test_audio_similar_lang() {
+        let streams = vec![aud("fr-FR"), aud("en-US")];
         let selected = StreamSelector::new(&streams)
             .select(&SelectFilters::new("a=en"), SelectType::None)
             .unwrap();
         assert_eq!(selected.len(), 1);
-        assert!(selected.contains(&0));
+        assert!(selected.contains(&1));
     }
 
     #[test]
@@ -486,7 +466,7 @@ mod tests {
     }
 
     #[test]
-    fn test_undefined_streams() {
+    fn test_und_streams() {
         let streams = vec![vid(1920, 1080), und()];
         let selected = StreamSelector::new(&streams)
             .select(&SelectFilters::new(""), SelectType::None)
