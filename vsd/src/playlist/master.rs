@@ -1,7 +1,7 @@
 use crate::{
     core::DownloadConfig,
     error::Result,
-    playlist::types::{MasterPlaylist, MediaType, Segment, StreamMetadata},
+    playlist::types::{MasterPlaylist, MediaType, StreamMetadata},
     select::{SelectFilters, SelectType, StreamSelector},
 };
 use std::{cmp::Reverse, collections::HashSet};
@@ -62,10 +62,32 @@ impl MasterPlaylist {
 
     pub(crate) fn clip_streams(&mut self, clip: &ClipRange) {
         for stream in &mut self.streams {
+            let mut start_idx = 0;
+            let mut end_idx = stream.segments.len();
+            let mut cursor = 0.0_f32;
+
+            for (i, segment) in stream.segments.iter().enumerate() {
+                let seg_start = cursor;
+                let seg_end = cursor + segment.duration;
+                cursor = seg_end;
+
+                if seg_end <= clip.start {
+                    start_idx = i + 1;
+                    continue;
+                }
+
+                if let Some(end) = clip.end {
+                    if seg_start >= end {
+                        end_idx = i;
+                        break;
+                    }
+                }
+            }
+
             let first_map = stream.segments.first().and_then(|s| s.map.clone());
             let first_key = stream.segments.first().and_then(|s| s.key.clone());
-
-            stream.segments = clip.filter_segments(&stream.segments);
+            stream.segments.truncate(end_idx);
+            stream.segments.drain(..start_idx);
 
             if let Some(first) = stream.segments.first_mut() {
                 if first.map.is_none() {
@@ -127,26 +149,6 @@ pub struct ClipRange {
 }
 
 impl ClipRange {
-    fn parse(s: &str) -> Option<f32> {
-        let parts = s.trim().split(':').collect::<Vec<_>>();
-
-        match parts.len() {
-            1 => parts[0].parse::<f32>().ok(),
-            2 => {
-                let ss = parts[1].parse::<f32>().ok()?;
-                let mm = parts[0].parse::<f32>().ok()?;
-                Some(mm * 60.0 + ss)
-            }
-            3 => {
-                let hh = parts[0].parse::<f32>().ok()?;
-                let mm = parts[1].parse::<f32>().ok()?;
-                let ss = parts[2].parse::<f32>().ok()?;
-                Some(hh * 3600.0 + mm * 60.0 + ss)
-            }
-            _ => None,
-        }
-    }
-
     pub fn new(s: &str) -> Result<Self> {
         let (start, end) = if let Some((a, b)) = s.split_once('-') {
             let (Some(start), Some(end)) = (Self::parse(a), Self::parse(b)) else {
@@ -168,28 +170,23 @@ impl ClipRange {
         Ok(Self { start, end })
     }
 
-    pub fn filter_segments(&self, segments: &[Segment]) -> Vec<Segment> {
-        let mut result = Vec::new();
-        let mut cursor = 0.0_f32;
+    fn parse(s: &str) -> Option<f32> {
+        let parts = s.trim().split(':').collect::<Vec<_>>();
 
-        for segment in segments {
-            let seg_start = cursor;
-            let seg_end = cursor + segment.duration as f32;
-            cursor = seg_end;
-
-            if seg_end <= self.start {
-                continue;
+        match parts.len() {
+            1 => parts[0].parse::<f32>().ok(),
+            2 => {
+                let ss = parts[1].parse::<f32>().ok()?;
+                let mm = parts[0].parse::<f32>().ok()?;
+                Some(mm * 60.0 + ss)
             }
-
-            if let Some(end) = self.end {
-                if seg_start >= end {
-                    break;
-                }
+            3 => {
+                let hh = parts[0].parse::<f32>().ok()?;
+                let mm = parts[1].parse::<f32>().ok()?;
+                let ss = parts[2].parse::<f32>().ok()?;
+                Some(hh * 3600.0 + mm * 60.0 + ss)
             }
-
-            result.push(segment.clone());
+            _ => None,
         }
-
-        result
     }
 }

@@ -200,7 +200,6 @@ vsd save [OPTIONS] <INPUT>
 | Flag | Description |
 |------|-------------|
 | `--base-url` | Baseurl for resolving relative segment paths for local playlist |
-| `-d, --directory` | Directory path for downloaded streams |
 | `-o, --output` | Output file path for the muxed file using ffmpeg.<br><br>This will overwrite existing output file and delete downloaded streams. |
 | `--parse` | Output playlist metadata as json instead of downloading streams |
 | `--subs-codec` | Force a specific subtitle codec for muxing<br>*Default:* `copy` |
@@ -235,6 +234,8 @@ vsd save [OPTIONS] <INPUT>
 
 | Flag | Description |
 |------|-------------|
+| `--clip` | Download a specific section of the stream (not accurate clipping).<br><br>Accepts time values in HH:MM:SS.SS, MM:SS.SS, or SS.SS formats. |
+| `-d, --directory` | Directory path for downloaded streams |
 | `--no-merge` | Disable segments merging |
 | `--no-resume` | Disable resume and force re-downloading |
 | `--retries` | Maximum retry attempts per segment<br>*Default:* `10` |

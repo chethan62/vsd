@@ -19,10 +19,6 @@ pub struct Save {
     #[arg(long, value_name = "URL")]
     pub base_url: Option<Url>,
 
-    /// Directory path for downloaded streams.
-    #[arg(short, long, value_name = "PATH")]
-    pub directory: Option<PathBuf>,
-
     /// Output file path for the muxed file using ffmpeg.
     ///
     /// This will overwrite existing output file and delete downloaded streams.
@@ -120,6 +116,10 @@ pub struct Save {
         help_heading = "Download Options"
     )]
     pub clip: Option<String>,
+
+    /// Directory path for downloaded streams.
+    #[arg(short, long, value_name = "PATH", help_heading = "Download Options")]
+    pub directory: Option<PathBuf>,
 
     /// Disable segments merging.
     #[arg(long, help_heading = "Download Options")]
