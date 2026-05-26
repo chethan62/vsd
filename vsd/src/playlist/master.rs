@@ -4,7 +4,7 @@ use crate::{
     playlist::types::{MasterPlaylist, MediaType, StreamMetadata},
     select::{SelectFilters, SelectType, StreamSelector},
 };
-use std::{cmp::Reverse, collections::HashSet};
+use std::cmp::Reverse;
 use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
 
 impl MasterPlaylist {
@@ -100,22 +100,22 @@ impl MasterPlaylist {
         }
     }
 
-    pub async fn metadata(&self, config: &DownloadConfig) -> Result<Vec<StreamMetadata>> {
+    pub(crate) async fn metadata(&self, config: &DownloadConfig) -> Result<Vec<StreamMetadata>> {
         let mut metadata = Vec::with_capacity(self.streams.len());
 
         for (i, stream) in self.streams.iter().enumerate() {
             let mut default_kid = stream.default_kid();
-            let mut pssh = HashSet::new();
+            let mut pssh = Vec::new();
 
             if let Some(bytes) = stream.fetch_init(config).await? {
-                if let Some(kid) = TencBox::from_init(&bytes)?.map(|x| x.default_kid_hex())
-                    && (default_kid.is_none() || kid != "00000000000000000000000000000000")
+                if let Some(key_id) = TencBox::from_init(&bytes)?.map(|x| x.default_kid_hex())
+                    && key_id != "00000000000000000000000000000000"
                 {
-                    default_kid = Some(kid);
+                    default_kid = Some(key_id);
                 }
 
                 for data in PsshBox::from_init(&bytes)?.boxes {
-                    let _ = pssh.insert(data.as_base64());
+                    pssh.push(data.as_base64());
                 }
             }
 

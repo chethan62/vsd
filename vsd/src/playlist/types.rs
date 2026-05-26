@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct MasterPlaylist {
@@ -91,6 +90,6 @@ pub struct StreamMetadata {
     pub language: Option<String>,
     pub media_type: MediaType,
     pub playlist_type: PlaylistType,
-    pub pssh: HashSet<String>,
+    pub pssh: Vec<String>,
     pub resolution: Option<(u64, u64)>,
 }
