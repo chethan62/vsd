@@ -274,7 +274,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_cookie_parse() {
+    fn test_parse() {
         let input = b"# Netscape HTTP Cookie File\n\
                      # This is a comment\n\
                      \n\
@@ -306,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cookie_url() {
+    fn test_url() {
         let c1 = Cookie {
             domain: ".example.com",
             include_subdomains: true,
@@ -333,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cookie_header() {
+    fn test_header() {
         let c1 = Cookie {
             domain: "example.com",
             include_subdomains: true,

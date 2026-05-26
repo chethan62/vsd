@@ -111,6 +111,16 @@ pub struct Save {
     #[arg(long, help_heading = "Decrypt Options")]
     pub no_decrypt: bool,
 
+    /// Download a specific section of the stream (not accurate clipping).
+    ///
+    /// Accepts time values in HH:MM:SS.SS, MM:SS.SS, or SS.SS formats.
+    #[arg(
+        long,
+        value_name = "START|START-END",
+        help_heading = "Download Options"
+    )]
+    pub clip: Option<String>,
+
     /// Disable segments merging.
     #[arg(long, help_heading = "Download Options")]
     pub no_merge: bool,
@@ -213,6 +223,9 @@ impl Save {
             dl = dl.interactive(false);
         } else if self.interactive_raw {
             dl = dl.interactive(true);
+        }
+        if let Some(clip) = &self.clip {
+            dl = dl.clip(clip)?;
         }
 
         if self.list_streams {

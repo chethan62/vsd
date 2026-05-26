@@ -1,7 +1,7 @@
 use crate::{
     core::DownloadConfig,
     error::Result,
-    playlist::types::{MasterPlaylist, MediaType, StreamMetadata},
+    playlist::types::{MasterPlaylist, MediaType, Segment, StreamMetadata},
     select::{SelectFilters, SelectType, StreamSelector},
 };
 use std::{cmp::Reverse, collections::HashSet};
@@ -60,6 +60,12 @@ impl MasterPlaylist {
         Ok(self)
     }
 
+    pub(crate) fn clip_streams(&mut self, clip: &ClipRange) {
+        for stream in &mut self.streams {
+            stream.segments = clip.filter_segments(&stream.segments);
+        }
+    }
+
     pub async fn metadata(&self, config: &DownloadConfig) -> Result<Vec<StreamMetadata>> {
         let mut metadata = Vec::with_capacity(self.streams.len());
 
@@ -100,5 +106,78 @@ impl MasterPlaylist {
         }
 
         Ok(metadata)
+    }
+}
+
+pub struct ClipRange {
+    start: f32,
+    end: Option<f32>,
+}
+
+impl ClipRange {
+    fn parse(s: &str) -> Option<f32> {
+        let parts = s.trim().split(':').collect::<Vec<_>>();
+
+        match parts.len() {
+            1 => parts[0].parse::<f32>().ok(),
+            2 => {
+                let ss = parts[1].parse::<f32>().ok()?;
+                let mm = parts[0].parse::<f32>().ok()?;
+                Some(mm * 60.0 + ss)
+            }
+            3 => {
+                let hh = parts[0].parse::<f32>().ok()?;
+                let mm = parts[1].parse::<f32>().ok()?;
+                let ss = parts[2].parse::<f32>().ok()?;
+                Some(hh * 3600.0 + mm * 60.0 + ss)
+            }
+            _ => None,
+        }
+    }
+
+    pub fn new(s: &str) -> Result<Self> {
+        let (start, end) = if let Some((a, b)) = s.split_once('-') {
+            let (Some(start), Some(end)) = (Self::parse(a), Self::parse(b)) else {
+                bail!("Clip range ({}) is invalid.", s);
+            };
+
+            if start >= end {
+                bail!("Clip range start ({a}) must be before end ({b}).");
+            }
+
+            (start, Some(end))
+        } else {
+            let Some(start) = Self::parse(s) else {
+                bail!("Clip range ({}) is invalid.", s);
+            };
+            (start, None)
+        };
+
+        Ok(Self { start, end })
+    }
+
+    pub fn filter_segments(&self, segments: &[Segment]) -> Vec<Segment> {
+        let mut result = Vec::new();
+        let mut cursor = 0.0_f32;
+
+        for segment in segments {
+            let seg_start = cursor;
+            let seg_end = cursor + segment.duration as f32;
+            cursor = seg_end;
+
+            if seg_end <= self.start {
+                continue;
+            }
+
+            if let Some(end) = self.end {
+                if seg_start >= end {
+                    break;
+                }
+            }
+
+            result.push(segment.clone());
+        }
+
+        result
     }
 }

@@ -10,7 +10,7 @@ pub use mux::{Muxer, Stream};
 
 use crate::{
     error::Result,
-    playlist::MasterPlaylist,
+    playlist::{ClipRange, MasterPlaylist},
     select::{SelectFilters, SelectType},
     utils,
 };
@@ -37,6 +37,7 @@ pub struct Downloader {
     subs_codec: String,
     interaction_type: SelectType,
     select_options: SelectFilters,
+    clip: Option<ClipRange>,
 }
 
 impl Downloader {
@@ -58,6 +59,7 @@ impl Downloader {
             subs_codec: "copy".to_owned(),
             interaction_type: SelectType::None,
             select_options: SelectFilters::new("v=best:s=en"),
+            clip: None,
         }
     }
 
@@ -124,6 +126,11 @@ impl Downloader {
         self
     }
 
+    pub fn clip(mut self, clip: &str) -> Result<Self> {
+        self.clip = Some(ClipRange::new(clip)?);
+        Ok(self)
+    }
+
     pub fn skip_decrypt(mut self, skip_decrypt: bool) -> Self {
         self.config.skip_decrypt = skip_decrypt;
         self
@@ -155,7 +162,7 @@ impl Downloader {
 
     pub async fn parse(&self, uri: &str, partial_parse: bool) -> Result<MasterPlaylist> {
         let fp = fetch::playlist(&self.config, &self.base_url, uri).await?;
-        let mp = if partial_parse {
+        let mut mp = if partial_parse {
             fp.parse(
                 &self.config,
                 self.select_options.clone(),
@@ -172,6 +179,11 @@ impl Downloader {
             )
             .await?
         };
+
+        if let Some(clip) = &self.clip {
+            mp.clip_streams(clip);
+        }
+
         Ok(mp)
     }
 

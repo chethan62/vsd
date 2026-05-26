@@ -2,7 +2,6 @@
 mod error;
 
 mod cli;
-mod cookie;
 mod core;
 mod dash;
 mod hls;
@@ -10,6 +9,7 @@ mod logger;
 mod select;
 mod utils;
 
+pub mod cookie;
 pub mod playlist;
 pub mod progress;
 
