@@ -62,7 +62,19 @@ impl MasterPlaylist {
 
     pub(crate) fn clip_streams(&mut self, clip: &ClipRange) {
         for stream in &mut self.streams {
+            let first_map = stream.segments.first().and_then(|s| s.map.clone());
+            let first_key = stream.segments.first().and_then(|s| s.key.clone());
+
             stream.segments = clip.filter_segments(&stream.segments);
+
+            if let Some(first) = stream.segments.first_mut() {
+                if first.map.is_none() {
+                    first.map = first_map;
+                }
+                if first.key.is_none() {
+                    first.key = first_key;
+                }
+            }
         }
     }
 
