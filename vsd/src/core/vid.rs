@@ -1,7 +1,12 @@
 use crate::{
-    core::{PlaylistDownloadConfig, enc::Decrypter, file::CHUNK_SIZE, mux::Stream},
+    core::{
+        PlaylistDownloadConfig,
+        enc::{self, Decrypter},
+        file_dl::CHUNK_SIZE,
+        mux::Stream,
+    },
     error::{Error, Result},
-    playlist::{Key, KeyMethod, MediaPlaylist, Range, Segment},
+    playlist::{KeyMethod, MediaPlaylist, Range, Segment},
     progress::Progress,
 };
 use colored::Colorize;
@@ -28,7 +33,7 @@ pub async fn download(
     token: &CancellationToken,
     stream: &MediaPlaylist,
 ) -> Result<Stream> {
-    check_unsupported_enc(stream)?;
+    enc::check_unsupported(stream)?;
 
     let temp_file = stream.path(config.directory.as_ref());
     let temp_stream = Stream {
@@ -300,25 +305,6 @@ pub async fn download(
     }
 
     Ok(temp_stream)
-}
-
-fn check_unsupported_enc(stream: &MediaPlaylist) -> Result<()> {
-    if let Some(Segment {
-        key:
-            Some(
-                Key {
-                    method: KeyMethod::Other(x),
-                    ..
-                },
-                ..,
-            ),
-        ..
-    }) = stream.segments.first()
-    {
-        return Err(Error::UnsupportedEncryption(x.to_owned()));
-    }
-
-    Ok(())
 }
 
 async fn split_single_seg(

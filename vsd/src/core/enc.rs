@@ -1,4 +1,7 @@
-use crate::error::Result;
+use crate::{
+    error::{Error, Result},
+    playlist::{Key, KeyMethod, MediaPlaylist, Segment},
+};
 use std::sync::Arc;
 use vsd_mp4::decrypt::{CencDecrypter, HlsAes128Decrypter, HlsSampleAesDecrypter};
 
@@ -31,4 +34,23 @@ impl Decrypter {
             Decrypter::None => input,
         })
     }
+}
+
+pub fn check_unsupported(stream: &MediaPlaylist) -> Result<()> {
+    if let Some(Segment {
+        key:
+            Some(
+                Key {
+                    method: KeyMethod::Other(x),
+                    ..
+                },
+                ..,
+            ),
+        ..
+    }) = stream.segments.first()
+    {
+        return Err(Error::UnsupportedEncryption(x.to_owned()));
+    }
+
+    Ok(())
 }
