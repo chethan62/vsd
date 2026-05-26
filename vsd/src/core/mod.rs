@@ -1,11 +1,13 @@
 mod dl;
 mod enc;
 mod fetch;
+mod file;
 mod mux;
 
 pub(crate) mod sub;
 pub(crate) mod vid;
 
+pub use file::FileDownloader;
 pub use mux::{Muxer, Stream};
 
 use crate::{
@@ -18,7 +20,7 @@ use reqwest::{Client, Url};
 use std::{collections::HashMap, fs, path::PathBuf};
 
 #[derive(Clone, Debug)]
-pub struct DownloadConfig {
+pub struct PlaylistDownloadConfig {
     pub client: Client,
     pub directory: Option<PathBuf>,
     pub keys: HashMap<String, String>,
@@ -30,8 +32,8 @@ pub struct DownloadConfig {
     pub skip_resume: bool,
 }
 
-pub struct Downloader {
-    config: DownloadConfig,
+pub struct PlaylistDownloader {
+    config: PlaylistDownloadConfig,
     base_url: Option<Url>,
     output: Option<PathBuf>,
     subs_codec: String,
@@ -40,10 +42,10 @@ pub struct Downloader {
     clip: Option<ClipRange>,
 }
 
-impl Downloader {
+impl PlaylistDownloader {
     pub fn new(client: &Client) -> Self {
         Self {
-            config: DownloadConfig {
+            config: PlaylistDownloadConfig {
                 client: client.clone(),
                 directory: None,
                 keys: HashMap::new(),
@@ -156,7 +158,7 @@ impl Downloader {
         self
     }
 
-    pub fn config(&self) -> DownloadConfig {
+    pub fn config(&self) -> PlaylistDownloadConfig {
         self.config.clone()
     }
 

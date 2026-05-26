@@ -1,5 +1,5 @@
 use crate::{
-    DownloadConfig,
+    PlaylistDownloadConfig,
     dash::{Template, parse_range},
     error::{Error, Result},
     playlist::{Map, Range, Segment},
@@ -192,7 +192,7 @@ pub async fn resolve_segment_base(
     segment_base: &dash_mpd::SegmentBase,
     base_url: &Url,
     template: &Template,
-    config: &DownloadConfig,
+    config: &PlaylistDownloadConfig,
 ) -> Result<Vec<Segment>> {
     let mut segments = Vec::new();
 

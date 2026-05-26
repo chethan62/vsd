@@ -1,5 +1,5 @@
 use crate::{
-    core::DownloadConfig,
+    core::PlaylistDownloadConfig,
     error::Result,
     playlist::types::{Key, Range},
     utils,
@@ -16,7 +16,7 @@ impl TryFrom<&Range> for HeaderValue {
 }
 
 impl Key {
-    pub async fn key(&self, config: &DownloadConfig, base_url: &Url) -> Result<[u8; 16]> {
+    pub async fn key(&self, config: &PlaylistDownloadConfig, base_url: &Url) -> Result<[u8; 16]> {
         let url = base_url.join(self.uri.as_ref().unwrap())?;
         debug!("Fetching {} (key@full-range)", url);
         let response = config.client.get(url).query(&config.query).send().await?;

@@ -1,5 +1,5 @@
 use crate::{
-    core::{DownloadConfig, enc::Decrypter, mux::Stream},
+    core::{PlaylistDownloadConfig, enc::Decrypter, file::CHUNK_SIZE, mux::Stream},
     error::{Error, Result},
     playlist::{Key, KeyMethod, MediaPlaylist, Range, Segment},
     progress::Progress,
@@ -23,7 +23,7 @@ use vsd_mp4::{
 const PNG_HEADER: [u8; 8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
 pub async fn download(
-    config: &DownloadConfig,
+    config: &PlaylistDownloadConfig,
     progress: Progress,
     token: &CancellationToken,
     stream: &MediaPlaylist,
@@ -322,7 +322,7 @@ fn check_unsupported_enc(stream: &MediaPlaylist) -> Result<()> {
 }
 
 async fn split_single_seg(
-    config: &DownloadConfig,
+    config: &PlaylistDownloadConfig,
     base_url: &Url,
     segment: &Segment,
 ) -> Result<Vec<Segment>> {
@@ -355,13 +355,12 @@ async fn split_single_seg(
         return Ok(vec![segment.clone()]);
     }
 
-    let chunk_size = 1024 * 1024 * 5; // 5 MiB
     let mut map = segment.map.clone();
     let mut key = segment.key.clone();
     let mut segments = Vec::new();
 
-    for start in (0..content_length).step_by(chunk_size as usize) {
-        let end = (start + chunk_size - 1).min(content_length - 1);
+    for start in (0..content_length).step_by(CHUNK_SIZE as usize) {
+        let end = (start + CHUNK_SIZE - 1).min(content_length - 1);
         segments.push(Segment {
             map: map.take(),
             key: key.take(),

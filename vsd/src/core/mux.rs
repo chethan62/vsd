@@ -1,5 +1,5 @@
 use crate::{
-    core::DownloadConfig,
+    core::PlaylistDownloadConfig,
     error::{Error, Result},
     playlist::MediaType,
 };
@@ -20,7 +20,7 @@ pub struct Stream {
 pub struct Muxer(pub Vec<Stream>);
 
 impl Muxer {
-    pub fn should_mux(&self, config: &DownloadConfig) -> bool {
+    pub fn should_mux(&self, config: &PlaylistDownloadConfig) -> bool {
         if config.skip_decrypt {
             warn!("--output is ignored when --no-decrypt is used.");
             return false;

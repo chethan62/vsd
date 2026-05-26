@@ -1,5 +1,5 @@
 use crate::{
-    core::{DownloadConfig, mux::Muxer, sub, vid},
+    core::{PlaylistDownloadConfig, mux::Muxer, sub, vid},
     error::Result,
     playlist::{MediaPlaylist, MediaType},
     progress::Progress,
@@ -11,7 +11,7 @@ use tokio_util::sync::CancellationToken;
 use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
 
 pub async fn download_streams(
-    config: &DownloadConfig,
+    config: &PlaylistDownloadConfig,
     streams: Vec<MediaPlaylist>,
 ) -> Result<Muxer> {
     if !config.skip_decrypt {
@@ -65,7 +65,10 @@ pub async fn download_streams(
     Ok(muxer)
 }
 
-pub async fn dump_pssh_info(config: &DownloadConfig, streams: &[MediaPlaylist]) -> Result<()> {
+pub async fn dump_pssh_info(
+    config: &PlaylistDownloadConfig,
+    streams: &[MediaPlaylist],
+) -> Result<()> {
     let mut default_kids = HashSet::new();
     let mut init_segments = Vec::new();
 

@@ -5,7 +5,7 @@
 
 use std::{path::PathBuf, sync::Arc};
 use vsd::{
-    Downloader, Error, Muxer, Result,
+    PlaylistDownloader, Error, Muxer, Result,
     playlist::MediaType,
     progress::{ByteSize, Eta, ProgressCallback, ProgressState},
     reqwest::Client,
@@ -36,7 +36,7 @@ impl ProgressCallback for Progress {
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
     let client = Client::new();
-    let dl = Downloader::new(&client).no_resume(true);
+    let dl = PlaylistDownloader::new(&client).no_resume(true);
     let config = dl.config();
 
     let mp = dl

@@ -16,7 +16,7 @@ pub mod progress;
 #[doc(hidden)]
 pub use cli::Args;
 
-pub use core::{DownloadConfig, Downloader, Muxer, Stream};
+pub use core::{FileDownloader, Muxer, PlaylistDownloadConfig, PlaylistDownloader, Stream};
 pub use error::{Error, Result};
 pub use reqwest;
 pub use tokio;

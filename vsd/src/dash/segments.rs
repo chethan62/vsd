@@ -1,5 +1,5 @@
 use crate::{
-    DownloadConfig,
+    PlaylistDownloadConfig,
     dash::{
         Template,
         addressing::{
@@ -16,7 +16,7 @@ use log::debug;
 use reqwest::Url;
 
 pub async fn push_segments(
-    config: &DownloadConfig,
+    config: &PlaylistDownloadConfig,
     base_url: &Url,
     mpd: &MPD,
     stream: &mut MediaPlaylist,
@@ -153,7 +153,7 @@ pub async fn push_segments(
 /// 6. AdaptationSet > SegmentBase
 /// 7. Plain BaseURL
 async fn resolve_segments(
-    config: &DownloadConfig,
+    config: &PlaylistDownloadConfig,
     adaptation_set: &AdaptationSet,
     representation: &Representation,
     base_url: &Url,

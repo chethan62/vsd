@@ -1,4 +1,4 @@
-use crate::Downloader;
+use crate::PlaylistDownloader;
 use crate::error::{Error, Result};
 use base64::Engine;
 use clap::Args;
@@ -97,7 +97,7 @@ impl License {
                     let _ = pssh_data.insert(x.data);
                 });
         } else if let Ok(url) = self.input.parse::<Url>() {
-            let dl = Downloader::new(&client);
+            let dl = PlaylistDownloader::new(&client);
             let mp = dl.parse(url.as_str(), false).await?;
             let metadata = mp.metadata(&dl.config()).await?;
 

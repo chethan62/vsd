@@ -1,5 +1,5 @@
 use crate::{
-    core::{self, DownloadConfig, Stream},
+    core::{self, PlaylistDownloadConfig, Stream},
     error::{Error, Result},
     playlist::types::{MediaPlaylist, MediaType, PlaylistType, Segment},
     progress::{ByteSize, Progress, ProgressCallback},
@@ -51,7 +51,7 @@ impl MediaPlaylist {
 
     pub async fn download(
         &self,
-        config: &DownloadConfig,
+        config: &PlaylistDownloadConfig,
         progress: Arc<dyn ProgressCallback>,
         token: &CancellationToken,
     ) -> Result<Stream> {
@@ -69,7 +69,7 @@ impl MediaPlaylist {
         Ok(temp_file)
     }
 
-    pub async fn fetch_init(&self, config: &DownloadConfig) -> Result<Option<Vec<u8>>> {
+    pub async fn fetch_init(&self, config: &PlaylistDownloadConfig) -> Result<Option<Vec<u8>>> {
         let Some(Segment { map: Some(map), .. }) = self.segments.first() else {
             return Ok(None);
         };

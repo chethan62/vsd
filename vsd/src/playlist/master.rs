@@ -1,5 +1,5 @@
 use crate::{
-    core::DownloadConfig,
+    core::PlaylistDownloadConfig,
     error::Result,
     playlist::types::{MasterPlaylist, MediaType, StreamMetadata},
     select::{SelectFilters, SelectType, StreamSelector},
@@ -100,7 +100,7 @@ impl MasterPlaylist {
         }
     }
 
-    pub(crate) async fn metadata(&self, config: &DownloadConfig) -> Result<Vec<StreamMetadata>> {
+    pub(crate) async fn metadata(&self, config: &PlaylistDownloadConfig) -> Result<Vec<StreamMetadata>> {
         let mut metadata = Vec::with_capacity(self.streams.len());
 
         for (i, stream) in self.streams.iter().enumerate() {

@@ -1,4 +1,4 @@
-use crate::{Downloader, cookie::Cookies, error::Result};
+use crate::{PlaylistDownloader, cookie::Cookies, error::Result};
 use clap::Args;
 use reqwest::{
     Client, Proxy, Url,
@@ -197,7 +197,7 @@ impl Save {
             client = client.proxy(proxy);
         }
         let client = client.build()?;
-        let mut dl = Downloader::new(&client)
+        let mut dl = PlaylistDownloader::new(&client)
             .subs_codec(self.subs_codec)
             .select_streams(&self.select_streams)
             .keys(self.keys)

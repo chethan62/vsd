@@ -1,5 +1,5 @@
 use crate::{
-    core::{DownloadConfig, mux::Stream},
+    core::{PlaylistDownloadConfig, mux::Stream},
     error::{Error, Result},
     playlist::MediaPlaylist,
     progress::Progress,
@@ -48,7 +48,7 @@ fn detect_codec(codecs: Option<&str>, data: &[u8], ext: &str) -> (&'static str, 
 }
 
 pub async fn download(
-    config: &DownloadConfig,
+    config: &PlaylistDownloadConfig,
     progress: Progress,
     token: &CancellationToken,
     stream: &MediaPlaylist,

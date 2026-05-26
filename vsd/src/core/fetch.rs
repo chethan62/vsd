@@ -1,5 +1,5 @@
 use crate::{
-    DownloadConfig, dash,
+    PlaylistDownloadConfig, dash,
     error::{Error, Result},
     hls,
     playlist::{MasterPlaylist, MediaPlaylist, PlaylistType},
@@ -14,7 +14,7 @@ use std::path::Path;
 use tokio::fs;
 
 pub async fn playlist(
-    config: &DownloadConfig,
+    config: &PlaylistDownloadConfig,
     base_url: &Option<Url>,
     uri: &str,
 ) -> Result<FetchedPlaylist> {
@@ -89,7 +89,7 @@ impl FetchedPlaylist {
 
     pub async fn parse(
         &self,
-        config: &DownloadConfig,
+        config: &PlaylistDownloadConfig,
         select_filters: SelectFilters,
         select_type: SelectType,
         partial_parse: bool,
