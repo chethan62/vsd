@@ -104,30 +104,40 @@ impl Progress {
         }
     }
 
-    pub fn update(&self, chunk_bytes: usize) {
+    pub fn update_total(&self, total: usize) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.total = total;
+    }
+
+    pub fn update(&self, size: usize) {
         let mut inner = self.inner.lock().unwrap();
         inner.counter += 1;
         inner.session_counter += 1;
-        inner.total_bytes += chunk_bytes;
-        inner.session_bytes += chunk_bytes;
+        inner.total_bytes += size;
+        inner.session_bytes += size;
 
         if inner.counter > inner.total {
             inner.total = inner.counter;
         }
     }
 
-    pub fn update_total(&self, total: usize) {
-        let mut inner = self.inner.lock().unwrap();
-        inner.total = total;
-    }
-
-    pub fn skip(&self, chunk_bytes: usize) {
+    pub fn skip(&self, size: usize) {
         let mut inner = self.inner.lock().unwrap();
         inner.counter += 1;
-        inner.total_bytes += chunk_bytes;
+        inner.total_bytes += size;
 
         if inner.counter > inner.total {
             inner.total = inner.counter;
+        }
+    }
+
+    pub fn finish(&self) {
+        let inner = self.inner.lock().unwrap();
+        if let Some(cb) = &self.callback {
+            cb.on_finish(&inner.state());
+        } else {
+            Self::render(&inner);
+            eprintln!();
         }
     }
 
@@ -152,16 +162,6 @@ impl Progress {
                 }
             }
         })
-    }
-
-    pub fn finish(&self) {
-        let inner = self.inner.lock().unwrap();
-        if let Some(cb) = &self.callback {
-            cb.on_finish(&inner.state());
-        } else {
-            Self::render(&inner);
-            eprintln!();
-        }
     }
 
     fn render(inner: &ProgressInner) {
