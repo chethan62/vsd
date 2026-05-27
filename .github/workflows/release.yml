@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version (e.g., 0.5.0)"
+        description: "Release version (e.g., 1.0.0)"
         required: true
         type: string
 
@@ -28,19 +28,19 @@ jobs:
           - x86_64-unknown-linux-musl
     steps:
       - uses: actions/checkout@v4
-      - name: Install protoc
+      - name: Setup Protoc
         run: |
           curl -fsSL "https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-linux-x86_64.zip" -o protoc.zip
           unzip -q protoc.zip -d "${{ runner.temp }}/protoc"
           echo "${{ runner.temp }}/protoc/bin" >> $GITHUB_PATH
           rm protoc.zip
-      - name: Install zig
+      - name: Setup Zig
         run: |
           curl -fsSL "https://ziglang.org/download/${{ env.ZIG_VERSION }}/zig-x86_64-linux-${{ env.ZIG_VERSION }}.tar.xz" -o zig.tar.xz
           tar -xf zig.tar.xz -C "${{ runner.temp }}"
           echo "${{ runner.temp }}/zig-x86_64-linux-${{ env.ZIG_VERSION }}" >> $GITHUB_PATH
           rm zig.tar.xz
-      - name: Install cargo-zigbuild
+      - name: Setup cargo-zigbuild
         run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/rust-cross/cargo-zigbuild/releases/download/v${CARGO_ZIGBUILD_VERSION}/cargo-zigbuild-installer.sh | sh
       - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
@@ -67,7 +67,7 @@ jobs:
           - x86_64-pc-windows-msvc
     steps:
       - uses: actions/checkout@v4
-      - name: Install protoc
+      - name: Setup Protoc
         run: |
           curl.exe -fsSL "https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-win64.zip" -o protoc.zip
           Expand-Archive -Path protoc.zip -DestinationPath "${{ runner.temp }}\protoc"
@@ -76,7 +76,7 @@ jobs:
       - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
       - name: Build
-        run: cargo build -p vsd --release --target ${{ matrix.target }}
+        run: cargo build -p vsd --release --target ${{ matrix.target }} --no-default-features --features "capture,license,native-tls"
       - name: Package
         shell: bash
         run: |
@@ -93,7 +93,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install protoc
+      - name: Setup Protoc
         run: |
           curl -fsSL "https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-osx-x86_64.zip" -o protoc.zip
           unzip -q protoc.zip -d "${{ runner.temp }}/protoc"
@@ -102,7 +102,7 @@ jobs:
       - name: Add Rust target
         run: rustup target add aarch64-apple-darwin
       - name: Build
-        run: cargo build -p vsd --release --target aarch64-apple-darwin
+        run: cargo build -p vsd --release --target aarch64-apple-darwin --no-default-features --features "capture,license,native-tls"
       - name: Package
         run: |
           cd target/aarch64-apple-darwin/release
@@ -118,7 +118,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install protoc
+      - name: Setup Protoc
         run: |
           curl -fsSL "https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-linux-x86_64.zip" -o protoc.zip
           unzip -q protoc.zip -d "${{ runner.temp }}/protoc"
@@ -177,7 +177,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.version }}
+          tag_name: vsd-${{ inputs.version }}
           name: vsd ${{ inputs.version }}
           draft: true
           generate_release_notes: true

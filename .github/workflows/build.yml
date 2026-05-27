@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Install protoc
+      - name: Setup Protoc
         shell: bash
         run: |
           curl -fsSL "https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.protoc_platform }}.zip" -o protoc.zip
