@@ -76,11 +76,11 @@ impl MasterPlaylist {
                     continue;
                 }
 
-                if let Some(end) = clip.end {
-                    if seg_start >= end {
-                        end_idx = i;
-                        break;
-                    }
+                if let Some(end) = clip.end
+                    && seg_start >= end
+                {
+                    end_idx = i;
+                    break;
                 }
             }
 
@@ -100,7 +100,10 @@ impl MasterPlaylist {
         }
     }
 
-    pub(crate) async fn metadata(&self, config: &PlaylistDownloadConfig) -> Result<Vec<StreamMetadata>> {
+    pub(crate) async fn metadata(
+        &self,
+        config: &PlaylistDownloadConfig,
+    ) -> Result<Vec<StreamMetadata>> {
         let mut metadata = Vec::with_capacity(self.streams.len());
 
         for (i, stream) in self.streams.iter().enumerate() {

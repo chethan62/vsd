@@ -29,6 +29,8 @@ pub struct License {
     headers: Vec<(HeaderName, HeaderValue)>,
 
     /// Path to the playready device (.prd) file.
+    ///
+    /// To create a .prd file, see https://pypi.org/project/pyplayready
     #[arg(long, value_name = "PRD", help_heading = "Playready Options")]
     playready_device: Option<PathBuf>,
 
@@ -41,6 +43,8 @@ pub struct License {
     skip_playready: bool,
 
     /// Path to the widevine device (.wvd) file.
+    ///
+    /// To create a .wvd file, see https://pypi.org/project/pywidevine
     #[arg(long, value_name = "WVD", help_heading = "Widevine Options")]
     widevine_device: Option<PathBuf>,
 

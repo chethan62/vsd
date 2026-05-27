@@ -190,6 +190,7 @@ impl<'a> StreamSelector<'a> {
         }
     }
 
+    #[allow(clippy::type_complexity)]
     fn choices(&self) -> (Vec<Choice<(String, bool)>>, Vec<Option<usize>>) {
         let mut choices = Vec::new();
         let mut choice_to_stream = Vec::new();

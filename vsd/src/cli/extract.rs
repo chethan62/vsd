@@ -17,7 +17,7 @@ pub struct Extract {
     #[arg(short, long, value_enum, default_value_t = Codec::Webvtt)]
     codec: Codec,
 
-    /// Output file path for extracted subtitles.
+    /// Output file path for the extracted subtitles.
     ///
     /// The codec is inferred from the file extension (.srt or .vtt).
     #[arg(short, long, value_name = "PATH")]
