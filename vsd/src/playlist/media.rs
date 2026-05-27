@@ -12,6 +12,7 @@ use tokio_util::sync::CancellationToken;
 use url::Url;
 
 impl MediaPlaylist {
+    /// Resolves the absolute path to the local output file for this stream.
     pub(crate) fn path(&self, directory: Option<&PathBuf>) -> PathBuf {
         let filename = format!("vsd-{}-{}.{}", self.media_type, self.id, self.extension());
         directory
@@ -19,6 +20,7 @@ impl MediaPlaylist {
             .unwrap_or_else(|| PathBuf::from(filename))
     }
 
+    /// Extracts the default key ID (KID) in hexadecimal format if the stream is encrypted.
     pub fn default_kid(&self) -> Option<String> {
         self.segments
             .first()
@@ -27,6 +29,9 @@ impl MediaPlaylist {
             .map(|kid| kid.to_ascii_lowercase().replace('-', ""))
     }
 
+    /// Determines the file extension of the media segments.
+    ///
+    /// Checks segment URIs, map URIs, and falls back to protocol defaults (`ts` for HLS, `mp4` for DASH).
     pub fn extension(&self) -> &str {
         if let Some(ext) = &self.extension {
             return ext;
@@ -49,6 +54,19 @@ impl MediaPlaylist {
         }
     }
 
+    /// Downloads the media playlist segments.
+    ///
+    /// Spawns a progress bar updates callback, matches the media type (video/audio vs subtitles),
+    /// and delegates segment downloading to the core downloader modules.
+    ///
+    /// # Errors
+    ///
+    /// Returns:
+    /// - [`Error::MissingSegments`] if the segment list is empty.
+    /// - [`Error::UnsupportedEncryption`] if the stream uses an unsupported encryption format.
+    /// - [`Error::MissingKey`] if a decryption key is required but missing.
+    /// - [`Error::DownloadInterrupted`] if the download is cancelled via the cancellation token.
+    /// - Other connection, disk I/O, or decryption errors propagated from underlying tasks.
     pub async fn download(
         &self,
         config: &PlaylistDownloadConfig,
@@ -69,6 +87,11 @@ impl MediaPlaylist {
         Ok(temp_file)
     }
 
+    /// Fetches the initialization segment (typically fMP4 headers) if the stream requires one.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching or downloading the init segment fails.
     pub async fn fetch_init(&self, config: &PlaylistDownloadConfig) -> Result<Option<Vec<u8>>> {
         let Some(Segment { map: Some(map), .. }) = self.segments.first() else {
             return Ok(None);
@@ -157,6 +180,7 @@ impl MediaPlaylist {
         Self::truncate(self.language.as_deref().unwrap_or("?"), 9)
     }
 
+    /// Returns a formatted string representation of the media playlist suitable for printing in console logs or stream listings.
     pub fn display(&self) -> String {
         self.to_string()
             .split('|')

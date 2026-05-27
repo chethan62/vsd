@@ -1,3 +1,5 @@
+//! Common types used for parsing, representing, and describing HLS and DASH playlists.
+
 mod master;
 mod media;
 mod other;

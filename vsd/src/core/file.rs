@@ -15,16 +15,29 @@ use tokio::{
 
 pub const CHUNK_SIZE: u64 = 1024 * 1024 * 5; // 5 MiB
 
+/// A multi-threaded, resume-capable file downloader.
+///
+/// `FileDownloader` splits a file into multiple chunks and downloads them concurrently using
+/// HTTP Range requests. Downloaded chunks are written to the target file sequentially
+/// to ensure data integrity. If the remote server does not support HTTP Range requests,
+/// the downloader falls back to streaming the file sequentially.
 pub struct FileDownloader {
+    /// The size of each chunk to download, in bytes.
     chunk_size: u64,
+    /// The HTTP client used for downloading.
     client: Client,
+    /// Optional progress tracking callback.
     progress: Option<Arc<dyn ProgressCallback>>,
+    /// Flag indicating whether to attempt resuming a partial download.
     resume: bool,
+    /// The number of retry attempts allowed per chunk.
     retries: u8,
+    /// The number of concurrent download tasks.
     threads: u8,
 }
 
 impl FileDownloader {
+    /// Creates a new [`FileDownloader`] with defaults.
     pub fn new(client: &Client) -> Self {
         Self {
             chunk_size: CHUNK_SIZE,
@@ -36,31 +49,48 @@ impl FileDownloader {
         }
     }
 
+    /// Sets the size of each download chunk in bytes (default: `5 MiB`).
     pub fn chunk_size(mut self, chunk_size: u64) -> Self {
         self.chunk_size = chunk_size;
         self
     }
 
+    /// Sets a progress callback to receive progress updates during download.
     pub fn progress(mut self, progress: Arc<dyn ProgressCallback>) -> Self {
         self.progress = Some(progress);
         self
     }
 
+    /// Sets whether to attempt resuming a previous download if the output file already exists (default: `true`).
     pub fn resume(mut self, resume: bool) -> Self {
         self.resume = resume;
         self
     }
 
+    /// Sets the maximum number of retries per chunk on download failures (default: `10`).
     pub fn retries(mut self, retries: u8) -> Self {
         self.retries = retries;
         self
     }
 
+    /// Sets the number of concurrent download threads (default: `5`, clamped between 1 and 16).
     pub fn threads(mut self, threads: u8) -> Self {
         self.threads = threads.clamp(1, 16);
         self
     }
 
+    /// Downloads the file from the given URL to the target path.
+    ///
+    /// It queries the server via a HEAD request to check for range support and the total content length.
+    /// - If ranges are supported and resume is enabled, it resumes from the existing file size.
+    /// - If ranges are not supported, it falls back to a streaming sequential download.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The URL is invalid.
+    /// - The request fails.
+    /// - The server returns content length 0.
+    /// - File I/O operations fail.
     pub async fn download(self, url: &str, output: impl AsRef<Path>) -> Result<()> {
         let url = url.parse::<Url>()?;
         let output = output.as_ref();

@@ -1,3 +1,5 @@
+//! Progress rendering, speed calculation, and status reporting utilities.
+
 use colored::Colorize;
 use std::{
     io::{self, Write},
@@ -6,14 +8,23 @@ use std::{
 };
 use tokio::task::JoinHandle;
 
+/// The snapshot state of a progress indicator used for callbacks.
 pub struct ProgressState {
+    /// The label or identifier of the progress item (e.g. stream name/id).
     pub label: String,
+    /// The number of parts downloaded so far.
     pub downloaded_parts: usize,
+    /// The total number of parts expected.
     pub total_parts: usize,
+    /// The total number of bytes downloaded so far.
     pub downloaded_bytes: usize,
+    /// The estimated total size of the resource in bytes.
     pub estimated_bytes: usize,
+    /// The current download speed in bits per second (bps).
     pub speed_bps: f64,
+    /// The estimated time of arrival (ETA) in seconds.
     pub eta_seconds: usize,
+    /// The progress percentage completed (0 to 100).
     pub percent: u8,
 }
 
@@ -74,14 +85,18 @@ impl ProgressInner {
     }
 }
 
+/// A trait that allows registering callbacks to receive progress updates.
 pub trait ProgressCallback: Send + Sync {
+    /// Triggered periodically to report the current progress snapshot state.
     fn on_progress(&self, state: &ProgressState);
 
+    /// Triggered when the operation is successfully completed.
     fn on_finish(&self, state: &ProgressState) {
         self.on_progress(state);
     }
 }
 
+/// Thread-safe progress manager tracking downloaded parts, bytes, speed, and ETA.
 #[derive(Clone)]
 pub(crate) struct Progress {
     inner: Arc<Mutex<ProgressInner>>,
@@ -89,6 +104,7 @@ pub(crate) struct Progress {
 }
 
 impl Progress {
+    /// Creates a new progress tracker with a label ID and estimated total steps/parts.
     pub fn new(id: &str, total: usize, callback: Option<Arc<dyn ProgressCallback>>) -> Self {
         Self {
             inner: Arc::new(Mutex::new(ProgressInner {
@@ -104,11 +120,13 @@ impl Progress {
         }
     }
 
+    /// Dynamically updates the total parts expected.
     pub fn update_total(&self, total: usize) {
         let mut inner = self.inner.lock().unwrap();
         inner.total = total;
     }
 
+    /// Bumps the downloaded parts counter and updates speed/byte statistics.
     pub fn update(&self, size: usize) {
         let mut inner = self.inner.lock().unwrap();
         inner.counter += 1;
@@ -121,6 +139,7 @@ impl Progress {
         }
     }
 
+    /// Skips a chunk of bytes, incrementing completed parts without affecting the current download speed/session statistics.
     pub fn skip(&self, size: usize) {
         let mut inner = self.inner.lock().unwrap();
         inner.counter += 1;
@@ -131,6 +150,7 @@ impl Progress {
         }
     }
 
+    /// Finishes the progress reporting, triggering the final callback or printing the final status.
     pub fn finish(&self) {
         let inner = self.inner.lock().unwrap();
         if let Some(cb) = &self.callback {
@@ -141,6 +161,7 @@ impl Progress {
         }
     }
 
+    /// Spawns a background task that periodically updates and prints the progress bar status.
     pub fn spawn(&self) -> JoinHandle<()> {
         let inner = self.inner.clone();
         let callback = self.callback.clone();
@@ -190,6 +211,7 @@ impl Progress {
     }
 }
 
+/// Helper struct for printing human-readable byte sizes.
 pub struct ByteSize(pub usize);
 
 impl std::fmt::Display for ByteSize {
@@ -212,6 +234,7 @@ impl std::fmt::Display for ByteSize {
     }
 }
 
+/// Helper struct for printing human-readable estimated time of arrival (ETA).
 pub struct Eta(pub usize);
 
 impl std::fmt::Display for Eta {

@@ -17,19 +17,33 @@ use std::{
 use tokio_util::sync::CancellationToken;
 use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
 
+/// Configuration options for the playlist download process.
 #[derive(Clone)]
 pub struct PlaylistDownloadConfig {
+    /// The HTTP client used for fetching streams and segments.
     pub client: Client,
+    /// Whether to automatically attempt decryption of streams.
     pub decrypt: bool,
+    /// The temporary/download directory.
     pub directory: Option<PathBuf>,
+    /// Cryptographic keys used for decryption (Key ID -> Key mapping).
     pub keys: HashMap<String, String>,
+    /// Whether to merge all downloaded tracks into a single output file.
     pub merge: bool,
+    /// Query parameters appended to request URLs.
     pub query: Arc<Vec<(String, String)>>,
+    /// Whether to resume partial downloads.
     pub resume: bool,
+    /// Number of retries per chunk/segment on network failure.
     pub retries: u8,
+    /// Number of concurrent segment download tasks.
     pub threads: u8,
 }
 
+/// A downloader for HLS and DASH playlist streams.
+///
+/// `PlaylistDownloader` allows configuring the download behavior (threads, retries, filters, etc.),
+/// parsing the manifest, fetching segments concurrently, decrypting, and muxing the output files.
 pub struct PlaylistDownloader {
     base_url: Option<Url>,
     clip: Option<ClipRange>,
@@ -41,6 +55,7 @@ pub struct PlaylistDownloader {
 }
 
 impl PlaylistDownloader {
+    /// Creates a new [`PlaylistDownloader`] with defaults.
     pub fn new(client: &Client) -> Self {
         Self {
             base_url: None,
@@ -63,26 +78,37 @@ impl PlaylistDownloader {
         }
     }
 
+    /// Sets the base URL for resolving relative links.
     pub fn base_url(mut self, base_url: impl Into<Url>) -> Self {
         self.base_url = Some(base_url.into());
         self
     }
 
+    /// Sets the clip range to download a subset of the playlist (e.g. `01:00-01:30`).
+    ///
+    /// # Errors
+    /// Returns an error if the clip range string is invalid.
     pub fn clip(mut self, clip: &str) -> Result<Self> {
         self.clip = Some(ClipRange::new(clip)?);
         Ok(self)
     }
 
+    /// Sets whether to attempt decrypting the streams (default: `true`).
     pub fn decrypt(mut self, decrypt: bool) -> Self {
         self.config.decrypt = decrypt;
         self
     }
 
+    /// Sets the temporary download directory (default: `.`).
     pub fn directory(mut self, directory: impl Into<PathBuf>) -> Self {
         self.config.directory = Some(directory.into());
         self
     }
 
+    /// Configures the stream selection interface.
+    ///
+    /// If `raw` is `true`, a basic text list prompt is displayed;
+    /// otherwise, a modern interactive multi-select prompt is used.
     pub fn interactive(mut self, raw: bool) -> Self {
         if raw {
             self.select_type = SelectType::Raw;
@@ -92,21 +118,25 @@ impl PlaylistDownloader {
         self
     }
 
+    /// Sets the decryption keys (key_id hex -> key hex).
     pub fn keys(mut self, keys: HashMap<String, String>) -> Self {
         self.config.keys = keys;
         self
     }
 
+    /// Sets whether to merge downloaded streams into a single output file (default: `true`).
     pub fn merge(mut self, merge: bool) -> Self {
         self.config.merge = merge;
         self
     }
 
+    /// Sets the path to the output file.
     pub(crate) fn output(mut self, output: impl Into<PathBuf>) -> Self {
         self.output = Some(output.into());
         self
     }
 
+    /// Sets query parameters to append to requests.
     pub fn query(mut self, query: &str) -> Self {
         if query.is_empty() {
             return self;
@@ -127,35 +157,48 @@ impl PlaylistDownloader {
         self
     }
 
+    /// Sets whether to resume partial downloads (default: `true`).
     pub fn resume(mut self, resume: bool) -> Self {
         self.config.resume = resume;
         self
     }
 
+    /// Sets the maximum retry count per segment download (default: `10`).
     pub fn retries(mut self, retries: u8) -> Self {
         self.config.retries = retries;
         self
     }
 
+    /// Sets stream selection filters (default: `"v=best:s=en"`).
     pub fn select_streams(mut self, select_streams: &str) -> Self {
         self.select_filters = SelectFilters::new(select_streams);
         self
     }
 
+    /// Sets subtitle codec for muxing (default: `"copy"`).
     pub(crate) fn subs_codec(mut self, subs_codec: impl Into<String>) -> Self {
         self.subs_codec = subs_codec.into();
         self
     }
 
+    /// Sets concurrent segment download thread count (default: `5`, clamped between 1 and 16).
     pub fn threads(mut self, threads: u8) -> Self {
         self.config.threads = threads.clamp(1, 16);
         self
     }
 
+    /// Gets a reference to the download configuration.
     pub fn get_config(&self) -> &PlaylistDownloadConfig {
         &self.config
     }
 
+    /// Fetches and parses the playlist manifest.
+    ///
+    /// If `partial_parse` is `true`, it applies filters and interactive prompts
+    /// to determine which streams should be processed.
+    ///
+    /// # Errors
+    /// Returns an error if fetching or parsing the playlist fails.
     pub async fn parse(&self, uri: &str, partial_parse: bool) -> Result<MasterPlaylist> {
         let fp = fetch::playlist(&self.config, &self.base_url, uri).await?;
         let mut mp = if partial_parse {
@@ -183,12 +226,23 @@ impl PlaylistDownloader {
         Ok(mp)
     }
 
+    /// Fetches, parses, and lists the available streams in the playlist manifest.
+    ///
+    /// # Errors
+    /// Returns an error if fetching or parsing the playlist fails.
     pub(crate) async fn parse_and_list(self, uri: &str) -> Result<()> {
         let fp = fetch::playlist(&self.config, &self.base_url, uri).await?;
         fp.parse_and_list()?;
         Ok(())
     }
 
+    /// Parses the playlist manifest, downloads all selected stream segments, decrypts them,
+    /// and muxes them into the final output file using `ffmpeg`.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Parsing, downloading, or decryption fails.
+    /// - `ffmpeg` is not installed or cannot be found during muxing.
     pub(crate) async fn download(self, uri: &str) -> Result<()> {
         let mp = self.parse(uri, true).await?;
         let streams = mp.streams;
@@ -255,6 +309,10 @@ impl PlaylistDownloader {
     }
 }
 
+/// Parses initialization segments from the given streams to extract and dump DRM PSSH and Key ID information.
+///
+/// # Errors
+/// Returns an error if downloading or parsing initialization segments/boxes fails.
 pub async fn dump_pssh_info(
     config: &PlaylistDownloadConfig,
     streams: &[MediaPlaylist],

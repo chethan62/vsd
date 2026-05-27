@@ -11,12 +11,17 @@ use std::{
 };
 use tokio::{fs, process::Command};
 
+/// Represents a single media stream track (video, audio, or subtitle) ready for muxing.
 pub struct Stream {
+    /// The language tag of the stream track (e.g., `"en"`, `"es"`).
     pub language: Option<String>,
+    /// The type of media content.
     pub media_type: MediaType,
+    /// The path to the downloaded local temporary media file.
     pub path: PathBuf,
 }
 
+/// A wrapper around a collection of [`Stream`]s to be merged.
 pub struct Muxer(Vec<Stream>);
 
 impl std::ops::Deref for Muxer {
@@ -34,10 +39,14 @@ impl std::ops::DerefMut for Muxer {
 }
 
 impl Muxer {
+    /// Creates a new empty [`Muxer`].
     pub fn new() -> Self {
         Self(Vec::new())
     }
 
+    /// Evaluates if stream merging should proceed based on the download configurations.
+    ///
+    /// Muxing is skipped if decryption is disabled, merging is disabled, or multiple video streams are present.
     pub fn should_mux(&self, config: &PlaylistDownloadConfig) -> bool {
         if !config.decrypt {
             warn!("--output is ignored when --no-decrypt is used.");
@@ -60,6 +69,11 @@ impl Muxer {
         true
     }
 
+    /// Muxes the media tracks together into a single file container using the `ffmpeg` tool.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::FfmpegFailed`] if the `ffmpeg` execution returns a non-zero exit status code.
     pub async fn mux(
         &self,
         ffmpeg: impl AsRef<Path>,
@@ -187,6 +201,7 @@ impl Muxer {
         Ok(())
     }
 
+    /// Deletes the temporary video, audio, and subtitle stream segment files and optional clean directory.
     pub async fn clean(&self, directory: Option<&Path>) -> Result<()> {
         for stream in &self.0 {
             if stream.path.exists() {

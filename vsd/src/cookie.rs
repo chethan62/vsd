@@ -1,15 +1,10 @@
-/*
-    REFERENCES
-    ----------
-
-    1. https://curl.se/docs/http-cookies.html
-
-*/
+//! Parser and representation of HTTP cookies in [Netscape](https://curl.se/docs/http-cookies.html) format.
 
 use chrono::{TimeZone, Utc};
 use reqwest::{Url, cookie::Jar};
 use std::str;
 
+/// Represents a single HTTP cookie parsed from a Netscape cookie file.
 #[derive(Clone, Debug)]
 pub struct Cookie<'a> {
     domain: &'a str,
@@ -23,6 +18,7 @@ pub struct Cookie<'a> {
     http_only: bool,
 }
 
+/// A wrapper around a collection of parsed [`Cookie`]s.
 #[derive(Clone, Debug)]
 pub struct Cookies<'a>(Vec<Cookie<'a>>);
 
@@ -41,6 +37,12 @@ impl<'a> std::ops::DerefMut for Cookies<'a> {
 }
 
 impl<'a> Cookies<'a> {
+    /// Parses a byte slice of a Netscape cookie file.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ParseError`] if columns are invalid, booleans/integers are malformed,
+    /// or UTF-8 parsing fails.
     pub fn parse(input: &'a [u8]) -> Result<Self, ParseError> {
         let mut cookies = Vec::new();
         let mut line_num = 0;
@@ -101,6 +103,7 @@ impl<'a> Cookies<'a> {
         Ok(Cookies(cookies))
     }
 
+    /// Serializes the collection of cookies back into a Netscape cookie file format string.
     pub fn as_netscape(&self) -> String {
         let mut out = "# Netscape HTTP Cookie File\n\
         # https://curl.se/docs/http-cookies.html\n\
@@ -113,6 +116,7 @@ impl<'a> Cookies<'a> {
         out
     }
 
+    /// Converts the cookies into a `reqwest::cookie::Jar` for use in HTTP requests.
     pub fn as_jar(&self) -> Jar {
         let jar = Jar::default();
 
@@ -125,6 +129,7 @@ impl<'a> Cookies<'a> {
 }
 
 impl<'a> Cookie<'a> {
+    /// Formats the cookie as a standard HTTP `Set-Cookie` header value.
     pub fn as_header(&self) -> String {
         let mut h = format!("{}={}", self.name, self.value);
         if !self.domain.is_empty() {
@@ -171,6 +176,7 @@ impl<'a> Cookie<'a> {
         )
     }
 
+    /// Generates a valid absolute URL string for the cookie based on its secure flag, domain, and path.
     pub fn url(&self) -> String {
         format!(
             "{}://{}{}",
@@ -185,11 +191,16 @@ impl<'a> Cookie<'a> {
     }
 }
 
+/// Represents errors that can occur while parsing a Netscape cookie file.
 #[derive(Debug)]
 pub enum ParseError {
+    /// Failed to parse a boolean value from the true/false field.
     InvalidBoolean(usize, String),
+    /// The line contains an invalid number of columns (Netscape format requires 7 columns).
     InvalidColumnParams(usize, usize),
+    /// Failed to parse the expiration timestamp as an integer.
     InvalidInteger(usize, String),
+    /// UTF-8 decode error.
     Utf8Error(str::Utf8Error),
 }
 
