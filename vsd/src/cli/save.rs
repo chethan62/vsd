@@ -2,7 +2,6 @@ use crate::{PlaylistDownloader, cookie::Cookies, error::Result};
 use clap::Args;
 use reqwest::{
     Client, Proxy, Url,
-    cookie::Jar,
     header::{HeaderMap, HeaderName, HeaderValue},
 };
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
@@ -184,13 +183,7 @@ impl Save {
             .cookie_store(true)
             .timeout(Duration::from_secs(60));
         if let Some(path) = &self.cookies {
-            let jar = Jar::default();
-            let data = fs::read(path).await?;
-
-            for cookie in Cookies::parse(&data)?.0 {
-                jar.add_cookie_str(&cookie.to_header(), &cookie.url().parse::<Url>()?);
-            }
-
+            let jar = Cookies::parse(&fs::read(path).await?)?.as_jar();
             client = client.cookie_provider(Arc::new(jar));
         }
         if let Some(proxy) = self.proxy {
