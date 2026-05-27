@@ -1,10 +1,9 @@
-use crate::progress::ProgressCallback;
 use crate::{
     error::{Error, Result},
-    progress::Progress,
+    progress::{Progress, ProgressCallback},
 };
 use log::{debug, trace};
-use reqwest::{Client, StatusCode, Url, header};
+use reqwest::{Client, Url, header};
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 use tokio::{
     fs::{self, File, OpenOptions},
@@ -158,9 +157,9 @@ impl FileDownloader {
         }
         let progress_handle = progress.spawn();
 
-        let (tx, rx) = mpsc::channel::<(usize, Vec<u8>)>(self.threads as usize * 2);
+        let (tx, rx) = mpsc::channel(self.threads as usize * 2);
 
-        let writer_output = output.to_path_buf();
+        let writer_output = output.to_owned();
         let writer_progress = progress.clone();
         let writer_handle = tokio::spawn(async move {
             Self::sequential_writer(
@@ -176,37 +175,34 @@ impl FileDownloader {
         let mut set: JoinSet<Result<()>> = JoinSet::new();
 
         for (idx, (start, end)) in chunks.into_iter().enumerate() {
-            let tx = tx.clone();
-            let client = self.client.clone();
-            let url = url.clone();
-            let retries = self.retries;
-
             while set.len() >= self.threads as usize {
                 if let Some(Ok(result)) = set.join_next().await {
                     result?;
                 }
             }
 
+            let client = self.client.clone();
+            let retries = self.retries;
+            let tx = tx.clone();
+            let url = url.clone();
+
             set.spawn(async move {
-                let bytes = Self::download_chunk(&client, &url, start, end, retries).await?;
+                trace!("Fetching {} (file@{}-{})", url, start, end);
+                let range = format!("bytes={}-{}", start, end);
+                let bytes = Self::download_chunk(&client, &url, &range, retries).await?;
                 tx.send((idx, bytes))
                     .await
-                    .map_err(|_| Error::Other("Writer channel closed.".into()))?;
+                    .map_err(|_| Error::Other("File writer channel closed.".into()))?;
                 Ok(())
             });
         }
 
-        // Wait for all download tasks to complete.
         while let Some(Ok(result)) = set.join_next().await {
             result?;
         }
 
-        // Drop sender so the writer knows no more chunks are coming.
         drop(tx);
-
-        // Wait for writer to finish flushing.
         writer_handle.await??;
-
         progress_handle.abort();
         progress.finish();
 
@@ -229,26 +225,22 @@ impl FileDownloader {
     async fn download_chunk(
         client: &Client,
         url: &Url,
-        start: u64,
-        end: u64,
+        range: &str,
         max_retries: u8,
     ) -> Result<Vec<u8>> {
-        let range = format!("bytes={}-{}", start, end);
         let mut avl_tries = max_retries;
 
         loop {
-            trace!("Downloading range {} from {}", range, url);
-
             match client
                 .get(url.clone())
-                .header(header::RANGE, &range)
+                .header(header::RANGE, range)
                 .send()
                 .await
             {
                 Ok(response) => {
                     let status = response.status();
 
-                    if status.is_success() || status == StatusCode::PARTIAL_CONTENT {
+                    if status.is_success() {
                         return Ok(response.bytes().await?.to_vec());
                     }
 
@@ -271,7 +263,7 @@ impl FileDownloader {
                 }
             }
 
-            trace!("Retrying range {} ({})", range, avl_tries);
+            trace!("ReFetching {}", url);
             avl_tries -= 1;
         }
     }
@@ -289,7 +281,7 @@ impl FileDownloader {
             File::create(output).await?
         };
 
-        let mut next_idx = 0usize;
+        let mut next_idx = 0;
         let mut pending: BTreeMap<usize, Vec<u8>> = BTreeMap::new();
 
         while let Some((idx, data)) = rx.recv().await {
@@ -315,9 +307,9 @@ impl FileDownloader {
             }
         }
 
-        if next_idx < total_chunks {
+        if total_chunks > next_idx {
             bail!(
-                "Download incomplete: received {}/{} chunks.",
+                "Download incomplete, received only {}/{} chunks.",
                 next_idx,
                 total_chunks,
             );

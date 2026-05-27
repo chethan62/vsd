@@ -231,13 +231,13 @@ pub async fn download(
                             return Err(Error::RequestFailed {
                                 url: url.to_string(),
                                 status: e.status().unwrap_or(StatusCode::default()),
-                                body: "GET request.".to_owned(),
+                                body: "GET".to_owned(),
                             });
                         }
                     }
                 }
 
-                trace!("Retrying {}", url);
+                trace!("ReFetching {}", url);
                 avl_tries -= 1;
             }
 
