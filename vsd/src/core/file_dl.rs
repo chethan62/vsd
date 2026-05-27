@@ -1,5 +1,6 @@
 use crate::{
     error::{Error, Result},
+    playlist::Range,
     progress::{Progress, ProgressCallback},
 };
 use log::{debug, trace};
@@ -187,9 +188,7 @@ impl FileDownloader {
             let url = url.clone();
 
             set.spawn(async move {
-                trace!("Fetching {} (file@{}-{})", url, start, end);
-                let range = format!("bytes={}-{}", start, end);
-                let bytes = Self::download_chunk(&client, &url, &range, retries).await?;
+                let bytes = Self::download_chunk(&client, &url, Range(start, end), retries).await?;
                 tx.send((idx, bytes))
                     .await
                     .map_err(|_| Error::Other("File writer channel closed.".into()))?;
@@ -225,15 +224,22 @@ impl FileDownloader {
     async fn download_chunk(
         client: &Client,
         url: &Url,
-        range: &str,
+        range: Range,
         max_retries: u8,
     ) -> Result<Vec<u8>> {
-        let mut avl_tries = max_retries;
+        let range_label = format!("{}-{}", range.0, range.1);
+        trace!("Fetching {} (file@{})", url, range_label);
+        let mut last_err = None;
 
-        loop {
+        for attempt in 0..=max_retries {
+            if attempt > 0 {
+                trace!("ReFetching {} (file@{})", url, range_label);
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            }
+
             match client
                 .get(url.clone())
-                .header(header::RANGE, range)
+                .header(header::RANGE, &range)
                 .send()
                 .await
             {
@@ -244,28 +250,26 @@ impl FileDownloader {
                         return Ok(response.bytes().await?.to_vec());
                     }
 
-                    if avl_tries == 0 {
-                        return Err(Error::RequestFailed {
-                            url: url.to_string(),
-                            status,
-                            body: response.text().await?,
-                        });
-                    }
+                    last_err = Some(Error::RequestFailed {
+                        url: url.to_string(),
+                        status,
+                        body: response.text().await?,
+                    });
                 }
                 Err(e) => {
-                    if avl_tries == 0 {
-                        return Err(Error::RequestFailed {
-                            url: url.to_string(),
-                            status: e.status().unwrap_or_default(),
-                            body: format!("GET range {}", range),
-                        });
-                    }
+                    last_err = Some(Error::RequestFailed {
+                        url: url.to_string(),
+                        status: e.status().unwrap_or_default(),
+                        body: format!("GET range {}", range_label),
+                    });
                 }
             }
-
-            trace!("ReFetching {}", url);
-            avl_tries -= 1;
         }
+
+        Err(last_err.unwrap_or(Error::Other(format!(
+            "{} download failed after max retries.",
+            url
+        ))))
     }
 
     async fn sequential_writer(

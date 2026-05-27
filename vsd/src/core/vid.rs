@@ -184,7 +184,6 @@ pub async fn download(
             }
         }
 
-        // Resume Logic
         let temp_file = temp_dir.join(format!("{}.{}.part", i, ext));
         let out_file = temp_file.with_extension("");
 
@@ -194,53 +193,65 @@ pub async fn download(
             continue;
         }
 
+        let client = config.client.clone();
         let decrypter = decrypter.clone();
-        let url = base_url.join(&segment.uri)?;
-        let mut request = config.client.get(url.clone()).query(&config.query);
-
-        if let Some(range) = &segment.range {
-            request = request.header(header::RANGE, range);
-        }
-
         let max_retries = config.max_retries;
+        let range = segment.range.clone();
+        let url = base_url.join(&segment.uri)?;
+        let query = config.query.clone();
 
         set.spawn(async move {
-            let mut avl_tries = max_retries;
-            let mut bytes;
+            let range_label = range
+                .as_ref()
+                .map(|x| format!("{}-{}", x.0, x.1))
+                .unwrap_or("full-range".to_owned());
 
-            loop {
-                match request.try_clone().unwrap().send().await {
+            trace!("Fetching {} (segment@{})", url, range_label);
+            let mut last_err = None;
+            let mut bytes = None;
+
+            for attempt in 0..=max_retries {
+                if attempt > 0 {
+                    trace!("ReFetching {} (segment@{})", url, range_label);
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                }
+
+                let mut request = client.get(url.clone()).query(&query);
+                if let Some(range) = &range {
+                    request = request.header(header::RANGE, range);
+                }
+
+                match request.send().await {
                     Ok(response) => {
                         let status = response.status();
 
                         if status.is_success() {
-                            bytes = response.bytes().await?.to_vec();
+                            bytes = Some(response.bytes().await?.to_vec());
                             break;
                         }
 
-                        if avl_tries == 0 {
-                            return Err(Error::RequestFailed {
-                                url: url.to_string(),
-                                status,
-                                body: response.text().await?,
-                            });
-                        }
+                        last_err = Some(Error::RequestFailed {
+                            url: url.to_string(),
+                            status,
+                            body: response.text().await?,
+                        });
                     }
                     Err(e) => {
-                        if avl_tries == 0 {
-                            return Err(Error::RequestFailed {
-                                url: url.to_string(),
-                                status: e.status().unwrap_or(StatusCode::default()),
-                                body: "GET".to_owned(),
-                            });
-                        }
+                        last_err = Some(Error::RequestFailed {
+                            url: url.to_string(),
+                            status: e.status().unwrap_or(StatusCode::default()),
+                            body: "GET".to_owned(),
+                        });
                     }
                 }
-
-                trace!("ReFetching {}", url);
-                avl_tries -= 1;
             }
 
+            let mut bytes = bytes.ok_or_else(|| {
+                last_err.unwrap_or(Error::Other(format!(
+                    "{} download failed after max retries.",
+                    url
+                )))
+            })?;
             let size = bytes.len();
 
             // Trim fake PNG header.
