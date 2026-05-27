@@ -1,12 +1,12 @@
 mod enc;
 mod fetch;
-mod file_dl;
+mod file;
 mod mux;
-mod playlist_dl;
+mod playlist;
 
 pub(crate) mod sub;
 pub(crate) mod vid;
 
-pub use file_dl::FileDownloader;
+pub use file::FileDownloader;
 pub use mux::{Muxer, Stream};
-pub use playlist_dl::{PlaylistDownloadConfig, PlaylistDownloader};
+pub use playlist::{PlaylistDownloadConfig, PlaylistDownloader};

@@ -2,7 +2,7 @@ use crate::{
     core::{
         PlaylistDownloadConfig,
         enc::{self, Decrypter},
-        file_dl::CHUNK_SIZE,
+        file::CHUNK_SIZE,
         mux::Stream,
     },
     error::{Error, Result},

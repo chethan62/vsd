@@ -46,6 +46,11 @@ impl FileDownloader {
         self
     }
 
+    pub fn resume(mut self, resume: bool) -> Self {
+        self.resume = resume;
+        self
+    }
+
     pub fn retries(mut self, retries: u8) -> Self {
         self.retries = retries;
         self
@@ -53,11 +58,6 @@ impl FileDownloader {
 
     pub fn threads(mut self, threads: u8) -> Self {
         self.threads = threads.clamp(1, 16);
-        self
-    }
-
-    pub fn resume(mut self, resume: bool) -> Self {
-        self.resume = resume;
         self
     }
 
