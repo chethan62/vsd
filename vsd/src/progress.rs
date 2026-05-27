@@ -6,53 +6,15 @@ use std::{
 };
 use tokio::task::JoinHandle;
 
-/// Snapshot of download progress for a single stream.
 pub struct ProgressState {
-    /// Stream label (e.g. "1/3")
     pub label: String,
-    /// Number of parts downloaded so far
     pub downloaded_parts: usize,
-    /// Total number of parts
     pub total_parts: usize,
-    /// Total bytes downloaded so far
     pub downloaded_bytes: usize,
-    /// Estimated total bytes (extrapolated from current progress)
     pub estimated_bytes: usize,
-    /// Download speed in bytes per second
     pub speed_bps: f64,
-    /// Estimated time remaining in seconds
     pub eta_seconds: usize,
-    /// Completion percentage (0–100)
     pub percent: u8,
-}
-
-/// Trait for receiving download progress updates.
-///
-/// Implement this trait to receive progress updates in your own UI,
-/// logging system, or any other consumer. When no callback is provided,
-/// the built-in terminal progress bar is used instead.
-///
-/// # Example
-///
-/// ```rust,no_run
-/// use vsd::progress::{ProgressCallback, ProgressState};
-///
-/// struct MyProgress;
-///
-/// impl ProgressCallback for MyProgress {
-///     fn on_progress(&self, state: &ProgressState) {
-///         println!("{}% ({}/{})", state.percent, state.downloaded_parts, state.total_parts);
-///     }
-///     fn on_finish(&self, state: &ProgressState) {
-///         println!("Done! {} bytes", state.downloaded_bytes);
-///     }
-/// }
-/// ```
-pub trait ProgressCallback: Send + Sync {
-    /// Called periodically (roughly once per second) with the current progress.
-    fn on_progress(&self, state: &ProgressState);
-    /// Called once when the stream download completes.
-    fn on_finish(&self, state: &ProgressState);
 }
 
 struct ProgressInner {
@@ -109,6 +71,14 @@ impl ProgressInner {
             eta_seconds,
             percent,
         }
+    }
+}
+
+pub trait ProgressCallback: Send + Sync {
+    fn on_progress(&self, state: &ProgressState);
+
+    fn on_finish(&self, state: &ProgressState) {
+        self.on_progress(state);
     }
 }
 

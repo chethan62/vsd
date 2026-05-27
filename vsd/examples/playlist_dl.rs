@@ -3,9 +3,9 @@
 // [dependencies]
 // vsd = { version = "0.5", default-features = false, features = ["rustls-tls"]}
 
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 use vsd::{
-    PlaylistDownloader, Error, Muxer, Result,
+    Error, Muxer, PlaylistDownloader, Result,
     playlist::MediaType,
     progress::{ByteSize, Eta, ProgressCallback, ProgressState},
     reqwest::Client,
@@ -26,10 +26,6 @@ impl ProgressCallback for Progress {
             state.total_parts,
             Eta(state.eta_seconds)
         );
-    }
-
-    fn on_finish(&self, state: &ProgressState) {
-        self.on_progress(state);
     }
 }
 
@@ -89,11 +85,7 @@ async fn main() -> Result<()> {
 
     println!("Muxing to output.srt");
     muxer
-        .mux(
-            &vsd::find_ffmpeg().unwrap(),
-            &PathBuf::from("output.srt"),
-            "srt",
-        )
+        .mux(&vsd::find_ffmpeg().unwrap(), "output.srt", "srt")
         .await?;
     muxer.clean(config.directory.as_deref()).await?;
 

@@ -42,7 +42,14 @@ impl Muxer {
         true
     }
 
-    pub async fn mux(&self, ffmpeg: &Path, output: &Path, subs_codec: &str) -> Result<()> {
+    pub async fn mux(
+        &self,
+        ffmpeg: impl AsRef<Path>,
+        output: impl AsRef<Path>,
+        subs_codec: &str,
+    ) -> Result<()> {
+        let ffmpeg = ffmpeg.as_ref();
+        let output = output.as_ref();
         let temp_files = [
             MediaType::Video,
             MediaType::Audio,
