@@ -266,7 +266,7 @@ pub async fn download(
 
             // Trim fake PNG header.
             if bytes.len() >= 8 && bytes[..8] == PNG_HEADER {
-                bytes = bytes.split_off(8)
+                bytes.drain(..8);
             }
 
             let bytes = decrypter.decrypt(bytes)?;
