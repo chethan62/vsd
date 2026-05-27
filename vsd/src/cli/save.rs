@@ -207,7 +207,7 @@ impl Save {
             dl = dl.clip(clip)?;
         }
         if let Some(directory) = self.directory {
-            dl = dl.directory(directory)?;
+            dl = dl.directory(directory);
         }
         if let Some(output) = &self.output {
             dl = dl.output(output.clone());
@@ -225,7 +225,7 @@ impl Save {
             dl.parse_and_list(&self.input).await?;
         } else if self.list_streams_json {
             let mp = dl.parse(&self.input, false).await?;
-            let metadata = mp.metadata(&dl.config()).await?;
+            let metadata = mp.metadata(&dl.get_config()).await?;
             serde_json::to_writer(std::io::stdout(), &metadata)?;
         } else if self.parse {
             let mp = dl.parse(&self.input, false).await?;

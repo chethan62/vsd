@@ -33,7 +33,7 @@ impl ProgressCallback for Progress {
 async fn main() -> Result<()> {
     let client = Client::new();
     let dl = PlaylistDownloader::new(&client).resume(true);
-    let config = dl.config();
+    let config = dl.get_config();
 
     let mp = dl
         .parse(
@@ -55,7 +55,7 @@ async fn main() -> Result<()> {
             );
 
             // If stream is already downloaded then no progress updates will be triggered.
-            let dl_info = match stream.download(&config, Arc::new(Progress), &token).await {
+            let dl_info = match stream.download(config, Arc::new(Progress), &token).await {
                 Ok(info) => info,
                 Err(Error::UnsupportedEncryption(e)) => {
                     println!("Unsupported encryption {}", e);

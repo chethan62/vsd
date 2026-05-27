@@ -35,6 +35,12 @@ pub async fn download(
 ) -> Result<Stream> {
     enc::check_unsupported(stream)?;
 
+    if let Some(dir) = &config.directory
+        && !dir.exists()
+    {
+        fs::create_dir_all(dir).await?;
+    }
+
     let temp_file = stream.path(config.directory.as_ref());
     let temp_stream = Stream {
         language: stream.language.clone(),

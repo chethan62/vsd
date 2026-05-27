@@ -103,7 +103,7 @@ impl License {
         } else if let Ok(url) = self.input.parse::<Url>() {
             let dl = PlaylistDownloader::new(&client);
             let mp = dl.parse(url.as_str(), false).await?;
-            let metadata = mp.metadata(&dl.config()).await?;
+            let metadata = mp.metadata(&dl.get_config()).await?;
 
             for pssh in metadata.into_iter().flat_map(|sm| sm.pssh) {
                 let _ = pssh_data.insert(base64::engine::general_purpose::STANDARD.decode(&pssh)?);

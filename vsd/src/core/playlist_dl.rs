@@ -11,14 +11,13 @@ use log::{info, warn};
 use reqwest::{Client, Url};
 use std::{
     collections::{HashMap, HashSet},
-    fs,
     path::PathBuf,
     sync::Arc,
 };
 use tokio_util::sync::CancellationToken;
 use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct PlaylistDownloadConfig {
     pub client: Client,
     pub decrypt: bool,
@@ -36,7 +35,7 @@ pub struct PlaylistDownloader {
     clip: Option<ClipRange>,
     config: PlaylistDownloadConfig,
     output: Option<PathBuf>,
-    select_options: SelectFilters,
+    select_filters: SelectFilters,
     select_type: SelectType,
     subs_codec: String,
 }
@@ -47,7 +46,7 @@ impl PlaylistDownloader {
             base_url: None,
             clip: None,
             output: None,
-            select_options: SelectFilters::new("v=best:s=en"),
+            select_filters: SelectFilters::new("v=best:s=en"),
             select_type: SelectType::None,
             subs_codec: "copy".to_owned(),
             config: PlaylistDownloadConfig {
@@ -79,15 +78,9 @@ impl PlaylistDownloader {
         self
     }
 
-    pub fn directory(mut self, directory: impl Into<PathBuf>) -> Result<Self> {
-        let directory = directory.into();
-
-        if !directory.exists() {
-            fs::create_dir_all(&directory)?;
-        }
-
-        self.config.directory = Some(directory);
-        Ok(self)
+    pub fn directory(mut self, directory: impl Into<PathBuf>) -> Self {
+        self.config.directory = Some(directory.into());
+        self
     }
 
     pub fn interactive(mut self, raw: bool) -> Self {
@@ -109,7 +102,7 @@ impl PlaylistDownloader {
         self
     }
 
-    pub fn output(mut self, output: impl Into<PathBuf>) -> Self {
+    pub(crate) fn output(mut self, output: impl Into<PathBuf>) -> Self {
         self.output = Some(output.into());
         self
     }
@@ -145,22 +138,22 @@ impl PlaylistDownloader {
     }
 
     pub fn select_streams(mut self, select_streams: &str) -> Self {
-        self.select_options = SelectFilters::new(select_streams);
+        self.select_filters = SelectFilters::new(select_streams);
         self
     }
 
-    pub fn subs_codec(mut self, subs_codec: impl Into<String>) -> Self {
+    pub(crate) fn subs_codec(mut self, subs_codec: impl Into<String>) -> Self {
         self.subs_codec = subs_codec.into();
         self
     }
 
     pub fn threads(mut self, threads: u8) -> Self {
-        self.config.threads = threads;
+        self.config.threads = threads.clamp(1, 16);
         self
     }
 
-    pub fn config(&self) -> PlaylistDownloadConfig {
-        self.config.clone()
+    pub fn get_config(&self) -> &PlaylistDownloadConfig {
+        &self.config
     }
 
     pub async fn parse(&self, uri: &str, partial_parse: bool) -> Result<MasterPlaylist> {
@@ -168,7 +161,7 @@ impl PlaylistDownloader {
         let mut mp = if partial_parse {
             fp.parse(
                 &self.config,
-                self.select_options.clone(),
+                self.select_filters.clone(),
                 self.select_type.clone(),
                 true,
             )
@@ -176,7 +169,7 @@ impl PlaylistDownloader {
         } else {
             fp.parse(
                 &self.config,
-                self.select_options.clone(),
+                self.select_filters.clone(),
                 SelectType::None,
                 false,
             )
@@ -250,7 +243,9 @@ impl PlaylistDownloader {
             && muxer.should_mux(&self.config)
         {
             let Some(ffmpeg) = utils::find_ffmpeg() else {
-                bail!("ffmpeg couldn't be located, it's required to continue further.");
+                bail!(
+                    "ffmpeg couldn't be located, it's required to continue further. Download it from https://github.com/Tyrrrz/FFmpegBin/releases"
+                );
             };
             muxer.mux(&ffmpeg, output, &self.subs_codec).await?;
             muxer.clean(self.config.directory.as_deref()).await?;

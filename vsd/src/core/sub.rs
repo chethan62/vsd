@@ -8,7 +8,11 @@ use crate::{
 use colored::Colorize;
 use log::{debug, info, trace, warn};
 use reqwest::{Url, header};
-use tokio::{fs::File, io::AsyncWriteExt, task::JoinSet};
+use tokio::{
+    fs::{self, File},
+    io::AsyncWriteExt,
+    task::JoinSet,
+};
 use tokio_util::sync::CancellationToken;
 use vsd_mp4::sub::{StppSubsParser, WvttSubsParser, ttml};
 
@@ -53,6 +57,12 @@ pub async fn download(
     token: &CancellationToken,
     stream: &MediaPlaylist,
 ) -> Result<Stream> {
+    if let Some(dir) = &config.directory
+        && !dir.exists()
+    {
+        fs::create_dir_all(dir).await?;
+    }
+
     let base_url = stream.uri.parse::<Url>()?;
     let ext = stream.extension();
     let mut data = Vec::new();
