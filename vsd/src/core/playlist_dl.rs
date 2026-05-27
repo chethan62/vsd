@@ -11,7 +11,9 @@ use log::{info, warn};
 use reqwest::{Client, Url};
 use std::{
     collections::{HashMap, HashSet},
-    {fs, path::PathBuf},
+    fs,
+    path::PathBuf,
+    sync::Arc,
 };
 use tokio_util::sync::CancellationToken;
 use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
@@ -23,7 +25,7 @@ pub struct PlaylistDownloadConfig {
     pub keys: HashMap<String, String>,
     pub max_retries: u8,
     pub max_threads: u8,
-    pub query: Vec<(String, String)>,
+    pub query: Arc<Vec<(String, String)>>,
     pub skip_decrypt: bool,
     pub skip_merge: bool,
     pub skip_resume: bool,
@@ -34,8 +36,8 @@ pub struct PlaylistDownloader {
     base_url: Option<Url>,
     output: Option<PathBuf>,
     subs_codec: String,
-    interaction_type: SelectType,
     select_options: SelectFilters,
+    select_type: SelectType,
     clip: Option<ClipRange>,
 }
 
@@ -48,7 +50,7 @@ impl PlaylistDownloader {
                 keys: HashMap::new(),
                 max_retries: 10,
                 max_threads: 5,
-                query: Vec::new(),
+                query: Arc::new(Vec::new()),
                 skip_decrypt: false,
                 skip_merge: false,
                 skip_resume: false,
@@ -56,8 +58,8 @@ impl PlaylistDownloader {
             base_url: None,
             output: None,
             subs_codec: "copy".to_owned(),
-            interaction_type: SelectType::None,
             select_options: SelectFilters::new("v=best:s=en"),
+            select_type: SelectType::None,
             clip: None,
         }
     }
@@ -90,9 +92,9 @@ impl PlaylistDownloader {
 
     pub fn interactive(mut self, raw: bool) -> Self {
         if raw {
-            self.interaction_type = SelectType::Raw;
+            self.select_type = SelectType::Raw;
         } else {
-            self.interaction_type = SelectType::Modern;
+            self.select_type = SelectType::Modern;
         }
         self
     }
@@ -106,17 +108,19 @@ impl PlaylistDownloader {
         if query.is_empty() {
             return self;
         }
-        self.config.query = query
-            .trim_start_matches('?')
-            .split('&')
-            .filter_map(|x| {
-                if let Some((key, value)) = x.split_once('=') {
-                    Some((key.to_owned(), value.to_owned()))
-                } else {
-                    None
-                }
-            })
-            .collect();
+        self.config.query = Arc::new(
+            query
+                .trim_start_matches('?')
+                .split('&')
+                .filter_map(|x| {
+                    if let Some((key, value)) = x.split_once('=') {
+                        Some((key.to_owned(), value.to_owned()))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        );
         self
     }
 
@@ -140,8 +144,8 @@ impl PlaylistDownloader {
         self
     }
 
-    pub fn no_resume(mut self, no_resume: bool) -> Self {
-        self.config.skip_resume = no_resume;
+    pub fn skip_resume(mut self, skip_resume: bool) -> Self {
+        self.config.skip_resume = skip_resume;
         self
     }
 
@@ -165,7 +169,7 @@ impl PlaylistDownloader {
             fp.parse(
                 &self.config,
                 self.select_options.clone(),
-                self.interaction_type.clone(),
+                self.select_type.clone(),
                 true,
             )
             .await?

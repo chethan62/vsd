@@ -8,7 +8,6 @@ use crate::{
 use colored::Colorize;
 use log::{debug, info, trace, warn};
 use reqwest::{Url, header};
-use std::sync::Arc;
 use tokio::{fs::File, io::AsyncWriteExt, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 use vsd_mp4::sub::{StppSubsParser, WvttSubsParser, ttml};
@@ -56,7 +55,6 @@ pub async fn download(
 ) -> Result<Stream> {
     let base_url = stream.uri.parse::<Url>()?;
     let ext = stream.extension();
-    let query = Arc::new(config.query.clone());
     let mut data = Vec::new();
     let mut temp_file = stream.path(config.directory.as_ref());
 
@@ -66,7 +64,7 @@ pub async fn download(
 
     let segment = &stream.segments[0];
     let url = base_url.join(&segment.uri)?;
-    let mut request = config.client.get(url.clone()).query(&*query);
+    let mut request = config.client.get(url.clone()).query(&*config.query);
 
     if let Some(range) = &segment.range {
         request = request.header(header::RANGE, range);
@@ -142,7 +140,7 @@ pub async fn download(
             }
 
             let client = config.client.clone();
-            let query = query.clone();
+            let query = config.query.clone();
             let range = segment.range.clone();
             let url = base_url.join(&segment.uri)?;
 

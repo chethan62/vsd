@@ -19,7 +19,7 @@ impl Key {
     pub async fn key(&self, config: &PlaylistDownloadConfig, base_url: &Url) -> Result<[u8; 16]> {
         let url = base_url.join(self.uri.as_ref().unwrap())?;
         debug!("Fetching {} (key@full-range)", url);
-        let response = config.client.get(url).query(&config.query).send().await?;
+        let response = config.client.get(url).query(&*config.query).send().await?;
         let bytes = utils::fetch_bytes(response).await?;
         Ok(bytes.as_slice().try_into()?)
     }

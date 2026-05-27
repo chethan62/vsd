@@ -41,7 +41,12 @@ pub async fn playlist(
         })
     } else if let Ok(input) = uri.parse::<Url>() {
         debug!("Fetching {} (playlist)", input);
-        let response = config.client.get(input).query(&config.query).send().await?;
+        let response = config
+            .client
+            .get(input)
+            .query(&*config.query)
+            .send()
+            .await?;
 
         if let Some(content_type) = response
             .headers()
@@ -137,7 +142,7 @@ impl FetchedPlaylist {
                                 let response = config
                                     .client
                                     .get(&stream.uri)
-                                    .query(&config.query)
+                                    .query(&*config.query)
                                     .send()
                                     .await?;
                                 utils::fetch_bytes(response).await?

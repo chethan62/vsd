@@ -204,7 +204,7 @@ pub async fn resolve_segment_base(
         let request = config
             .client
             .get(base_url.clone())
-            .query(&config.query)
+            .query(&*config.query)
             .header(header::RANGE, &index_range);
         let response = request.send().await?;
         let bytes = utils::fetch_bytes(response).await?;

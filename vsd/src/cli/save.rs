@@ -196,7 +196,7 @@ impl Save {
             .keys(self.keys)
             .skip_decrypt(self.no_decrypt)
             .skip_merge(self.no_merge)
-            .no_resume(self.no_resume)
+            .skip_resume(self.no_resume)
             .max_retries(self.retries)
             .max_threads(self.threads);
 

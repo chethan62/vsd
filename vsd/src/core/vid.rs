@@ -61,7 +61,6 @@ pub async fn download(
     let ext = stream.extension();
     let max_threads = config.max_threads as usize;
     let progress_handle = progress.spawn();
-    let query = Arc::new(config.query.clone());
     let temp_dir = temp_file.with_extension("");
     let mut auto_increment_iv = false;
     let mut decrypter = Decrypter::None;
@@ -199,7 +198,7 @@ pub async fn download(
         let max_retries = config.max_retries;
         let range = segment.range.clone();
         let url = base_url.join(&segment.uri)?;
-        let query = query.clone();
+        let query = config.query.clone();
 
         set.spawn(async move {
             let range_label = range
@@ -329,7 +328,7 @@ async fn split_single_seg(
     let response = config
         .client
         .head(url.clone())
-        .query(&config.query)
+        .query(&*config.query)
         .send()
         .await?;
     let status = response.status();

@@ -75,7 +75,7 @@ impl MediaPlaylist {
         };
 
         let url = self.uri.parse::<Url>()?.join(&map.uri)?;
-        let mut request = config.client.get(url.clone()).query(&config.query);
+        let mut request = config.client.get(url.clone()).query(&*config.query);
 
         if let Some(range) = &map.range {
             request = request.header(header::RANGE, range);
