@@ -61,6 +61,7 @@ pub async fn download(
     let ext = stream.extension();
     let max_threads = config.max_threads as usize;
     let progress_handle = progress.spawn();
+    let query = Arc::new(config.query.clone());
     let temp_dir = temp_file.with_extension("");
     let mut auto_increment_iv = false;
     let mut decrypter = Decrypter::None;
@@ -198,7 +199,7 @@ pub async fn download(
         let max_retries = config.max_retries;
         let range = segment.range.clone();
         let url = base_url.join(&segment.uri)?;
-        let query = config.query.clone();
+        let query = query.clone();
 
         set.spawn(async move {
             let range_label = range
@@ -216,7 +217,7 @@ pub async fn download(
                     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                 }
 
-                let mut request = client.get(url.clone()).query(&query);
+                let mut request = client.get(url.clone()).query(&*query);
                 if let Some(range) = &range {
                     request = request.header(header::RANGE, range);
                 }
