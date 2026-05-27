@@ -18,7 +18,7 @@ This document contains cli reference for the `vsd` command-line program.
 
 ## `vsd`
 
-Download streams from DASH and HLS playlists.
+A command-line utility and library for downloading DASH and HLS playlists.
 
 ```
 vsd [OPTIONS] <COMMAND>
@@ -122,7 +122,7 @@ For multiple segments, use merge sub-command to combine them into a single file 
 | Flag | Description |
 |------|-------------|
 | `-c, --codec` | Codec for output subtitles<br>*Possible values:* `subrip`, `webvtt`<br>*Default:* `webvtt` |
-| `-o, --output` | Output file path for extracted subtitles.<br><br>The codec is inferred from the file extension (.srt or .vtt). |
+| `-o, --output` | Output file path for the extracted subtitles.<br><br>The codec is inferred from the file extension (.srt or .vtt). |
 
 [↑ Back to top](#command-overview)
 
@@ -148,7 +148,7 @@ vsd license [OPTIONS] <INPUT>
 
 | Flag | Description |
 |------|-------------|
-| `--playready-device` | Path to the playready device (.prd) file |
+| `--playready-device` | Path to the playready device (.prd) file.<br><br>To create a .prd file, see https://pypi.org/project/pyplayready |
 | `--playready-url` | Playready license server url |
 | `--skip-playready` | Skip playready license request |
 
@@ -156,7 +156,7 @@ vsd license [OPTIONS] <INPUT>
 
 | Flag | Description |
 |------|-------------|
-| `--widevine-device` | Path to the widevine device (.wvd) file |
+| `--widevine-device` | Path to the widevine device (.wvd) file.<br><br>To create a .wvd file, see https://pypi.org/project/pywidevine |
 | `--widevine-url` | Widevine license server url |
 | `--skip-widevine` | Skip widevine license request |
 
