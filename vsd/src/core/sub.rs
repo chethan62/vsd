@@ -79,7 +79,8 @@ pub async fn download(
             .range
             .as_ref()
             .map(|x| format!("{}-{}", x.0, x.1))
-            .unwrap_or("full-range".to_owned())
+            .as_deref()
+            .unwrap_or("full-range")
     );
 
     let response = request.send().await?;
@@ -152,7 +153,8 @@ pub async fn download(
                     range
                         .as_ref()
                         .map(|x| format!("{}-{}", x.0, x.1))
-                        .unwrap_or("full-range".to_owned())
+                        .as_deref()
+                        .unwrap_or("full-range")
                 );
 
                 let mut request = client.get(url).query(&*query);
