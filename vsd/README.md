@@ -38,15 +38,6 @@ Visit the [releases page](https://github.com/clitic/vsd/releases) for pre-built 
 Download and extract the archive, then copy the vsd binary to a directory of your choice.
 Finally, add that directory to your system's `PATH` environment variable.
 
-| Host                | Architecture | Download                                                                                                     |
-|---------------------|--------------|--------------------------------------------------------------------------------------------------------------|
-| Android 7+ (Termux) | aarch64      | [.tar.xz](https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-aarch64-linux-android.tar.xz)      |
-| Linux               | aarch64      | [.tar.xz](https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-aarch64-unknown-linux-musl.tar.xz) |
-| MacOS               | aarch64      | [.tar.xz](https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-aarch64-apple-darwin.tar.xz)       |
-| Windows             | aarch64      | [.zip](https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-aarch64-pc-windows-msvc.zip)          |
-| Linux               | x86_64       | [.tar.xz](https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-x86_64-unknown-linux-musl.tar.xz)  |
-| Windows             | x86_64       | [.zip](https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-x86_64-pc-windows-msvc.zip)           |
-
 [![Packaging Status](https://repology.org/badge/vertical-allrepos/vsd.svg)](https://repology.org/project/vsd/versions)
 
 ### Install via Cargo
