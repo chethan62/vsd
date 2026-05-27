@@ -193,7 +193,7 @@ impl PlaylistDownloader {
         let mp = self.parse(uri, true).await?;
         let streams = mp.streams;
 
-        if !self.config.decrypt {
+        if self.config.decrypt {
             dump_pssh_info(&self.config, &streams).await?;
         }
 
