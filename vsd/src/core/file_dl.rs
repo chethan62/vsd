@@ -3,7 +3,7 @@ use crate::{
     error::{Error, Result},
     progress::Progress,
 };
-use log::{debug, info, trace};
+use log::{debug, trace};
 use reqwest::{Client, StatusCode, Url, header};
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 use tokio::{
@@ -146,21 +146,13 @@ impl FileDownloader {
             return Ok(());
         }
 
-        info!(
-            "Downloading {} ({} bytes, {} already written)",
-            output.display(),
-            content_length,
-            bytes_written,
-        );
-
-        let all_chunks = compute_chunks(0, content_length, self.chunk_size);
-        let chunks = compute_chunks(bytes_written, content_length, self.chunk_size);
+        let all_chunks = Self::compute_chunks(0, content_length, self.chunk_size);
+        let chunks = Self::compute_chunks(bytes_written, content_length, self.chunk_size);
         let total_chunks = chunks.len();
         let skipped_chunks = all_chunks.len() - total_chunks;
 
         let progress = Progress::new("dl", all_chunks.len(), self.progress);
 
-        // Account for already-downloaded chunks in the progress display.
         for (start, end) in &all_chunks[..skipped_chunks] {
             progress.skip((end - start + 1) as usize);
         }
@@ -171,7 +163,7 @@ impl FileDownloader {
         let writer_output = output.to_path_buf();
         let writer_progress = progress.clone();
         let writer_handle = tokio::spawn(async move {
-            sequential_writer(
+            Self::sequential_writer(
                 rx,
                 &writer_output,
                 bytes_written,
@@ -196,7 +188,7 @@ impl FileDownloader {
             }
 
             set.spawn(async move {
-                let bytes = download_chunk(&client, &url, start, end, retries).await?;
+                let bytes = Self::download_chunk(&client, &url, start, end, retries).await?;
                 tx.send((idx, bytes))
                     .await
                     .map_err(|_| Error::Other("Writer channel closed.".into()))?;
@@ -220,126 +212,118 @@ impl FileDownloader {
 
         Ok(())
     }
-}
 
-/// Compute the byte ranges for each chunk.
-///
-/// Returns a vec of `(start, end)` inclusive byte ranges.
-fn compute_chunks(offset: u64, total: u64, chunk_size: u64) -> Vec<(u64, u64)> {
-    let mut chunks = Vec::new();
-    let mut start = offset;
+    fn compute_chunks(offset: u64, total: u64, chunk_size: u64) -> Vec<(u64, u64)> {
+        let mut chunks = Vec::new();
+        let mut start = offset;
 
-    while start < total {
-        let end = (start + chunk_size - 1).min(total - 1);
-        chunks.push((start, end));
-        start = end + 1;
-    }
-
-    chunks
-}
-
-/// Download a single chunk with retry logic.
-async fn download_chunk(
-    client: &Client,
-    url: &Url,
-    start: u64,
-    end: u64,
-    max_retries: u8,
-) -> Result<Vec<u8>> {
-    let range = format!("bytes={}-{}", start, end);
-    let mut avl_tries = max_retries;
-
-    loop {
-        trace!("Downloading range {} from {}", range, url);
-
-        match client
-            .get(url.clone())
-            .header(header::RANGE, &range)
-            .send()
-            .await
-        {
-            Ok(response) => {
-                let status = response.status();
-
-                if status.is_success() || status == StatusCode::PARTIAL_CONTENT {
-                    return Ok(response.bytes().await?.to_vec());
-                }
-
-                if avl_tries == 0 {
-                    return Err(Error::RequestFailed {
-                        url: url.to_string(),
-                        status,
-                        body: response.text().await?,
-                    });
-                }
-            }
-            Err(e) => {
-                if avl_tries == 0 {
-                    return Err(Error::RequestFailed {
-                        url: url.to_string(),
-                        status: e.status().unwrap_or_default(),
-                        body: format!("GET range {}", range),
-                    });
-                }
-            }
+        while start < total {
+            let end = (start + chunk_size - 1).min(total - 1);
+            chunks.push((start, end));
+            start = end + 1;
         }
 
-        trace!("Retrying range {} ({})", range, avl_tries);
-        avl_tries -= 1;
+        chunks
     }
-}
 
-/// Receives chunks from the channel and writes them to the output file in order.
-///
-/// Out-of-order chunks are buffered in a `BTreeMap` until the preceding chunk
-/// arrives, then all consecutive buffered chunks are flushed.
-async fn sequential_writer(
-    mut rx: mpsc::Receiver<(usize, Vec<u8>)>,
-    output: &Path,
-    bytes_written: u64,
-    total_chunks: usize,
-    progress: Progress,
-) -> Result<()> {
-    let mut file = if bytes_written > 0 {
-        OpenOptions::new().append(true).open(output).await?
-    } else {
-        File::create(output).await?
-    };
+    async fn download_chunk(
+        client: &Client,
+        url: &Url,
+        start: u64,
+        end: u64,
+        max_retries: u8,
+    ) -> Result<Vec<u8>> {
+        let range = format!("bytes={}-{}", start, end);
+        let mut avl_tries = max_retries;
 
-    let mut next_idx = 0usize;
-    let mut pending: BTreeMap<usize, Vec<u8>> = BTreeMap::new();
+        loop {
+            trace!("Downloading range {} from {}", range, url);
 
-    while let Some((idx, data)) = rx.recv().await {
-        if idx == next_idx {
-            // This is the next expected chunk — write directly.
-            let size = data.len();
-            file.write_all(&data).await?;
-            progress.update(size);
-            next_idx += 1;
+            match client
+                .get(url.clone())
+                .header(header::RANGE, &range)
+                .send()
+                .await
+            {
+                Ok(response) => {
+                    let status = response.status();
 
-            // Flush any consecutive buffered chunks.
-            while let Some(buffered) = pending.remove(&next_idx) {
-                let size = buffered.len();
-                file.write_all(&buffered).await?;
+                    if status.is_success() || status == StatusCode::PARTIAL_CONTENT {
+                        return Ok(response.bytes().await?.to_vec());
+                    }
+
+                    if avl_tries == 0 {
+                        return Err(Error::RequestFailed {
+                            url: url.to_string(),
+                            status,
+                            body: response.text().await?,
+                        });
+                    }
+                }
+                Err(e) => {
+                    if avl_tries == 0 {
+                        return Err(Error::RequestFailed {
+                            url: url.to_string(),
+                            status: e.status().unwrap_or_default(),
+                            body: format!("GET range {}", range),
+                        });
+                    }
+                }
+            }
+
+            trace!("Retrying range {} ({})", range, avl_tries);
+            avl_tries -= 1;
+        }
+    }
+
+    async fn sequential_writer(
+        mut rx: mpsc::Receiver<(usize, Vec<u8>)>,
+        output: &Path,
+        bytes_written: u64,
+        total_chunks: usize,
+        progress: Progress,
+    ) -> Result<()> {
+        let mut file = if bytes_written > 0 {
+            OpenOptions::new().append(true).open(output).await?
+        } else {
+            File::create(output).await?
+        };
+
+        let mut next_idx = 0usize;
+        let mut pending: BTreeMap<usize, Vec<u8>> = BTreeMap::new();
+
+        while let Some((idx, data)) = rx.recv().await {
+            if idx == next_idx {
+                // This is the next expected chunk — write directly.
+                let size = data.len();
+                file.write_all(&data).await?;
                 progress.update(size);
                 next_idx += 1;
+
+                // Flush any consecutive buffered chunks.
+                while let Some(buffered) = pending.remove(&next_idx) {
+                    let size = buffered.len();
+                    file.write_all(&buffered).await?;
+                    progress.update(size);
+                    next_idx += 1;
+                }
+
+                file.flush().await?;
+            } else {
+                // Out of order — buffer it.
+                pending.insert(idx, data);
             }
-
-            file.flush().await?;
-        } else {
-            // Out of order — buffer it.
-            pending.insert(idx, data);
         }
-    }
 
-    if next_idx < total_chunks {
-        bail!(
-            "Download incomplete: received {}/{} chunks.",
-            next_idx,
-            total_chunks,
-        );
-    }
+        if next_idx < total_chunks {
+            bail!(
+                "Download incomplete: received {}/{} chunks.",
+                next_idx,
+                total_chunks,
+            );
+        }
 
-    file.flush().await?;
-    Ok(())
+        file.flush().await?;
+        Ok(())
+    }
 }
