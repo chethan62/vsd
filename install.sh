@@ -4,8 +4,8 @@ PACKAGES_DIR="$HOME/vsd-packages"
 
 ANDROID_NDK_VERSION="r27d" # https://developer.android.com/ndk/downloads
 MACOS_SDK_VERSION="26.1" # https://github.com/joseluisq/macosx-sdks/releases
-PROTOC_VERSION="33.5" # https://github.com/protocolbuffers/protobuf/releases
-ZIG_VERSION="0.15.2" # https://ziglang.org/download
+PROTOC_VERSION="35.0" # https://github.com/protocolbuffers/protobuf/releases
+ZIG_VERSION="0.16.0" # https://ziglang.org/download
 
 echo "Installing Build Dependencies"
 sudo apt update

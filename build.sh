@@ -5,9 +5,9 @@ RELEASE_DIR="/mnt/c/Users/apoor/Downloads"
 
 ANDROID_NDK_VERSION="r27d" # https://developer.android.com/ndk/downloads
 MACOS_SDK_VERSION="26.1" # https://github.com/joseluisq/macosx-sdks/releases
-PROTOC_VERSION="33.5" # https://github.com/protocolbuffers/protobuf/releases
+PROTOC_VERSION="35.0" # https://github.com/protocolbuffers/protobuf/releases
 VSD_VERSION="0.5.0" # vsd/Cargo.toml
-ZIG_VERSION="0.15.2" # https://ziglang.org/download
+ZIG_VERSION="0.16.0" # https://ziglang.org/download
 
 . "$HOME/.cargo/env"
 
