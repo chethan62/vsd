@@ -26,7 +26,7 @@ pub struct Muxer(Vec<Stream>);
 
 impl std::ops::Deref for Muxer {
     type Target = Vec<Stream>;
-
+    
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -40,6 +40,7 @@ impl std::ops::DerefMut for Muxer {
 
 impl Muxer {
     /// Creates a new empty [`Muxer`].
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self(Vec::new())
     }
