@@ -191,17 +191,20 @@ impl Save {
         }
         let client = client.build()?;
         let mut dl = PlaylistDownloader::new(&client)
-            .subs_codec(self.subs_codec)
-            .select_streams(&self.select_streams)
-            .keys(self.keys)
             .decrypt(!self.no_decrypt)
+            .keys(self.keys)
             .merge(!self.no_merge)
             .resume(!self.no_resume)
             .retries(self.retries)
+            .select_streams(&self.select_streams)
+            .subs_codec(self.subs_codec)
             .threads(self.threads);
 
         if let Some(base_url) = self.base_url {
             dl = dl.base_url(base_url);
+        }
+        if let Some(clip) = &self.clip {
+            dl = dl.clip(clip)?;
         }
         if let Some(directory) = self.directory {
             dl = dl.directory(directory)?;
@@ -216,9 +219,6 @@ impl Save {
             dl = dl.interactive(false);
         } else if self.interactive_raw {
             dl = dl.interactive(true);
-        }
-        if let Some(clip) = &self.clip {
-            dl = dl.clip(clip)?;
         }
 
         if self.list_streams {
