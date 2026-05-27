@@ -17,9 +17,27 @@ pub struct Stream {
     pub path: PathBuf,
 }
 
-pub struct Muxer(pub Vec<Stream>);
+pub struct Muxer(Vec<Stream>);
+
+impl std::ops::Deref for Muxer {
+    type Target = Vec<Stream>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for Muxer {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 impl Muxer {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
     pub fn should_mux(&self, config: &PlaylistDownloadConfig) -> bool {
         if config.skip_decrypt {
             warn!("--output is ignored when --no-decrypt is used.");

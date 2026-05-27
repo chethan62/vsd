@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
 
     // You can clone this token and call .cancel() to pause a download.
     let token = CancellationToken::new();
-    let mut muxer = Muxer(Vec::new());
+    let mut muxer = Muxer::new();
 
     // Download first subtitle stream.
     for stream in mp.streams {
@@ -77,7 +77,7 @@ async fn main() -> Result<()> {
             };
 
             println!("Downloaded {}", dl_info.path.to_string_lossy());
-            muxer.0.push(dl_info);
+            muxer.push(dl_info);
 
             break;
         }

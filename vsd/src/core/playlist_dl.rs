@@ -215,7 +215,7 @@ impl PlaylistDownloader {
             }
         });
 
-        let mut muxer = Muxer(Vec::new());
+        let mut muxer = Muxer::new();
         let total = streams.len();
 
         for (i, stream) in streams.iter().enumerate() {
@@ -234,13 +234,9 @@ impl PlaylistDownloader {
                 Progress::new(&format!("{}/{}", i + 1, total), stream.segments.len(), None);
 
             if stream.media_type == MediaType::Subtitles {
-                muxer
-                    .0
-                    .push(sub::download(&self.config, progress, &token, stream).await?);
+                muxer.push(sub::download(&self.config, progress, &token, stream).await?);
             } else {
-                muxer
-                    .0
-                    .push(vid::download(&self.config, progress, &token, stream).await?);
+                muxer.push(vid::download(&self.config, progress, &token, stream).await?);
             }
         }
 
