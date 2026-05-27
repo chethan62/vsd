@@ -122,10 +122,17 @@ impl FileDownloader {
             bytes_written,
         );
 
+        let all_chunks = compute_chunks(0, content_length, self.chunk_size);
         let chunks = compute_chunks(bytes_written, content_length, self.chunk_size);
         let total_chunks = chunks.len();
+        let skipped_chunks = all_chunks.len() - total_chunks;
 
-        let progress = Progress::new("dl", total_chunks, self.progress);
+        let progress = Progress::new("dl", all_chunks.len(), self.progress);
+
+        // Account for already-downloaded chunks in the progress display.
+        for (start, end) in &all_chunks[..skipped_chunks] {
+            progress.skip((end - start + 1) as usize);
+        }
         let progress_handle = progress.spawn();
 
         let (tx, rx) = mpsc::channel::<(usize, Vec<u8>)>(self.threads as usize * 2);
