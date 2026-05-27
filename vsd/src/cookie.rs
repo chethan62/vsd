@@ -24,7 +24,21 @@ pub struct Cookie<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Cookies<'a>(pub Vec<Cookie<'a>>);
+pub struct Cookies<'a>(Vec<Cookie<'a>>);
+
+impl<'a> std::ops::Deref for Cookies<'a> {
+    type Target = Vec<Cookie<'a>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> std::ops::DerefMut for Cookies<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 impl<'a> Cookies<'a> {
     pub fn parse(input: &'a [u8]) -> Result<Self, ParseError> {
