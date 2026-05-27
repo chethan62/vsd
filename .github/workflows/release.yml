@@ -1,0 +1,168 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g., 0.5.0) — must match vsd/Cargo.toml"
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  ANDROID_NDK_VERSION: "r27d"
+  CARGO_ZIGBUILD_VERSION: "0.22.3"
+  PROTOC_VERSION: "35.0"
+  TERMUX_OPENSSL_VERSION: "3.6.2"
+  ZIG_VERSION: "0.16.0"
+
+jobs:
+  build-linux:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-unknown-linux-musl
+          - x86_64-unknown-linux-musl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - name: Install cargo-zigbuild
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/rust-cross/cargo-zigbuild/releases/download/v${CARGO_ZIGBUILD_VERSION}/cargo-zigbuild-installer.sh | sh
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+      - name: Build
+        run: cargo zigbuild -p vsd --release --target ${{ matrix.target }}
+      - name: Package
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar -cJf ../../../vsd-${{ inputs.version }}-${{ matrix.target }}.tar.xz ./vsd
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsd-${{ inputs.version }}-${{ matrix.target }}
+          path: vsd-${{ inputs.version }}-${{ matrix.target }}.tar.xz
+          if-no-files-found: error
+
+  build-windows:
+    name: ${{ matrix.target }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-pc-windows-msvc
+          - x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+      - name: Build
+        run: cargo build -p vsd --release --target ${{ matrix.target }}
+      - name: Package
+        shell: bash
+        run: |
+          cd target/${{ matrix.target }}/release
+          7z a ../../../vsd-${{ inputs.version }}-${{ matrix.target }}.zip ./vsd.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsd-${{ inputs.version }}-${{ matrix.target }}
+          path: vsd-${{ inputs.version }}-${{ matrix.target }}.zip
+          if-no-files-found: error
+
+  build-macos:
+    name: aarch64-apple-darwin
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+      - name: Build
+        run: cargo build -p vsd --release --target aarch64-apple-darwin
+      - name: Package
+        run: |
+          cd target/aarch64-apple-darwin/release
+          tar -cJf ../../../vsd-${{ inputs.version }}-aarch64-apple-darwin.tar.xz ./vsd
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsd-${{ inputs.version }}-aarch64-apple-darwin
+          path: vsd-${{ inputs.version }}-aarch64-apple-darwin.tar.xz
+          if-no-files-found: error
+
+  build-android:
+    name: aarch64-linux-android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+      - name: Add Rust target
+        run: rustup target add aarch64-linux-android
+      - name: Setup Android NDK
+        run: |
+          curl -fsSL "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux.zip" -o ndk.zip
+          unzip -q ndk.zip -d "${{ runner.temp }}"
+          rm ndk.zip
+      - name: Setup Termux OpenSSL
+        run: |
+          curl -fsSL "https://packages.termux.dev/apt/termux-main/pool/main/o/openssl/openssl_1%3A${TERMUX_OPENSSL_VERSION}_aarch64.deb" -o openssl.deb
+          mkdir -p "${{ runner.temp }}/openssl-android"
+          dpkg-deb -x openssl.deb "${{ runner.temp }}/openssl-android"
+          rm openssl.deb
+      - name: Build
+        env:
+          NDK_TOOLCHAIN: ${{ runner.temp }}/android-ndk-${{ env.ANDROID_NDK_VERSION }}/toolchains/llvm/prebuilt/linux-x86_64/bin
+          OPENSSL_BASE: ${{ runner.temp }}/openssl-android/data/data/com.termux/files/usr
+        run: |
+          RUSTFLAGS="-C linker=aarch64-linux-android25-clang -C link-args=-Wl,-rpath=/data/data/com.termux/files/usr/lib" \
+            PATH="${NDK_TOOLCHAIN}:${PATH}" \
+            AR="llvm-ar" \
+            CC="aarch64-linux-android25-clang" \
+            CXX="aarch64-linux-android25-clang++" \
+            OPENSSL_INCLUDE_DIR="${OPENSSL_BASE}/include" \
+            OPENSSL_LIB_DIR="${OPENSSL_BASE}/lib" \
+            cargo build -p vsd --release --target aarch64-linux-android \
+              --no-default-features --features "license,native-tls"
+      - name: Package
+        run: |
+          cd target/aarch64-linux-android/release
+          tar -cJf ../../../vsd-${{ inputs.version }}-aarch64-linux-android.tar.xz ./vsd
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vsd-${{ inputs.version }}-aarch64-linux-android
+          path: vsd-${{ inputs.version }}-aarch64-linux-android.tar.xz
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: [build-linux, build-windows, build-macos, build-android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: List release archives
+        run: ls -lah artifacts/
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: v${{ inputs.version }}
+          draft: true
+          generate_release_notes: true
+          files: artifacts/*
