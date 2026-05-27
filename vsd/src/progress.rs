@@ -110,6 +110,10 @@ impl Progress {
         inner.session_counter += 1;
         inner.total_bytes += chunk_bytes;
         inner.session_bytes += chunk_bytes;
+
+        if inner.counter > inner.total {
+            inner.total = inner.counter;
+        }
     }
 
     pub fn update_total(&self, total: usize) {
@@ -121,6 +125,10 @@ impl Progress {
         let mut inner = self.inner.lock().unwrap();
         inner.counter += 1;
         inner.total_bytes += chunk_bytes;
+
+        if inner.counter > inner.total {
+            inner.total = inner.counter;
+        }
     }
 
     pub fn spawn(&self) -> JoinHandle<()> {
