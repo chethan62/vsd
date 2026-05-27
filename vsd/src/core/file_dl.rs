@@ -65,7 +65,7 @@ impl FileDownloader {
         let url = url.parse::<Url>()?;
         let output = output.as_ref();
 
-        debug!("Probing {} (HEAD)", url);
+        debug!("Fetching {} (file@head)", url);
         let response = self.client.head(url.clone()).send().await?;
         let status = response.status();
 
@@ -73,7 +73,7 @@ impl FileDownloader {
             return Err(Error::RequestFailed {
                 url: url.to_string(),
                 status,
-                body: "HEAD request.".to_owned(),
+                body: "HEAD".to_owned(),
             });
         }
 
@@ -84,18 +84,18 @@ impl FileDownloader {
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(0);
 
+        if content_length == 0 {
+            bail!("Server returned content-length 0 for {}.", url);
+        }
+
         let accepts_ranges = response
             .headers()
             .get(header::ACCEPT_RANGES)
             .and_then(|v| v.to_str().ok())
             .is_some_and(|v| v != "none");
 
-        if content_length == 0 {
-            bail!("Server returned content-length 0 for {}.", url);
-        }
-
         let bytes_written = if self.resume {
-            resume_offset(output).await
+            fs::metadata(output).await.map(|x| x.len()).unwrap_or(0)
         } else {
             if output.exists() {
                 fs::remove_file(output).await?;
@@ -104,15 +104,46 @@ impl FileDownloader {
         };
 
         if bytes_written >= content_length {
-            info!("File already fully downloaded: {}", output.display());
+            debug!("{} is already downloaded.", output.to_string_lossy());
             return Ok(());
         }
 
         if !accepts_ranges {
-            debug!("Server does not support range requests, falling back to single stream.");
-            return self
-                .download_streaming(&url, output, content_length, bytes_written)
-                .await;
+            debug!("Server does not support range requests, falling back to streaming download.");
+            let progress = Progress::new("dl", 1, self.progress.clone());
+            let progress_handle = progress.spawn();
+            let mut request = self.client.get(url.clone());
+
+            if bytes_written > 0 {
+                request = request.header(header::RANGE, format!("bytes={}-", bytes_written));
+            }
+
+            let mut response = request.send().await?;
+
+            if !response.status().is_success() {
+                return Err(Error::RequestFailed {
+                    url: url.to_string(),
+                    status: response.status(),
+                    body: response.text().await?,
+                });
+            }
+
+            let mut file = if bytes_written > 0 {
+                OpenOptions::new().append(true).open(output).await?
+            } else {
+                File::create(output).await?
+            };
+
+            while let Some(bytes) = response.chunk().await? {
+                file.write_all(&bytes).await?;
+            }
+
+            file.flush().await?;
+            progress.update(content_length as usize);
+            progress_handle.abort();
+            progress.finish();
+
+            return Ok(());
         }
 
         info!(
@@ -188,60 +219,6 @@ impl FileDownloader {
         progress.finish();
 
         Ok(())
-    }
-
-    async fn download_streaming(
-        &self,
-        url: &Url,
-        output: &Path,
-        content_length: u64,
-        bytes_written: u64,
-    ) -> Result<()> {
-        let progress = Progress::new("dl", 1, self.progress.clone());
-        let progress_handle = progress.spawn();
-
-        let mut request = self.client.get(url.clone());
-
-        // If resuming, request from the offset even in streaming mode.
-        if bytes_written > 0 {
-            request = request.header(header::RANGE, format!("bytes={}-", bytes_written));
-        }
-
-        let mut response = request.send().await?;
-
-        if !response.status().is_success() {
-            return Err(Error::RequestFailed {
-                url: url.to_string(),
-                status: response.status(),
-                body: response.text().await?,
-            });
-        }
-
-        let mut file = if bytes_written > 0 {
-            OpenOptions::new().append(true).open(output).await?
-        } else {
-            File::create(output).await?
-        };
-
-        while let Some(bytes) = response.chunk().await? {
-            file.write_all(&bytes).await?;
-        }
-
-        file.flush().await?;
-        progress.update(content_length as usize);
-
-        progress_handle.abort();
-        progress.finish();
-
-        Ok(())
-    }
-}
-
-/// Check how many bytes have already been written for resume.
-async fn resume_offset(path: &Path) -> u64 {
-    match fs::metadata(path).await {
-        Ok(meta) => meta.len(),
-        Err(_) => 0,
     }
 }
 
