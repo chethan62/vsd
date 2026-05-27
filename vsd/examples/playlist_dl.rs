@@ -4,7 +4,7 @@
 // [dependencies]
 // vsd = { version = "0.5", default-features = false, features = ["rustls-tls"]}
 
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 use vsd::{
     Error, Muxer, PlaylistDownloader, Result,
     playlist::MediaType,
@@ -18,22 +18,34 @@ struct Progress;
 
 impl ProgressCallback for Progress {
     fn on_progress(&self, state: &ProgressState) {
-        println!(
-            "{}% | {}/~{} | {}/{} | {}",
+        let stderr = std::io::stderr();
+        let mut handle = stderr.lock();
+        write!(
+            handle,
+            "\r\x1B[2K{}% | {}/~{} | {}/{} | {}",
             state.percent,
             ByteSize(state.downloaded_bytes),
             ByteSize(state.estimated_bytes),
             state.downloaded_parts,
             state.total_parts,
             Eta(state.eta_seconds)
-        );
+        )
+        .unwrap();
+        handle.flush().unwrap();
+    }
+
+    fn on_finish(&self, state: &ProgressState) {
+        self.on_progress(state);
+        eprintln!();
     }
 }
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
     let client = Client::new();
-    let dl = PlaylistDownloader::new(&client).resume(true);
+
+    // We use ./target as temporary directory for downloaded files.
+    let dl = PlaylistDownloader::new(&client).directory("target");
     let config = dl.get_config();
 
     let mp = dl
@@ -55,15 +67,16 @@ async fn main() -> Result<()> {
                 stream.language.as_deref().unwrap_or("unknown")
             );
 
-            // If stream is already downloaded then no progress updates will be triggered.
+            // We download to a temporary file, mux it in, and then clean up.
+            // You could also just move the file after download and avoid muxing if you want.
             let dl_info = match stream.download(config, Arc::new(Progress), &token).await {
                 Ok(info) => info,
-                Err(Error::UnsupportedEncryption(e)) => {
-                    println!("Unsupported encryption {}", e);
-                    continue;
-                }
                 Err(Error::MissingSegments) => {
                     println!("Stream has no segments");
+                    continue;
+                }
+                Err(Error::UnsupportedEncryption(e)) => {
+                    println!("Unsupported encryption {}", e);
                     continue;
                 }
                 Err(Error::MissingKey(key_id)) => {
@@ -84,9 +97,9 @@ async fn main() -> Result<()> {
         }
     }
 
-    println!("Muxing to output.srt");
+    println!("Muxing to target/output.srt");
     muxer
-        .mux(&vsd::find_ffmpeg().unwrap(), "output.srt", "srt")
+        .mux(&vsd::find_ffmpeg().unwrap(), "target/output.srt", "srt")
         .await?;
     muxer.clean(config.directory.as_deref()).await?;
 
