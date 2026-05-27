@@ -12,7 +12,7 @@ env:
 
 jobs:
   build:
-    name: ${{ matrix.os }}
+    name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -49,7 +49,7 @@ jobs:
       - name: Set SHORT_SHA
         shell: bash
         run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
-      - name: Upload build artifact
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: vsd-${{ env.SHORT_SHA }}-${{ matrix.target }}
