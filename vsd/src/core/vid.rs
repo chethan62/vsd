@@ -42,7 +42,7 @@ pub async fn download(
         path: temp_file.clone(),
     };
 
-    if temp_file.exists() && !config.skip_resume {
+    if temp_file.exists() && config.resume {
         info!(
             "Saving [{}] {} (downloaded)",
             stream.media_type.to_string().green(),
@@ -59,7 +59,7 @@ pub async fn download(
 
     let base_url = stream.uri.parse::<Url>()?;
     let ext = stream.extension();
-    let max_threads = config.max_threads as usize;
+    let max_threads = config.threads as usize;
     let progress_handle = progress.spawn();
     let temp_dir = temp_file.with_extension("");
     let mut auto_increment_iv = false;
@@ -74,7 +74,7 @@ pub async fn download(
         stream.default_kid()
     };
 
-    if config.skip_resume && temp_dir.exists() {
+    if !config.resume && temp_dir.exists() {
         fs::remove_dir_all(&temp_dir).await?;
     }
     fs::create_dir_all(&temp_dir).await?;
@@ -109,7 +109,7 @@ pub async fn download(
             }
         }
 
-        if !config.skip_decrypt {
+        if config.decrypt {
             if decrypter.is_hls()
                 && segment.key.is_none()
                 && auto_increment_iv
@@ -195,7 +195,7 @@ pub async fn download(
 
         let client = config.client.clone();
         let decrypter = decrypter.clone();
-        let max_retries = config.max_retries;
+        let max_retries = config.retries;
         let range = segment.range.clone();
         let url = base_url.join(&segment.uri)?;
         let query = config.query.clone();
@@ -287,9 +287,7 @@ pub async fn download(
         return Err(Error::DownloadInterrupted);
     }
 
-    if config.skip_merge {
-        debug!("Stream merging skipped.");
-    } else {
+    if config.merge {
         info!(
             "Concat [{}] {}",
             stream.media_type.to_string().green(),
@@ -313,6 +311,8 @@ pub async fn download(
 
         debug!("Deleting {} directory.", temp_dir.to_string_lossy());
         fs::remove_dir_all(&temp_dir).await?;
+    } else {
+        debug!("Stream merging skipped.");
     }
 
     Ok(temp_stream)

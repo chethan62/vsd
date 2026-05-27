@@ -194,11 +194,11 @@ impl Save {
             .subs_codec(self.subs_codec)
             .select_streams(&self.select_streams)
             .keys(self.keys)
-            .skip_decrypt(self.no_decrypt)
-            .skip_merge(self.no_merge)
-            .skip_resume(self.no_resume)
-            .max_retries(self.retries)
-            .max_threads(self.threads);
+            .decrypt(!self.no_decrypt)
+            .merge(!self.no_merge)
+            .resume(!self.no_resume)
+            .retries(self.retries)
+            .threads(self.threads);
 
         if let Some(base_url) = self.base_url {
             dl = dl.base_url(base_url);

@@ -95,7 +95,7 @@ pub async fn download(
         path: temp_file.clone(),
     };
 
-    if temp_file.exists() && !config.skip_resume {
+    if temp_file.exists() && !config.resume {
         info!(
             "Saving [{}] {} (downloaded)",
             stream.media_type.to_string().green(),
@@ -116,7 +116,7 @@ pub async fn download(
 
     if !remaining.is_empty() {
         let progress_handle = progress.spawn();
-        let max_threads = config.max_threads as usize;
+        let max_threads = config.threads as usize;
         let mut set: JoinSet<Result<(usize, Vec<u8>)>> = JoinSet::new();
         let mut results = vec![None; remaining.len()];
 

@@ -39,11 +39,11 @@ impl Muxer {
     }
 
     pub fn should_mux(&self, config: &PlaylistDownloadConfig) -> bool {
-        if config.skip_decrypt {
+        if config.decrypt {
             warn!("--output is ignored when --no-decrypt is used.");
             return false;
         }
-        if config.skip_merge {
+        if config.merge {
             warn!("--output is ignored when --no-merge is used.");
             return false;
         }

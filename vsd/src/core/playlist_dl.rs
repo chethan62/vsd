@@ -21,51 +21,61 @@ use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
 #[derive(Clone, Debug)]
 pub struct PlaylistDownloadConfig {
     pub client: Client,
+    pub decrypt: bool,
     pub directory: Option<PathBuf>,
     pub keys: HashMap<String, String>,
-    pub max_retries: u8,
-    pub max_threads: u8,
+    pub merge: bool,
     pub query: Arc<Vec<(String, String)>>,
-    pub skip_decrypt: bool,
-    pub skip_merge: bool,
-    pub skip_resume: bool,
+    pub resume: bool,
+    pub retries: u8,
+    pub threads: u8,
 }
 
 pub struct PlaylistDownloader {
-    config: PlaylistDownloadConfig,
     base_url: Option<Url>,
+    clip: Option<ClipRange>,
+    config: PlaylistDownloadConfig,
     output: Option<PathBuf>,
-    subs_codec: String,
     select_options: SelectFilters,
     select_type: SelectType,
-    clip: Option<ClipRange>,
+    subs_codec: String,
 }
 
 impl PlaylistDownloader {
     pub fn new(client: &Client) -> Self {
         Self {
-            config: PlaylistDownloadConfig {
-                client: client.clone(),
-                directory: None,
-                keys: HashMap::new(),
-                max_retries: 10,
-                max_threads: 5,
-                query: Arc::new(Vec::new()),
-                skip_decrypt: false,
-                skip_merge: false,
-                skip_resume: false,
-            },
             base_url: None,
+            clip: None,
             output: None,
-            subs_codec: "copy".to_owned(),
             select_options: SelectFilters::new("v=best:s=en"),
             select_type: SelectType::None,
-            clip: None,
+            subs_codec: "copy".to_owned(),
+            config: PlaylistDownloadConfig {
+                client: client.clone(),
+                decrypt: true,
+                directory: None,
+                keys: HashMap::new(),
+                merge: true,
+                query: Arc::new(Vec::new()),
+                resume: true,
+                retries: 10,
+                threads: 5,
+            },
         }
     }
 
     pub fn base_url(mut self, base_url: impl Into<Url>) -> Self {
         self.base_url = Some(base_url.into());
+        self
+    }
+
+    pub fn clip(mut self, clip: &str) -> Result<Self> {
+        self.clip = Some(ClipRange::new(clip)?);
+        Ok(self)
+    }
+
+    pub fn decrypt(mut self, decrypt: bool) -> Self {
+        self.config.decrypt = decrypt;
         self
     }
 
@@ -80,16 +90,6 @@ impl PlaylistDownloader {
         Ok(self)
     }
 
-    pub fn output(mut self, output: impl Into<PathBuf>) -> Self {
-        self.output = Some(output.into());
-        self
-    }
-
-    pub fn subs_codec(mut self, subs_codec: impl Into<String>) -> Self {
-        self.subs_codec = subs_codec.into();
-        self
-    }
-
     pub fn interactive(mut self, raw: bool) -> Self {
         if raw {
             self.select_type = SelectType::Raw;
@@ -99,8 +99,18 @@ impl PlaylistDownloader {
         self
     }
 
-    pub fn select_streams(mut self, select_streams: &str) -> Self {
-        self.select_options = SelectFilters::new(select_streams);
+    pub fn keys(mut self, keys: HashMap<String, String>) -> Self {
+        self.config.keys = keys;
+        self
+    }
+
+    pub fn merge(mut self, merge: bool) -> Self {
+        self.config.merge = merge;
+        self
+    }
+
+    pub fn output(mut self, output: impl Into<PathBuf>) -> Self {
+        self.output = Some(output.into());
         self
     }
 
@@ -124,38 +134,28 @@ impl PlaylistDownloader {
         self
     }
 
-    pub fn keys(mut self, keys: HashMap<String, String>) -> Self {
-        self.config.keys = keys;
+    pub fn resume(mut self, resume: bool) -> Self {
+        self.config.resume = resume;
         self
     }
 
-    pub fn clip(mut self, clip: &str) -> Result<Self> {
-        self.clip = Some(ClipRange::new(clip)?);
-        Ok(self)
-    }
-
-    pub fn skip_decrypt(mut self, skip_decrypt: bool) -> Self {
-        self.config.skip_decrypt = skip_decrypt;
+    pub fn retries(mut self, retries: u8) -> Self {
+        self.config.retries = retries;
         self
     }
 
-    pub fn skip_merge(mut self, skip_merge: bool) -> Self {
-        self.config.skip_merge = skip_merge;
+    pub fn select_streams(mut self, select_streams: &str) -> Self {
+        self.select_options = SelectFilters::new(select_streams);
         self
     }
 
-    pub fn skip_resume(mut self, skip_resume: bool) -> Self {
-        self.config.skip_resume = skip_resume;
+    pub fn subs_codec(mut self, subs_codec: impl Into<String>) -> Self {
+        self.subs_codec = subs_codec.into();
         self
     }
 
-    pub fn max_retries(mut self, max_retries: u8) -> Self {
-        self.config.max_retries = max_retries;
-        self
-    }
-
-    pub fn max_threads(mut self, max_threads: u8) -> Self {
-        self.config.max_threads = max_threads;
+    pub fn threads(mut self, threads: u8) -> Self {
+        self.config.threads = threads;
         self
     }
 
@@ -200,7 +200,7 @@ impl PlaylistDownloader {
         let mp = self.parse(uri, true).await?;
         let streams = mp.streams;
 
-        if !self.config.skip_decrypt {
+        if !self.config.decrypt {
             dump_pssh_info(&self.config, &streams).await?;
         }
 
