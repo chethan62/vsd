@@ -8,10 +8,11 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  PROTOC_VERSION: "35.0"
 
 jobs:
   build:
-    name: Build ${{ matrix.os }}
+    name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -20,25 +21,21 @@ jobs:
           - os: ubuntu-latest
             bin: vsd
             target: x86_64-unknown-linux-gnu
+            protoc_platform: linux-x86_64
           - os: windows-latest
             bin: vsd.exe
             target: x86_64-pc-windows-msvc
+            protoc_platform: win64
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - name: Set SHORT_SHA
-        shell: bash
-        run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-
-
       - name: Install protoc
-        uses: arduino/setup-protoc@v3
-        with:
-          version: "35.0"
-
+        shell: bash
+        run: |
+          curl -fsSL "https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-${{ matrix.protoc_platform }}.zip" -o protoc.zip
+          unzip -q protoc.zip -d "${{ runner.temp }}/protoc"
+          echo "${{ runner.temp }}/protoc/bin" >> $GITHUB_PATH
+          rm protoc.zip
       - name: Cache cargo
         uses: actions/cache@v4
         with:
@@ -47,10 +44,11 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build vsd
+      - name: Build
         run: cargo build -p vsd --release --no-default-features --features "capture,license,native-tls"
-
+      - name: Set SHORT_SHA
+        shell: bash
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
