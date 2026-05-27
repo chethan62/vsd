@@ -28,7 +28,7 @@ jobs:
             protoc_platform: win64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Protoc
         shell: bash
         run: |
@@ -37,7 +37,7 @@ jobs:
           echo "${{ runner.temp }}/protoc/bin" >> $GITHUB_PATH
           rm protoc.zip
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vsd-${{ env.SHORT_SHA }}-${{ matrix.target }}
           path: target/release/${{ matrix.bin }}

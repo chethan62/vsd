@@ -27,7 +27,7 @@ jobs:
           - aarch64-unknown-linux-musl
           - x86_64-unknown-linux-musl
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Protoc
         run: |
           curl -fsSL "https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-linux-x86_64.zip" -o protoc.zip
@@ -50,7 +50,7 @@ jobs:
         run: |
           cd target/${{ matrix.target }}/release
           tar -cJf ../../../vsd-${{ inputs.version }}-${{ matrix.target }}.tar.xz ./vsd
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vsd-${{ inputs.version }}-${{ matrix.target }}
           path: vsd-${{ inputs.version }}-${{ matrix.target }}.tar.xz
@@ -66,7 +66,7 @@ jobs:
           - aarch64-pc-windows-msvc
           - x86_64-pc-windows-msvc
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Protoc
         run: |
           curl.exe -fsSL "https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-win64.zip" -o protoc.zip
@@ -82,7 +82,7 @@ jobs:
         run: |
           cd target/${{ matrix.target }}/release
           7z a ../../../vsd-${{ inputs.version }}-${{ matrix.target }}.zip ./vsd.exe
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vsd-${{ inputs.version }}-${{ matrix.target }}
           path: vsd-${{ inputs.version }}-${{ matrix.target }}.zip
@@ -92,7 +92,7 @@ jobs:
     name: aarch64-apple-darwin
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Protoc
         run: |
           curl -fsSL "https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-osx-x86_64.zip" -o protoc.zip
@@ -107,7 +107,7 @@ jobs:
         run: |
           cd target/aarch64-apple-darwin/release
           tar -cJf ../../../vsd-${{ inputs.version }}-aarch64-apple-darwin.tar.xz ./vsd
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vsd-${{ inputs.version }}-aarch64-apple-darwin
           path: vsd-${{ inputs.version }}-aarch64-apple-darwin.tar.xz
@@ -117,7 +117,7 @@ jobs:
     name: aarch64-linux-android
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Protoc
         run: |
           curl -fsSL "https://github.com/protocolbuffers/protobuf/releases/download/v${{ env.PROTOC_VERSION }}/protoc-${{ env.PROTOC_VERSION }}-linux-x86_64.zip" -o protoc.zip
@@ -155,7 +155,7 @@ jobs:
           cd target/aarch64-linux-android/release
           tar -cJf ../../../vsd-${{ inputs.version }}-aarch64-linux-android.tar.xz ./vsd
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: vsd-${{ inputs.version }}-aarch64-linux-android
           path: vsd-${{ inputs.version }}-aarch64-linux-android.tar.xz
