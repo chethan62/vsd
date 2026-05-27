@@ -318,7 +318,7 @@ pub async fn download(
         debug!("Deleting {} directory.", temp_dir.to_string_lossy());
         fs::remove_dir_all(&temp_dir).await?;
     } else {
-        debug!("Stream merging skipped.");
+        debug!("Merging skipped for this stream.");
     }
 
     Ok(temp_stream)

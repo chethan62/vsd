@@ -12,7 +12,22 @@ use tokio_util::sync::CancellationToken;
 use url::Url;
 
 impl MediaPlaylist {
-    pub(crate) fn extension(&self) -> &str {
+    pub(crate) fn path(&self, directory: Option<&PathBuf>) -> PathBuf {
+        let filename = format!("vsd-{}-{}.{}", self.media_type, self.id, self.extension());
+        directory
+            .map(|d| d.join(&filename))
+            .unwrap_or_else(|| PathBuf::from(filename))
+    }
+
+    pub fn default_kid(&self) -> Option<String> {
+        self.segments
+            .first()
+            .and_then(|s| s.key.as_ref())
+            .and_then(|k| k.default_kid.as_ref())
+            .map(|kid| kid.to_ascii_lowercase().replace('-', ""))
+    }
+
+    pub fn extension(&self) -> &str {
         if let Some(ext) = &self.extension {
             return ext;
         }
@@ -32,21 +47,6 @@ impl MediaPlaylist {
             PlaylistType::Hls => "ts",
             PlaylistType::Dash => "mp4",
         }
-    }
-
-    pub(crate) fn path(&self, directory: Option<&PathBuf>) -> PathBuf {
-        let filename = format!("vsd-{}-{}.{}", self.media_type, self.id, self.extension());
-        directory
-            .map(|d| d.join(&filename))
-            .unwrap_or_else(|| PathBuf::from(filename))
-    }
-
-    pub fn default_kid(&self) -> Option<String> {
-        self.segments
-            .first()
-            .and_then(|s| s.key.as_ref())
-            .and_then(|k| k.default_kid.as_ref())
-            .map(|kid| kid.to_ascii_lowercase().replace('-', ""))
     }
 
     pub async fn download(

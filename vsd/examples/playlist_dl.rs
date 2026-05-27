@@ -1,4 +1,5 @@
 // This example shows using vsd as library in other rust project.
+// Also see https://github.com/clitic/vsd/blob/main/vsd/src/core/playlist_dl.rs
 //
 // [dependencies]
 // vsd = { version = "0.5", default-features = false, features = ["rustls-tls"]}

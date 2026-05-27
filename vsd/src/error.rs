@@ -4,23 +4,23 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
+    CookieParse(String),
+    DashParse(String),
     DownloadInterrupted,
-    MissingSegments,
-    MissingKey(String),
-    UnsupportedEncryption(String),
     FfmpegFailed {
         code: i32,
         message: String,
     },
+    MissingKey(String),
+    MissingSegments,
+    Mp4Parse(vsd_mp4::Error),
+    Other(String),
     RequestFailed {
         url: String,
         status: StatusCode,
         body: String,
     },
-    CookieParse(String),
-    DashParse(String),
-    Mp4Parse(vsd_mp4::Error),
-    Other(String),
+    UnsupportedEncryption(String),
 }
 
 impl std::error::Error for Error {}
@@ -106,7 +106,6 @@ impl_from_other!(chromiumoxide::error::CdpError);
 #[cfg(feature = "license")]
 impl_from_other!(playready::Error, widevine::Error);
 
-/// Early-return with [`Error::Other`]. Accepts the same arguments as [`format!`].
 #[macro_export]
 macro_rules! bail {
     ($msg:literal $(,)?) => {
