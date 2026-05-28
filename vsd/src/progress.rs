@@ -24,8 +24,8 @@ pub struct ProgressState {
     pub speed_bps: f64,
     /// The estimated time of arrival (ETA) in seconds.
     pub eta_seconds: usize,
-    /// The progress percentage completed (0 to 100).
-    pub percent: u8,
+    /// The progress percentage completed (0.0 to 100.0).
+    pub percent: f32,
 }
 
 struct ProgressInner {
@@ -47,9 +47,9 @@ impl ProgressInner {
         };
 
         let percent = if self.total > 0 {
-            (self.counter as f64 / self.total as f64 * 100.0) as u8
+            (self.counter as f64 / self.total as f64 * 100.0) as f32
         } else {
-            100
+            100.0
         };
 
         let elapsed_secs = self.timer.elapsed().as_secs_f64();
@@ -200,7 +200,7 @@ impl Progress {
             state.label,
             ByteSize(state.downloaded_bytes),
             ByteSize(state.estimated_bytes),
-            format!("({}%)", state.percent).cyan(),
+            format!("({:.0}%)", state.percent).cyan(),
             format!("{}/{}", state.downloaded_parts, state.total_parts).cyan(),
             ByteSize(state.speed_bps as usize).to_string().green(),
             Eta(state.eta_seconds).to_string().yellow(),

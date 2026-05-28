@@ -22,7 +22,7 @@ impl ProgressCallback for Progress {
         let mut handle = stderr.lock();
         write!(
             handle,
-            "\r\x1B[2K[{}/~{}({}%) PT:{}/{} DL:{} ETA:{}]",
+            "\r\x1B[2K[{}/~{}({:.0}%) PT:{}/{} DL:{} ETA:{}]",
             ByteSize(state.downloaded_bytes),
             ByteSize(state.estimated_bytes),
             state.percent,
