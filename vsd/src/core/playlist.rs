@@ -256,12 +256,12 @@ impl PlaylistDownloader {
 
         let ctrlc_handle = tokio::spawn(async move {
             if tokio::signal::ctrl_c().await.is_ok() && !ctrlc_token.is_cancelled() {
-                warn!("Aborting download due to Ctrl+C.");
+                warn!("Aborting download due to ctrl+c.");
                 ctrlc_token.cancel();
             }
 
             if tokio::signal::ctrl_c().await.is_ok() {
-                warn!("Force exiting due to Ctrl+C.");
+                warn!("Force exiting due to ctrl+c.");
                 std::process::exit(1);
             }
         });
