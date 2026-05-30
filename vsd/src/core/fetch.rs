@@ -1,14 +1,13 @@
 use crate::{
     PlaylistDownloadConfig, dash,
     error::{Error, Result},
+    format::{FormatExpr, SelectType},
     hls,
     playlist::{MasterPlaylist, MediaPlaylist, PlaylistType},
-    select::{SelectFilters, SelectType},
     utils,
 };
 use base64::Engine;
-use colored::Colorize;
-use log::{debug, info};
+use log::debug;
 use reqwest::{Url, header};
 use std::path::Path;
 use tokio::fs;
@@ -95,8 +94,8 @@ impl FetchedPlaylist {
     pub async fn parse(
         &self,
         config: &PlaylistDownloadConfig,
-        select_filters: SelectFilters,
-        select_type: SelectType,
+        format_expr: &FormatExpr,
+        select_type: &SelectType,
         partial_parse: bool,
     ) -> Result<MasterPlaylist> {
         match self.playlist_type()? {
@@ -108,7 +107,7 @@ impl FetchedPlaylist {
                 let mut pl = dash::parse_as_master(&self.url, &mpd).sort_streams();
 
                 if partial_parse {
-                    pl = pl.select_streams(&select_filters, select_type)?;
+                    pl = pl.select_streams(format_expr, select_type)?;
                 }
 
                 for stream in &mut pl.streams {
@@ -125,7 +124,7 @@ impl FetchedPlaylist {
                         let mut pl = hls::parse_as_master(&self.url, &m3u8).sort_streams();
 
                         if partial_parse {
-                            pl = pl.select_streams(&select_filters, select_type)?;
+                            pl = pl.select_streams(format_expr, select_type)?;
                         }
 
                         for stream in &mut pl.streams {
@@ -174,43 +173,5 @@ impl FetchedPlaylist {
                 }
             }
         }
-    }
-
-    pub fn parse_and_list(&self) -> Result<()> {
-        let list = |mp: MasterPlaylist| {
-            for (i, stream) in mp.streams.iter().enumerate() {
-                info!(
-                    "{:>2}) [{}]{}",
-                    i + 1,
-                    stream.media_type.to_string().yellow(),
-                    stream
-                );
-            }
-        };
-
-        match self.playlist_type()? {
-            PlaylistType::Dash => {
-                let xml = String::from_utf8_lossy(&self.data);
-                let Ok(mpd) = dash_mpd::parse(&xml) else {
-                    bail!("Unable to parse dash playlist.");
-                };
-                let mp = dash::parse_as_master(&self.url, &mpd).sort_streams();
-                list(mp);
-            }
-            PlaylistType::Hls => {
-                match m3u8_rs::parse_playlist_res(&self.data)
-                    .map_err(|_| Error::Other("Unable to parse hls playlist.".into()))?
-                {
-                    m3u8_rs::Playlist::MasterPlaylist(m3u8) => {
-                        let mp = hls::parse_as_master(&self.url, &m3u8).sort_streams();
-                        list(mp)
-                    }
-                    m3u8_rs::Playlist::MediaPlaylist(_) => {
-                        info!(" 1) [{}] {}", "und".yellow(), self.url);
-                    }
-                }
-            }
-        }
-        Ok(())
     }
 }

@@ -1,9 +1,9 @@
 use crate::{
     core::{fetch, mux::Muxer, sub, vid},
     error::Result,
+    format::{FormatExpr, SelectType},
     playlist::{ClipRange, MasterPlaylist, MediaPlaylist, MediaType},
     progress::Progress,
-    select::{SelectFilters, SelectType},
     utils,
 };
 use colored::Colorize;
@@ -48,8 +48,8 @@ pub struct PlaylistDownloader {
     base_url: Option<Url>,
     clip: Option<ClipRange>,
     config: PlaylistDownloadConfig,
+    format_expr: FormatExpr,
     output: Option<PathBuf>,
-    select_filters: SelectFilters,
     select_type: SelectType,
     subs_codec: String,
 }
@@ -60,8 +60,8 @@ impl PlaylistDownloader {
         Self {
             base_url: None,
             clip: None,
+            format_expr: FormatExpr::parse("bv+ba+s").unwrap(),
             output: None,
-            select_filters: SelectFilters::new("v=best:s=en"),
             select_type: SelectType::None,
             subs_codec: "copy".to_owned(),
             config: PlaylistDownloadConfig {
@@ -103,6 +103,14 @@ impl PlaylistDownloader {
     pub fn directory(mut self, directory: impl Into<PathBuf>) -> Self {
         self.config.directory = Some(directory.into());
         self
+    }
+    /// Sets the format expression for stream selection (default: `"bv+ba+s"`).
+    ///
+    /// # Errors
+    /// Returns an error if the format expression is invalid.
+    pub fn format(mut self, format: &str) -> Result<Self> {
+        self.format_expr = FormatExpr::parse(format)?;
+        Ok(self)
     }
 
     /// Configures the stream selection interface.
@@ -169,12 +177,6 @@ impl PlaylistDownloader {
         self
     }
 
-    /// Sets stream selection filters (default: `"v=best:s=en"`).
-    pub fn select_streams(mut self, select_streams: &str) -> Self {
-        self.select_filters = SelectFilters::new(select_streams);
-        self
-    }
-
     /// Sets subtitle codec for muxing (default: `"copy"`).
     pub(crate) fn subs_codec(mut self, subs_codec: impl Into<String>) -> Self {
         self.subs_codec = subs_codec.into();
@@ -202,21 +204,11 @@ impl PlaylistDownloader {
     pub async fn parse(&self, uri: &str, partial_parse: bool) -> Result<MasterPlaylist> {
         let fp = fetch::playlist(&self.config, &self.base_url, uri).await?;
         let mut mp = if partial_parse {
-            fp.parse(
-                &self.config,
-                self.select_filters.clone(),
-                self.select_type.clone(),
-                true,
-            )
-            .await?
+            fp.parse(&self.config, &self.format_expr, &self.select_type, true)
+                .await?
         } else {
-            fp.parse(
-                &self.config,
-                self.select_filters.clone(),
-                SelectType::None,
-                false,
-            )
-            .await?
+            fp.parse(&self.config, &self.format_expr, &SelectType::None, false)
+                .await?
         };
 
         if let Some(clip) = &self.clip {
@@ -224,16 +216,6 @@ impl PlaylistDownloader {
         }
 
         Ok(mp)
-    }
-
-    /// Fetches, parses, and lists the available streams in the playlist manifest.
-    ///
-    /// # Errors
-    /// Returns an error if fetching or parsing the playlist fails.
-    pub(crate) async fn parse_and_list(self, uri: &str) -> Result<()> {
-        let fp = fetch::playlist(&self.config, &self.base_url, uri).await?;
-        fp.parse_and_list()?;
-        Ok(())
     }
 
     /// Parses the playlist manifest, downloads all selected stream segments, decrypts them,

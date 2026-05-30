@@ -1,5 +1,7 @@
 use crate::{PlaylistDownloader, cookie::Cookies, error::Result};
 use clap::Args;
+use colored::Colorize;
+use log::info;
 use reqwest::{
     Client, Proxy, Url,
     header::{HeaderMap, HeaderName, HeaderValue},
@@ -31,54 +33,6 @@ pub struct Save {
     /// Force a specific subtitle codec for muxing.
     #[arg(long, value_name = "CODEC", default_value = "copy")]
     pub subs_codec: String,
-
-    /// Enable interactive stream selection menu with styled prompts.
-    #[arg(
-        short,
-        long,
-        help_heading = "Automation Options",
-        conflicts_with = "interactive_raw"
-    )]
-    pub interactive: bool,
-
-    /// Enable interactive stream selection menu with plain text prompts.
-    #[arg(short = 'I', long, help_heading = "Automation Options")]
-    pub interactive_raw: bool,
-
-    /// List available streams without downloading them.
-    #[arg(short, long, help_heading = "Automation Options")]
-    pub list_streams: bool,
-
-    /// List available streams metadata as json.
-    #[arg(
-        long,
-        conflicts_with = "list_streams",
-        help_heading = "Automation Options"
-    )]
-    pub list_streams_json: bool,
-
-    /// Select streams using filters.
-    #[arg(
-        short,
-        long,
-        value_name = "STREAMS",
-        help_heading = "Automation Options",
-        default_value = "v=best:s=en",
-        long_help = "Select streams using filters.\n\n\
-        SYNTAX:\n\n\
-        v={}:a={}:s={} where {} (in priority order) can contain:\n\n\
-        |> all: select all streams.\n\
-        |> skip: skip all streams or select inverter.\n\
-        |> 1,2: indices obtained by --list-streams flag.\n\
-        |> 1080p,1280x720: stream resolution.\n\
-        |> en,fr: stream language.\n\n\
-        EXAMPLES:\n\n\
-        |> 1,2,3 (indices 1, 2, and 3)\n\
-        |> v=skip:a=skip:s=all (all sub streams)\n\
-        |> a:en:s=en (prefer en lang)\n\
-        |> v=1080p:a=all:s=skip (1080p with all aud streams)\n"
-    )]
-    pub select_streams: String,
 
     /// Cookies file path for requests (netscape cookie file).
     #[arg(long, value_name = "PATH", help_heading = "Client Options")]
@@ -135,6 +89,63 @@ pub struct Save {
     /// Maximum number of concurrent download threads (1–16).
     #[arg(short, long, help_heading = "Download Options", default_value_t = 5, value_parser = clap::value_parser!(u8).range(1..=16))]
     pub threads: u8,
+
+    /// List available streams in a table format.
+    #[arg(
+        short = 'F',
+        long,
+        help_heading = "Format Selection Options",
+        conflicts_with = "list_formats_json"
+    )]
+    pub list_formats: bool,
+
+    /// List available streams metadata as json.
+    #[arg(long, help_heading = "Format Selection Options")]
+    pub list_formats_json: bool,
+
+    /// Format expression for selecting streams.
+    #[arg(
+        short = 'f',
+        long,
+        value_name = "FORMAT",
+        help_heading = "Format Selection Options",
+        default_value = "bv+ba+s",
+        long_help = "Format expression for selecting streams.\n\n\
+        KEYWORDS:\n\n\
+        |> bv/bestvideo: best video stream.\n\
+        |> ba/bestaudio: best audio stream.\n\
+        |> s/sub: a subtitle stream.\n\
+        |> bv*/ba*: best video/audio (may include muxed tracks).\n\
+        |> wv/wa: worst video/audio stream.\n\
+        |> all: all streams.\n\
+        |> allvideo/allaudio/allsubs: all of a specific type.\n\n\
+        FILTERS: [field op value] where field can be:\n\n\
+        |> height/h/res, width/w, fps, bw/bandwidth (kbps),\n\
+        |> codec/codecs, lang/language, channels/ch.\n\n\
+        OPERATORS: =, !=, <=, >=, <, >, *=, ^=, $=\n\n\
+        Use comma in = for OR match: [lang=en,fr]\n\n\
+        EXAMPLES:\n\n\
+        |> bv+ba+s (default: best video + audio + sub)\n\
+        |> bv[height<=720]+ba (720p or lower + best audio)\n\
+        |> bv+ba[lang=en] (english audio)\n\
+        |> bv+allaudio[lang=en,fr]+allsubs (multi-lang audio)\n\
+        |> 1+3 (streams by index from -F)\n\
+        |> bv[height=1080]+ba / bv[height=720]+ba (fallback)\n"
+    )]
+    pub format: String,
+
+    /// Enable interactive stream selection menu with styled prompts.
+    #[arg(
+        short,
+        long,
+        help_heading = "Format Selection Options",
+        conflicts_with = "interactive_raw"
+    )]
+    pub interactive: bool,
+
+    /// Enable interactive stream selection menu with plain text prompts.
+    #[arg(short = 'I', long, help_heading = "Format Selection Options")]
+    pub interactive_raw: bool,
 }
 
 impl Save {
@@ -192,11 +203,11 @@ impl Save {
         let client = client.build()?;
         let mut dl = PlaylistDownloader::new(&client)
             .decrypt(!self.no_decrypt)
+            .format(&self.format)?
             .keys(self.keys)
             .merge(!self.no_merge)
             .resume(!self.no_resume)
             .retries(self.retries)
-            .select_streams(&self.select_streams)
             .subs_codec(self.subs_codec)
             .threads(self.threads);
 
@@ -221,9 +232,10 @@ impl Save {
             dl = dl.interactive(true);
         }
 
-        if self.list_streams {
-            dl.parse_and_list(&self.input).await?;
-        } else if self.list_streams_json {
+        if self.list_formats {
+            let mp = dl.parse(&self.input, false).await?;
+            print_formats_table(&mp.streams);
+        } else if self.list_formats_json {
             let mp = dl.parse(&self.input, false).await?;
             let metadata = mp.metadata(dl.get_config()).await?;
             serde_json::to_writer(std::io::stdout(), &metadata)?;
@@ -239,5 +251,66 @@ impl Save {
             dl.download(&self.input).await?;
         }
         Ok(())
+    }
+}
+
+/// Prints a yt-dlp style table of available streams.
+fn print_formats_table(streams: &[crate::playlist::MediaPlaylist]) {
+    use crate::playlist::MediaType;
+
+    info!(
+        "{:<4} {:<5} {:<12} {:<12} {:<12} {:<6} {:<6} {:<8}",
+        "ID".bold(),
+        "TYPE".bold(),
+        "RESOLUTION".bold(),
+        "BANDWIDTH".bold(),
+        "CODECS".bold(),
+        "FPS".bold(),
+        "LANG".bold(),
+        "CHANNELS".bold()
+    );
+    info!("{}", "─".repeat(68).dimmed());
+
+    for (i, stream) in streams.iter().enumerate() {
+        let id = format!("{}", i + 1);
+        let media = match stream.media_type {
+            MediaType::Video => "vid",
+            MediaType::Audio => "aud",
+            MediaType::Subtitles => "sub",
+            MediaType::Undefined => "und",
+        };
+        let resolution = stream
+            .resolution
+            .map(|(w, h)| format!("{}x{}", w, h))
+            .unwrap_or_default();
+        let bandwidth = stream
+            .bandwidth
+            .map(|b| format!("{} kbps", b / 1000))
+            .unwrap_or_default();
+        let codecs = stream
+            .codecs
+            .as_deref()
+            .map(|c| {
+                if c.len() > 10 {
+                    format!("{}…", &c[..9])
+                } else {
+                    c.to_owned()
+                }
+            })
+            .unwrap_or_default();
+        let fps = stream
+            .frame_rate
+            .map(|f| format!("{}", f))
+            .unwrap_or_default();
+        let lang = stream.language.as_deref().unwrap_or("").to_owned();
+        let channels = stream
+            .channels
+            .map(|c| format!("{}", c))
+            .unwrap_or_default();
+
+        info!(
+            "{:<4} {:<5} {:<12} {:<12} {:<12} {:<6} {:<6} {:<8}",
+            id, media, resolution, bandwidth, codecs, fps, lang, channels
+        );
     }
 }

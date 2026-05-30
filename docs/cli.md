@@ -204,16 +204,6 @@ vsd save [OPTIONS] <INPUT>
 | `--parse` | Output playlist metadata as json instead of downloading streams |
 | `--subs-codec` | Force a specific subtitle codec for muxing<br>*Default:* `copy` |
 
-**Automation Options:**
-
-| Flag | Description |
-|------|-------------|
-| `-i, --interactive` | Enable interactive stream selection menu with styled prompts |
-| `-I, --interactive-raw` | Enable interactive stream selection menu with plain text prompts |
-| `-l, --list-streams` | List available streams without downloading them |
-| `--list-streams-json` | List available streams metadata as json |
-| `-s, --select-streams` | Select streams using filters.<br><br>SYNTAX:<br><br>v={}:a={}:s={} where {} (in priority order) can contain:<br><br>\|> all: select all streams.<br>\|> skip: skip all streams or select inverter.<br>\|> 1,2: indices obtained by --list-streams flag.<br>\|> 1080p,1280x720: stream resolution.<br>\|> en,fr: stream language.<br><br>EXAMPLES:<br><br>\|> 1,2,3 (indices 1, 2, and 3)<br>\|> v=skip:a=skip:s=all (all sub streams)<br>\|> a:en:s=en (prefer en lang)<br>\|> v=1080p:a=all:s=skip (1080p with all aud streams)<br><br>*Default:* `v=best:s=en` |
-
 **Client Options:**
 
 | Flag | Description |
@@ -240,6 +230,16 @@ vsd save [OPTIONS] <INPUT>
 | `--no-resume` | Disable resume and force re-downloading |
 | `--retries` | Maximum retry attempts per segment<br>*Default:* `10` |
 | `-t, --threads` | Maximum number of concurrent download threads (1–16)<br>*Default:* `5` |
+
+**Format Selection Options:**
+
+| Flag | Description |
+|------|-------------|
+| `-F, --list-formats` | List available streams in a table format |
+| `--list-formats-json` | List available streams metadata as json |
+| `-f, --format` | Format expression for selecting streams.<br><br>KEYWORDS:<br><br>\|> bv/bestvideo: best video stream.<br>\|> ba/bestaudio: best audio stream.<br>\|> s/sub: a subtitle stream.<br>\|> bv*/ba*: best video/audio (may include muxed tracks).<br>\|> wv/wa: worst video/audio stream.<br>\|> all: all streams.<br>\|> allvideo/allaudio/allsubs: all of a specific type.<br><br>FILTERS: [field op value] where field can be:<br><br>\|> height/h/res, width/w, fps, bw/bandwidth (kbps),<br>\|> codec/codecs, lang/language, channels/ch.<br><br>OPERATORS: =, !=, <=, >=, <, >, *=, ^=, $=<br><br>Use comma in = for OR match: [lang=en,fr]<br><br>EXAMPLES:<br><br>\|> bv+ba+s (default: best video + audio + sub)<br>\|> bv[height<=720]+ba (720p or lower + best audio)<br>\|> bv+ba[lang=en] (english audio)<br>\|> bv+allaudio[lang=en,fr]+allsubs (multi-lang audio)<br>\|> 1+3 (streams by index from -F)<br>\|> bv[height=1080]+ba / bv[height=720]+ba (fallback)<br><br>*Default:* `bv+ba+s` |
+| `-i, --interactive` | Enable interactive stream selection menu with styled prompts |
+| `-I, --interactive-raw` | Enable interactive stream selection menu with plain text prompts |
 
 [↑ Back to top](#command-overview)
 

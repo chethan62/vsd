@@ -40,9 +40,9 @@ mod error;
 mod cli;
 mod core;
 mod dash;
+mod format;
 mod hls;
 mod logger;
-mod select;
 mod utils;
 
 pub mod cookie;

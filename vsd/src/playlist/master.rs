@@ -1,8 +1,8 @@
 use crate::{
     core::PlaylistDownloadConfig,
     error::Result,
+    format::{FormatExpr, SelectType, StreamSelector, select_formats},
     playlist::types::{MasterPlaylist, MediaType, StreamMetadata},
-    select::{SelectFilters, SelectType, StreamSelector},
 };
 use std::cmp::Reverse;
 use vsd_mp4::{boxes::TencBox, pssh::PsshBox};
@@ -47,10 +47,11 @@ impl MasterPlaylist {
 
     pub(crate) fn select_streams(
         mut self,
-        select_filters: &SelectFilters,
-        select_type: SelectType,
+        format_expr: &FormatExpr,
+        select_type: &SelectType,
     ) -> Result<Self> {
-        let selected = StreamSelector::new(&self.streams).select(select_filters, select_type)?;
+        let pre_selected = select_formats(&self.streams, format_expr);
+        let selected = StreamSelector::new(&self.streams).select(&pre_selected, select_type)?;
         self.streams = self
             .streams
             .into_iter()
