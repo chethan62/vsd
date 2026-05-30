@@ -1,4 +1,9 @@
-use crate::{PlaylistDownloader, cookie::Cookies, error::Result};
+use crate::{
+    PlaylistDownloader,
+    cookie::Cookies,
+    error::Result,
+    playlist::{MasterPlaylist, MediaType},
+};
 use clap::Args;
 use colored::Colorize;
 use log::info;
@@ -188,6 +193,69 @@ impl Save {
         Ok(keys)
     }
 
+    fn list_formats(mp: &MasterPlaylist) {
+        info!(
+            "{:>2} {:>3} {:>9} {:>5} {:>12} {:>3} {:>2}",
+            "ID".yellow(),
+            "TYP".yellow(),
+            "RES/LANG".yellow(),
+            "BR".yellow(),
+            "CODECS".yellow(),
+            "FPS".yellow(),
+            "CH".yellow(),
+        );
+        info!("{}", "─".repeat(42).dimmed());
+
+        for (i, stream) in mp.streams.iter().enumerate() {
+            info!(
+                "{:>2} {:>3} {:>9} {:>5} {:>12} {:>3} {:>2}",
+                format!("{}", i + 1).green(),
+                stream.media_type.to_string(),
+                if stream.media_type == MediaType::Video {
+                    stream
+                        .resolution
+                        .map(|(w, h)| format!("{}x{}", w, h))
+                        .unwrap_or_default()
+                } else {
+                    stream
+                        .language
+                        .as_ref()
+                        .map(|c| {
+                            if c.len() > 9 {
+                                format!("{}…", &c[..8])
+                            } else {
+                                c.to_owned()
+                            }
+                        })
+                        .unwrap_or_default()
+                },
+                stream
+                    .bandwidth
+                    .and_then(|b| {
+                        let b = b / 1000;
+                        if b > 0 { Some(format!("{}k", b)) } else { None }
+                    })
+                    .unwrap_or_default(),
+                stream
+                    .codecs
+                    .as_ref()
+                    .map(|c| {
+                        if c.len() > 12 {
+                            format!("{}…", &c[..11])
+                        } else {
+                            c.to_owned()
+                        }
+                    })
+                    .unwrap_or_default(),
+                stream
+                    .frame_rate
+                    .map(|f| format!("{:.0}", f))
+                    .unwrap_or_default(),
+                stream.channels.map(|c| c.to_string()).unwrap_or_default()
+            );
+        }
+    }
+
     pub async fn execute(self) -> Result<()> {
         let mut client = Client::builder()
             .default_headers(HeaderMap::from_iter(self.headers))
@@ -234,7 +302,7 @@ impl Save {
 
         if self.list_formats {
             let mp = dl.parse(&self.input, false).await?;
-            print_formats_table(&mp.streams);
+            Self::list_formats(&mp);
         } else if self.list_formats_json {
             let mp = dl.parse(&self.input, false).await?;
             let metadata = mp.metadata(dl.get_config()).await?;
@@ -251,66 +319,5 @@ impl Save {
             dl.download(&self.input).await?;
         }
         Ok(())
-    }
-}
-
-/// Prints a yt-dlp style table of available streams.
-fn print_formats_table(streams: &[crate::playlist::MediaPlaylist]) {
-    use crate::playlist::MediaType;
-
-    info!(
-        "{:<4} {:<5} {:<12} {:<12} {:<12} {:<6} {:<6} {:<8}",
-        "ID".bold(),
-        "TYPE".bold(),
-        "RESOLUTION".bold(),
-        "BANDWIDTH".bold(),
-        "CODECS".bold(),
-        "FPS".bold(),
-        "LANG".bold(),
-        "CHANNELS".bold()
-    );
-    info!("{}", "─".repeat(68).dimmed());
-
-    for (i, stream) in streams.iter().enumerate() {
-        let id = format!("{}", i + 1);
-        let media = match stream.media_type {
-            MediaType::Video => "vid",
-            MediaType::Audio => "aud",
-            MediaType::Subtitles => "sub",
-            MediaType::Undefined => "und",
-        };
-        let resolution = stream
-            .resolution
-            .map(|(w, h)| format!("{}x{}", w, h))
-            .unwrap_or_default();
-        let bandwidth = stream
-            .bandwidth
-            .map(|b| format!("{} kbps", b / 1000))
-            .unwrap_or_default();
-        let codecs = stream
-            .codecs
-            .as_deref()
-            .map(|c| {
-                if c.len() > 10 {
-                    format!("{}…", &c[..9])
-                } else {
-                    c.to_owned()
-                }
-            })
-            .unwrap_or_default();
-        let fps = stream
-            .frame_rate
-            .map(|f| format!("{}", f))
-            .unwrap_or_default();
-        let lang = stream.language.as_deref().unwrap_or("").to_owned();
-        let channels = stream
-            .channels
-            .map(|c| format!("{}", c))
-            .unwrap_or_default();
-
-        info!(
-            "{:<4} {:<5} {:<12} {:<12} {:<12} {:<6} {:<6} {:<8}",
-            id, media, resolution, bandwidth, codecs, fps, lang, channels
-        );
     }
 }

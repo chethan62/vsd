@@ -2,7 +2,7 @@ use crate::{
     core::{self, PlaylistDownloadConfig, Stream},
     error::{Error, Result},
     playlist::types::{MediaPlaylist, MediaType, PlaylistType, Segment},
-    progress::{ByteSize, Progress, ProgressCallback},
+    progress::{Progress, ProgressCallback},
     utils,
 };
 use log::debug;
@@ -135,49 +135,39 @@ impl Display for MediaType {
 }
 
 impl MediaPlaylist {
-    fn truncate(s: &str, width: usize) -> String {
-        if s.chars().count() > width {
-            let mut truncated = s.chars().take(width - 1).collect::<String>();
-            truncated.push('…');
-            truncated
-        } else {
-            s.to_owned()
-        }
-    }
-
-    fn fmt_resolution(&self) -> String {
-        self.resolution
-            .map(|(w, h)| {
-                match (w, h) {
-                    (256, 144) => "144p",
-                    (426, 240) => "240p",
-                    (640, 360) => "360p",
-                    (854, 480) => "480p",
-                    (1280, 720) => "720p",
-                    (1920, 1080) => "1080p",
-                    (2048, 1080) => "2K",
-                    (2560, 1440) => "1440p",
-                    (3840, 2160) => "4K",
-                    (7680, 4320) => "8K",
-                    _ => return format!("{w}x{h}"),
-                }
-                .into()
-            })
-            .unwrap_or_else(|| "?".into())
-    }
-
     fn fmt_bandwidth(&self) -> String {
         self.bandwidth
-            .map(|b| ByteSize(b as usize).to_string())
-            .unwrap_or_else(|| "?".into())
+            .and_then(|b| {
+                let b = b / 1000;
+                if b > 0 { Some(format!("{}k", b)) } else { None }
+            })
+            .unwrap_or("?".to_owned())
     }
 
     fn fmt_codecs(&self) -> String {
-        Self::truncate(self.codecs.as_deref().unwrap_or("?"), 10)
+        self.codecs
+            .as_ref()
+            .map(|c| {
+                if c.len() > 12 {
+                    format!("{}…", &c[..11])
+                } else {
+                    c.to_owned()
+                }
+            })
+            .unwrap_or("?".to_owned())
     }
 
     fn fmt_language(&self) -> String {
-        Self::truncate(self.language.as_deref().unwrap_or("?"), 9)
+        self.language
+            .as_ref()
+            .map(|c| {
+                if c.len() > 10 {
+                    format!("{}…", &c[..9])
+                } else {
+                    c.to_owned()
+                }
+            })
+            .unwrap_or("?".to_owned())
     }
 
     /// Returns a formatted string representation of the media playlist suitable for printing in console logs or stream listings.
@@ -196,27 +186,32 @@ impl std::fmt::Display for MediaPlaylist {
             MediaType::Video => {
                 write!(
                     f,
-                    "{:>9} | {:>9} | {:>10} | {} fps",
-                    self.fmt_resolution(),
+                    "{:>9} | {:>5} | {:>12} | {:>3} fps",
+                    self.resolution
+                        .map(|(w, h)| format!("{}x{}", w, h))
+                        .unwrap_or_default(),
                     self.fmt_bandwidth(),
                     self.fmt_codecs(),
-                    self.frame_rate.map_or("?".into(), |r| r.to_string())
+                    self.frame_rate
+                        .map(|f| format!("{:.0}", f))
+                        .as_deref()
+                        .unwrap_or("?")
                 )?;
                 if self.live {
                     write!(f, " | live")?;
-                }
-                if self.i_frame {
-                    write!(f, " | iframe")?;
                 }
             }
             MediaType::Audio => {
                 write!(
                     f,
-                    "{:>9} | {:>9} | {:>10} | {} ch",
+                    "{:>9} | {:>5} | {:>12} | {:>3} ch",
                     self.fmt_language(),
                     self.fmt_bandwidth(),
                     self.fmt_codecs(),
-                    self.channels.map_or("?".into(), |c| c.to_string())
+                    self.channels
+                        .map(|c| c.to_string())
+                        .as_deref()
+                        .unwrap_or("?")
                 )?;
                 if self.live {
                     write!(f, " | live")?;
@@ -225,11 +220,14 @@ impl std::fmt::Display for MediaPlaylist {
             MediaType::Subtitles => {
                 write!(
                     f,
-                    "{:>9} | {:>9} | {:>10} |",
+                    "{:>9} | {:>5} | {:>12} |",
                     self.fmt_language(),
-                    "?KiB",
+                    "?k",
                     self.fmt_codecs()
                 )?;
+                if self.live {
+                    write!(f, " | live")?;
+                }
             }
             MediaType::Undefined => {
                 write!(f, "{}", self.uri)?;
