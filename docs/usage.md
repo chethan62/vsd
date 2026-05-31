@@ -57,7 +57,7 @@ Download DASH and HLS video streams with powerful format selection inspired by y
 
 * **Select all English and French audio tracks:**
   ```bash
-  vsd save <url> -f "bv+allaudio[lang=en,fr]+s" -o video.mp4
+  vsd save <url> -f "bv+allaud[lang=en,fr]+s" -o video.mp4
   ```
 
 * **Fallback: try 1080p, otherwise 720p:**
@@ -90,18 +90,20 @@ The `-f` / `--format` flag accepts an expression with the following syntax:
 
 | Keyword | Aliases | Meaning |
 |---------|---------|---------|
+| `b` | `best` | Best video + audio + sub + all undefined |
+| `w` | `worst` | Worst video + audio + sub + all undefined |
 | `bv` | `bestvideo` | Best video stream |
 | `ba` | `bestaudio` | Best audio stream |
 | `s` | `sub` | A subtitle stream |
 | `bv*` | — | Best video (may contain muxed audio) |
 | `ba*` | — | Best audio (may contain muxed video) |
-| `w` | `worst` | Worst stream (any type) |
 | `wv` | `worstvideo` | Worst video stream |
 | `wa` | `worstaudio` | Worst audio stream |
 | `all` | — | All streams |
-| `allvideo` | — | All video streams |
-| `allaudio` | — | All audio streams |
-| `allsubs` | — | All subtitle streams |
+| `allvid` | — | All video streams |
+| `allaud` | — | All audio streams |
+| `allsub` | — | All subtitle streams |
+| `allund` | — | All undefined streams |
 
 **Filters:** `[field op value]` — appended to keywords.
 
