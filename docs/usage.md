@@ -4,13 +4,54 @@ icon: lucide/mouse-pointer-2
 
 # Usage
 
+Here are some standard CLI usage examples for the most common subcommands: `save`, `capture`, and `license`.
+
+### `vsd save`
+
+Download DASH or HLS streams from a playlist manifest URL.
+
+```bash
+# Download the default streams (best video + best audio + subtitles + undefined streams)
+vsd save "https://example.com/playlist.m3u8"
+
+# List all available streams without downloading them
+vsd save -F "https://example.com/playlist.m3u8"
+
+# Download 1080p video and best English audio, and merge them into a single file
+vsd save -f "bv[height=1080]+ba[language=en]" -o video.mp4 "https://example.com/playlist.m3u8"
+```
+
+### `vsd capture`
+
+Launch an automated browser to capture playlist requests (`.m3u8`, `.mpd`) from a website.
+
+```bash
+# Capture playlist requests by opening the website in a GUI browser
+vsd capture "https://example.com/video-page"
+
+# Capture playlist requests in headless mode (without a GUI window)
+vsd capture --headless "https://example.com/video-page"
+```
+
+### `vsd license`
+
+Request content keys from a Widevine or PlayReady license server.
+
+```bash
+# Request decryption keys using a playlist URL and a Widevine license server URL
+vsd license --widevine-url "https://license-server.com" "https://example.com/playlist.m3u8"
+
+# Request keys using a base64 PSSH string
+vsd license --widevine-url "https://license-server.com" "AAAAW3Bzc2gAAAAA7e+L..."
+```
+
 ### Format Selection
 
 The `-f` / `--format` option accepts a format selection expression to specify which streams to download. The expression syntax is derived from and heavily inspired by [yt-dlp](https://github.com/yt-dlp/yt-dlp#format-selection), consisting of one or more stream selectors combined with operators:
 
-* **Merge (`+`)**: Downloads multiple streams (e.g., `bv+ba` to download the best video and best audio streams).
-* **Fallback (`/`)**: Defines a prioritized fallback chain from left to right (e.g., `bv[height=1080]/bv[height=720]` downloads 1080p if available, otherwise 720p).
-* **Stream Indices**: Streams can also be chosen directly by their 1-based index (e.g., `1+3`) as shown in the `-F` stream listing output.
+* **Merge (`+`)**: Downloads multiple streams (e.g., `bv+ba` to download the best video and best audio streams). Merge is **lenient**, if any of the merged component streams do not exist, they are silently skipped (e.g., `b+s` is still successfully accepted even if no subtitles exist).
+* **Fallback (`/`)**: Defines a prioritized fallback chain from left to right (e.g., `bv[height=1080]/bv[height=720]` downloads 1080p if available, otherwise 720p). Fallback is **strict**, a branch is only selected if every one of its merged components matches at least one stream (e.g., `bv[height=1080]+ba / bv[height=720]+ba` will fall back to the next option if the 1080p video is missing, even if the audio is present).
+* **Stream Indices**: Streams can also be chosen directly by their 1-based index (e.g., `1+3`) as shown in the `-F` stream listing output. You can use the `-F` / `--list-formats` flag to list all available streams and get their corresponding IDs (under the `ID` column).
 
 By default, when no format expression is specified, the CLI defaults to **`b+s+allund`** (best video + best audio + first subtitle track + all undefined streams).
 
@@ -75,7 +116,7 @@ Here are some practical examples of how to construct format selection queries fo
 
 | Expression | Description |
 |------------|-------------|
-| `bv+ba` | Download the best video and the best audio stream. |
+| `bv+ba` | Download the best video and the best audio streams. |
 | `bv[height<=720]+ba` | Download the best video stream that is 720p or lower, and the best audio stream. |
 | `bv[vcodec^=vp09]+ba` | Download the best video encoded in VP9 (codec starting with `vp09`) and the best audio. |
 | `bv+allaud[language=en,es]+s` | Download the best video, *all* English and Spanish audio tracks, and the first subtitle track. |
