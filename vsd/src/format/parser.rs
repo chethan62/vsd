@@ -320,7 +320,11 @@ fn eval(streams: &[MediaPlaylist], expr: &FormatExpr) -> Vec<usize> {
         FormatExpr::Merge(exprs) => {
             let mut merged = Vec::new();
             for e in exprs {
-                for idx in eval(streams, e) {
+                let result = eval(streams, e);
+                if result.is_empty() {
+                    return Vec::new();
+                }
+                for idx in result {
                     if !merged.contains(&idx) {
                         merged.push(idx);
                     }
@@ -833,13 +837,26 @@ mod tests {
     }
 
     #[test]
-    fn eval_fallback() {
+    fn eval_fallback_partial_merge_triggers_fallback() {
+        // bv[height=1080]+ba: no 1080p stream → bv part is empty → entire merge is empty →
+        // fallback to bv[height=720]+ba which matches.
         let streams = vec![vid(1280, 720, 4500000), aud("en", 512000)];
-        // First alternative asks for 1080p video only → no match, empty result.
-        // Second alternative asks for 720p video only → match.
-        let expr = FormatExpr::parse("bv[height=1080] / bv[height=720]+ba").unwrap();
+        let expr = FormatExpr::parse("bv[height=1080]+ba / bv[height=720]+ba").unwrap();
         let selected = select_formats(&streams, &expr);
         assert_eq!(selected, vec![0, 1]);
+    }
+
+    #[test]
+    fn eval_fallback_first_branch_succeeds() {
+        // First branch fully matches (1080p exists), so fallback is never tried.
+        let streams = vec![
+            vid(1920, 1080, 8000000),
+            vid(1280, 720, 4500000),
+            aud("en", 512000),
+        ];
+        let expr = FormatExpr::parse("bv[height=1080]+ba / bv[height=720]+ba").unwrap();
+        let selected = select_formats(&streams, &expr);
+        assert_eq!(selected, vec![0, 2]);
     }
 
     #[test]
