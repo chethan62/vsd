@@ -40,10 +40,6 @@ pub enum BaseFormat {
     BestAudio,
     /// `s` / `sub` — a subtitle stream (first available).
     Sub,
-    /// `bv*` — best video (may contain muxed audio).
-    BestVideoAny,
-    /// `ba*` — best audio (may contain muxed video).
-    BestAudioAny,
     /// `wv` / `worstvideo` — worst video stream.
     WorstVideo,
     /// `wa` / `worstaudio` — worst audio stream.
@@ -202,8 +198,6 @@ impl FormatExpr {
             "bv" | "bestvideo" => Ok(BaseFormat::BestVideo),
             "ba" | "bestaudio" => Ok(BaseFormat::BestAudio),
             "s" | "sub" => Ok(BaseFormat::Sub),
-            "bv*" => Ok(BaseFormat::BestVideoAny),
-            "ba*" => Ok(BaseFormat::BestAudioAny),
             "wv" | "worstvideo" => Ok(BaseFormat::WorstVideo),
             "wa" | "worstaudio" => Ok(BaseFormat::WorstAudio),
             "all" => Ok(BaseFormat::All),
@@ -357,9 +351,7 @@ fn eval_single(streams: &[MediaPlaylist], base: &BaseFormat, filters: &[Filter])
     match base {
         BaseFormat::BestVideo
         | BaseFormat::BestAudio
-        | BaseFormat::Sub
-        | BaseFormat::BestVideoAny
-        | BaseFormat::BestAudioAny => candidates.into_iter().take(1).collect(),
+        | BaseFormat::Sub => candidates.into_iter().take(1).collect(),
         BaseFormat::WorstVideo | BaseFormat::WorstAudio => {
             candidates.into_iter().last().into_iter().collect()
         }
@@ -382,12 +374,6 @@ fn matches_base_type(stream: &MediaPlaylist, base: &BaseFormat) -> bool {
         }
         BaseFormat::Sub | BaseFormat::AllSub => stream.media_type == MediaType::Subtitles,
         BaseFormat::AllUnd => stream.media_type == MediaType::Undefined,
-        BaseFormat::BestVideoAny => {
-            stream.media_type == MediaType::Video || stream.media_type == MediaType::Undefined
-        }
-        BaseFormat::BestAudioAny => {
-            stream.media_type == MediaType::Audio || stream.media_type == MediaType::Undefined
-        }
     }
 }
 

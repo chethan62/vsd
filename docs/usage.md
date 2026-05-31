@@ -95,15 +95,13 @@ The `-f` / `--format` flag accepts an expression with the following syntax:
 | `bv` | `bestvideo` | Best video stream |
 | `ba` | `bestaudio` | Best audio stream |
 | `s` | `sub` | A subtitle stream |
-| `bv*` | — | Best video (may contain muxed audio) |
-| `ba*` | — | Best audio (may contain muxed video) |
 | `wv` | `worstvideo` | Worst video stream |
 | `wa` | `worstaudio` | Worst audio stream |
-| `all` | — | All streams |
-| `allvid` | — | All video streams |
-| `allaud` | — | All audio streams |
-| `allsub` | — | All subtitle streams |
-| `allund` | — | All undefined streams |
+| `all` |   | All streams |
+| `allvid` |   | All video streams |
+| `allaud` |   | All audio streams |
+| `allsub` |   | All subtitle streams |
+| `allund` |   | All undefined streams |
 
 **Filters:** `[field op value]` — appended to keywords.
 

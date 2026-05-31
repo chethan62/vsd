@@ -122,7 +122,6 @@ pub struct Save {
         |> bv/bestvideo: best video stream.\n\
         |> ba/bestaudio: best audio stream.\n\
         |> s/sub: a subtitle stream.\n\
-        |> bv*/ba*: best video/audio (may include muxed tracks).\n\
         |> wv/wa: worst video/audio stream.\n\
         |> all: all streams.\n\
         |> allvid/allaud/allsub/allund: all of a specific type.\n\n\
