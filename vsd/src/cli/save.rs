@@ -109,35 +109,14 @@ pub struct Save {
     pub list_formats_json: bool,
 
     /// Format expression for selecting streams.
+    ///
+    /// Visit https://clitic.github.io/vsd/usage/#format-selection for more info.
     #[arg(
         short = 'f',
         long,
         value_name = "FORMAT",
         help_heading = "Format Selection Options",
-        default_value = "b+s+allund",
-        long_help = "Format expression for selecting streams.\n\n\
-        KEYWORDS:\n\n\
-        |> b/best: best video + best audio.\n\
-        |> w/worst: worst video + worst audio.\n\
-        |> bv/bestvideo: best video stream.\n\
-        |> ba/bestaudio: best audio stream.\n\
-        |> s/sub: a subtitle stream.\n\
-        |> wv/wa: worst video/audio stream.\n\
-        |> all: all streams.\n\
-        |> allvid/allaud/allsub/allund: all of a specific type.\n\n\
-        FILTERS: [field op value] where field can be:\n\n\
-        |> width, height, tbr/abr/vbr (kbps), fps,\n\
-        |> audio_channels, acodec, vcodec, language,\n\
-        |> format_id, resolution.\n\n\
-        OPERATORS: =, !=, <=, >=, <, >, *=, ^=, $=\n\n\
-        Use comma in = for OR match: [language=en,fr]\n\n\
-        EXAMPLES:\n\n\
-        |> b+s+allund (default: best video + audio + sub + und)\n\
-        |> bv[height<=720]+ba (720p or lower + best audio)\n\
-        |> bv+ba[language=en] (english audio)\n\
-        |> bv+allaud[language=en,fr]+allsub (multi-lang audio)\n\
-        |> 1+3 (streams by index from -F)\n\
-        |> bv[height=1080]+ba / bv[height=720]+ba (fallback)\n"
+        default_value = "b+s+allund"
     )]
     pub format: String,
 

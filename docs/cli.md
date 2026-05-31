@@ -237,7 +237,7 @@ vsd save [OPTIONS] <INPUT>
 |------|-------------|
 | `-F, --list-formats` | List available streams in a table format |
 | `--list-formats-json` | List available streams metadata as json |
-| `-f, --format` | Format expression for selecting streams.<br><br>KEYWORDS:<br><br>\|> b/best: best video + best audio.<br>\|> w/worst: worst video + worst audio.<br>\|> bv/bestvideo: best video stream.<br>\|> ba/bestaudio: best audio stream.<br>\|> s/sub: a subtitle stream.<br>\|> wv/wa: worst video/audio stream.<br>\|> all: all streams.<br>\|> allvid/allaud/allsub/allund: all of a specific type.<br><br>FILTERS: [field op value] where field can be:<br><br>\|> width, height, tbr/abr/vbr (kbps), fps,<br>\|> audio_channels, acodec, vcodec, language,<br>\|> format_id, resolution.<br><br>OPERATORS: =, !=, <=, >=, <, >, *=, ^=, $=<br><br>Use comma in = for OR match: [language=en,fr]<br><br>EXAMPLES:<br><br>\|> b+s+allund (default: best video + audio + sub + und)<br>\|> bv[height<=720]+ba (720p or lower + best audio)<br>\|> bv+ba[language=en] (english audio)<br>\|> bv+allaud[language=en,fr]+allsub (multi-lang audio)<br>\|> 1+3 (streams by index from -F)<br>\|> bv[height=1080]+ba / bv[height=720]+ba (fallback)<br><br>*Default:* `b+s+allund` |
+| `-f, --format` | Format expression for selecting streams.<br><br>Visit https://clitic.github.io/vsd/usage/#format-selection for more info.<br>*Default:* `b+s+allund` |
 | `-i, --interactive` | Enable interactive stream selection menu with styled prompts |
 | `-I, --interactive-raw` | Enable interactive stream selection menu with plain text prompts |
 

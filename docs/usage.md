@@ -4,180 +4,83 @@ icon: lucide/mouse-pointer-2
 
 # Usage
 
-Below are some example commands. For additional usage details, see [cli reference](https://clitic.github.io/vsd/cli).
+### Format Selection
 
-### Network Capturing
+The `-f` / `--format` option accepts a format selection expression to specify which streams to download. The expression syntax is derived from and heavily inspired by [yt-dlp](https://github.com/yt-dlp/yt-dlp#format-selection), consisting of one or more stream selectors combined with operators:
 
-Capture network requests, playlist file links (`.m3u8`, `.mpd`), and subtitle paths directly from an automated browser instance.
+* **Merge (`+`)**: Downloads multiple streams (e.g., `bv+ba` to download the best video and best audio streams).
+* **Fallback (`/`)**: Defines a prioritized fallback chain from left to right (e.g., `bv[height=1080]/bv[height=720]` downloads 1080p if available, otherwise 720p).
+* **Stream Indices**: Streams can also be chosen directly by their 1-based index (e.g., `1+3`) as shown in the `-F` stream listing output.
 
-* **Basic request capturing:**
-  ```bash
-  vsd capture <url> --save-cookies
-  ```
-  !!! info
-      The saved cookies will be written to `cookies.txt` and can be used as `--cookies cookies.txt` in subsequent download sub-commands.
+By default, when no format expression is specified, the CLI defaults to **`b+s+allund`** (best video + best audio + first subtitle track + all undefined streams).
 
-* **Headless request capturing (without GUI window):**
-  ```bash
-  vsd capture <url> --headless --save-cookies
-  ```
+!!! info "Note for yt-dlp Users"
+    Unlike `yt-dlp`, which automatically merges streams when possible, `vsd` will only merge the downloaded streams into a single output file if the `-o` / `--output` flag is explicitly specified. Otherwise, each stream is saved as a separate file.
 
----
+#### Keywords
 
-### Downloading & Format Selection (`save`)
+Keywords are the building blocks of any format selector. They specify the target stream type (video, audio, or subtitles) and its relative quality ranking. Shorthands like `b` and `w` automatically select a combination of stream types (video + audio).
 
-Download DASH and HLS video streams with powerful format selection inspired by yt-dlp.
-
-* **Basic playlist download (best video + best audio + subtitle):**
-  ```bash
-  vsd save <url> -o video.mp4
-  ```
-  !!! info
-      Add `-i, --interactive` to open a styled stream selection menu.
-
-* **List available streams:**
-  ```bash
-  vsd save <url> -F
-  ```
-
-* **Select streams by index (from `-F` output):**
-  ```bash
-  vsd save <url> -f "1+3" -o video.mp4
-  ```
-
-* **Select 720p or lower video with best audio:**
-  ```bash
-  vsd save <url> -f "bv[height<=720]+ba" -o video.mp4
-  ```
-
-* **Select English audio, skip subtitles:**
-  ```bash
-  vsd save <url> -f "bv+ba[language=en]" -o video.mp4
-  ```
-
-* **Select all English and French audio tracks:**
-  ```bash
-  vsd save <url> -f "bv+allaud[language=en,fr]+s" -o video.mp4
-  ```
-
-* **Fallback: try 1080p, otherwise 720p:**
-  ```bash
-  vsd save <url> -f "bv[height=1080]+ba / bv[height=720]+ba" -o video.mp4
-  ```
-
-* **Download only audio:**
-  ```bash
-  vsd save <url> -f "ba" -o audio.mp4
-  ```
-
-* **Clip specific timeline sections (accurate to segments):**
-  ```bash
-  vsd save <url> --clip 01:00-01:30 -o clip.mp4
-  ```
-
-* **Tune concurrent download threads (speed up downloads):**
-  ```bash
-  vsd save <url> --threads 8 -o video.mp4
-  ```
-
----
-
-### Format Selection Reference
-
-The `-f` / `--format` flag accepts an expression with the following syntax:
-
-**Keywords:**
-
-| Keyword | Aliases | Meaning |
-|---------|---------|---------|
-| `b` | `best` | Best video + best audio |
-| `w` | `worst` | Worst video + worst audio |
-| `bv` | `bestvideo` | Best video stream |
-| `ba` | `bestaudio` | Best audio stream |
-| `s` | `sub` | A subtitle stream |
-| `wv` | `worstvideo` | Worst video stream |
-| `wa` | `worstaudio` | Worst audio stream |
+| Keyword | Alias | Description |
+|---------|-------|-------------|
+| `best` | `b` | Best video + best audio |
+| `worst` | `w` | Worst video + worst audio |
+| `bestvideo` | `bv` | Best video stream |
+| `bestaudio` | `ba` | Best audio stream |
+| `worstvideo` | `wv` | Worst video stream |
+| `worstaudio` | `wa` | Worst audio stream |
+| `sub` | `s` | First subtitle stream |
 | `all` |   | All streams |
 | `allvid` |   | All video streams |
 | `allaud` |   | All audio streams |
 | `allsub` |   | All subtitle streams |
 | `allund` |   | All undefined streams |
 
-**Filters:** `[field op value]` — appended to keywords.
+#### Filters
 
-| Field | Description |
-|-------|-------------|
+Filters allow you to narrow down streams by specifying conditions inside square brackets `[...]` after a keyword. Multiple filters can be chained together (e.g., `bv[height<=720][fps>=60]`).
+
+For string fields, comparisons are case-sensitive. The `=` (equals) and `!=` (not equals) operators also support a list of comma-separated values to perform an **OR** check (e.g., `ba[language=en,fr]` to select English or French audio).
+
+| Filter | Description |
+|--------|-------------|
 | `width` | Width of the video |
 | `height` | Height of the video |
-| `tbr` | Average bitrate of audio and video in kbps |
+| `resolution` | `width`x`height` of the video |
+| `language` | Language code |
+| `tbr` | Average bitrate of video and audio in kbps |
 | `abr` | Average audio bitrate in kbps |
 | `vbr` | Average video bitrate in kbps |
-| `fps` | Frame rate |
+| `fps` | Frame rate of the video |
 | `audio_channels` | Number of audio channels |
 | `acodec` | Name of the audio codec |
 | `vcodec` | Name of the video codec |
-| `language` | Language code |
-| `format_id` | Short description of the format |
-| `resolution` | Textual description of width and height |
+| `format_id` | Numeric ID of the format |
 
-**Operators:** `=`, `!=`, `<=`, `>=`, `<`, `>`, `*=` (contains), `^=` (starts with), `$=` (ends with)
+| Operator | Description |
+|---------|-------------|
+| `=` | Equals |
+| `!=` | Not equals |
+| `<=` | Less than or equal to |
+| `>=` | Greater than or equal to |
+| `<` | Less than |
+| `>` | Greater than |
+| `*=` | Contains |
+| `^=` | Starts with |
+| `$=` | Ends with |
 
-!!! tip
-    Use comma-separated values with `=` for OR matching: `[language=en,fr]` matches English or French.
+#### Examples
 
-**Combining:**
+Here are some practical examples of how to construct format selection queries for the `vsd save` command.
 
-- `+` merges streams: `bv+ba+s`
-- `/` provides fallback: `bv[height=1080]+ba / bv[height=720]+ba`
-- Omit a type to skip it: `bv+ba` skips subtitles
-
----
-
-### Decryption & DRM (`save`, `decrypt`, `license`)
-
-Decrypt protected content by supplying keys directly or querying CDM servers.
-
-* **Download DRM stream with known keys:**
-  ```bash
-  vsd save "https://media.axprod.net/TestVectors/Dash/protected_dash_1080p_h264_singlekey/manifest.mpd" \
-      --keys "4060a865887842679cbf91ae5bae1e72:fc35340837310cc0fb53de97e22a69e0" \
-      -o video.mp4
-  ```
-
-* **Decrypt a local fragmented CENC MP4 file:**
-  ```bash
-  vsd decrypt --key "fc35340837310cc0fb53de97e22a69e0" encrypted-video.mp4 -o decrypted.mp4
-  ```
-
-* **Decrypt with a separate initialisation segment:**
-  ```bash
-  vsd decrypt --key "fc35340837310cc0fb53de97e22a69e0" --init init.mp4 encrypted-video.mp4 -o decrypted.mp4
-  ```
-
-* **Request keys from Widevine license servers using a CDM device file:**
-  ```bash
-  vsd license --widevine-url "https://cwip-shaka-proxy.appspot.com/no_auth" --widevine-device device.wvd video-init.mp4
-  ```
-
----
-
-### Post-Processing (`extract`, `merge`)
-
-Manipulate media streams and extract metadata easily.
-
-* **Extract subtitles (`wvtt` or `stpp`) from fragmented MP4:**
-  ```bash
-  vsd extract media-subs.mp4 -o subtitles.srt
-  ```
-
-* **Merge multiple fragmented media segments:**
-  ```bash
-  vsd merge segment_*.m4s --type binary -o merged.mp4
-  ```
-
-* **Parse playlist to structured JSON metadata:**
-  ```bash
-  vsd save <url> --parse > parsed-playlist.json
-  ```
-  !!! info
-      View the [JSON schema](https://github.com/clitic/vsd/blob/main/vsd/src/playlist/types.rs) of the output metadata.
+| Expression | Description |
+|------------|-------------|
+| `bv+ba` | Download the best video and the best audio stream. |
+| `bv[height<=720]+ba` | Download the best video stream that is 720p or lower, and the best audio stream. |
+| `bv[vcodec^=vp09]+ba` | Download the best video encoded in VP9 (codec starting with `vp09`) and the best audio. |
+| `bv+allaud[language=en,es]+s` | Download the best video, *all* English and Spanish audio tracks, and the first subtitle track. |
+| `ba[language=en]` | Download only the best English audio stream (no video or subtitles). |
+| `bv+ba[language!=ja]` | Download the best video and the best audio stream whose language is *not* Japanese. |
+| `bv[height=1080]+ba / bv[height=720]+ba / b` | Try to get 1080p video with best audio; fallback to 720p video; fallback to the best available resolution. |
+| `1+3` | Download streams with index `1` and `3` as shown in the `-F` stream list. |
+| `allvid+allaud` | Download all available video and audio streams. |
