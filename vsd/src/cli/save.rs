@@ -200,7 +200,7 @@ impl Save {
             "TYP".yellow(),
             "RES/LANG".yellow(),
             "BR".yellow(),
-            "CODECS".yellow(),
+            "CODEC".yellow(),
             "FPS".yellow(),
             "CH".yellow(),
         );

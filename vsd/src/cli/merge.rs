@@ -35,7 +35,7 @@ enum MergeType {
 impl Merge {
     pub async fn execute(self) -> Result<()> {
         let output_canonical = self.output.canonicalize().ok();
-        let mut files = self
+        let files = self
             .input
             .iter()
             .filter_map(|p| glob::glob(p).ok())
@@ -48,7 +48,6 @@ impl Merge {
                 true
             })
             .collect::<Vec<_>>();
-        files.sort();
 
         if files.len() < 2 {
             bail!("At least two files are required to perform a merge.");
@@ -61,8 +60,8 @@ impl Merge {
 
                 for path in files {
                     let file = File::open(path).await?;
-                    let mut reader = BufReader::with_capacity(BUFFER_SIZE, file);
-                    io::copy(&mut reader, &mut output).await?;
+                    let mut input = BufReader::with_capacity(BUFFER_SIZE, file);
+                    io::copy(&mut input, &mut output).await?;
                 }
 
                 output.flush().await?;
