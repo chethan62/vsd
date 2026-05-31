@@ -52,12 +52,12 @@ Download DASH and HLS video streams with powerful format selection inspired by y
 
 * **Select English audio, skip subtitles:**
   ```bash
-  vsd save <url> -f "bv+ba[lang=en]" -o video.mp4
+  vsd save <url> -f "bv+ba[language=en]" -o video.mp4
   ```
 
 * **Select all English and French audio tracks:**
   ```bash
-  vsd save <url> -f "bv+allaud[lang=en,fr]+s" -o video.mp4
+  vsd save <url> -f "bv+allaud[language=en,fr]+s" -o video.mp4
   ```
 
 * **Fallback: try 1080p, otherwise 720p:**
@@ -90,8 +90,8 @@ The `-f` / `--format` flag accepts an expression with the following syntax:
 
 | Keyword | Aliases | Meaning |
 |---------|---------|---------|
-| `b` | `best` | Best video + audio + sub + all undefined |
-| `w` | `worst` | Worst video + audio + sub + all undefined |
+| `b` | `best` | Best video + best audio |
+| `w` | `worst` | Worst video + worst audio |
 | `bv` | `bestvideo` | Best video stream |
 | `ba` | `bestaudio` | Best audio stream |
 | `s` | `sub` | A subtitle stream |
@@ -107,20 +107,25 @@ The `-f` / `--format` flag accepts an expression with the following syntax:
 
 **Filters:** `[field op value]` — appended to keywords.
 
-| Field | Aliases | Type |
-|-------|---------|------|
-| `height` | `h`, `res` | number |
-| `width` | `w` | number |
-| `fps` | `framerate` | f32 |
-| `bandwidth` | `bw`, `tbr` | kbps |
-| `codec` | `codecs` | string |
-| `lang` | `language` | string |
-| `channels` | `ch` | f32 |
+| Field | Description |
+|-------|-------------|
+| `width` | Width of the video |
+| `height` | Height of the video |
+| `tbr` | Average bitrate of audio and video in kbps |
+| `abr` | Average audio bitrate in kbps |
+| `vbr` | Average video bitrate in kbps |
+| `fps` | Frame rate |
+| `audio_channels` | Number of audio channels |
+| `acodec` | Name of the audio codec |
+| `vcodec` | Name of the video codec |
+| `language` | Language code |
+| `format_id` | Short description of the format |
+| `resolution` | Textual description of width and height |
 
 **Operators:** `=`, `!=`, `<=`, `>=`, `<`, `>`, `*=` (contains), `^=` (starts with), `$=` (ends with)
 
 !!! tip
-    Use comma-separated values with `=` for OR matching: `[lang=en,fr]` matches English or French.
+    Use comma-separated values with `=` for OR matching: `[language=en,fr]` matches English or French.
 
 **Combining:**
 

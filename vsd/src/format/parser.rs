@@ -71,14 +71,21 @@ pub struct Filter {
 /// Filterable stream fields.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Field {
-    Height,
     Width,
+    Height,
+    /// Total bitrate in kbps.
+    Tbr,
+    /// Audio bitrate in kbps.
+    Abr,
+    /// Video bitrate in kbps.
+    Vbr,
     Fps,
-    /// Bandwidth in kbps.
-    Bandwidth,
-    Codec,
+    AudioChannels,
+    Acodec,
+    Vcodec,
     Language,
-    Channels,
+    FormatId,
+    Resolution,
 }
 
 /// Filter comparison operators.
@@ -172,18 +179,14 @@ impl FormatExpr {
                 let filters = Self::parse_filters(filters_str)?;
                 Ok(FormatExpr::Merge(vec![
                     FormatExpr::Single { base: BaseFormat::BestVideo, filters: filters.clone() },
-                    FormatExpr::Single { base: BaseFormat::BestAudio, filters: filters.clone() },
-                    FormatExpr::Single { base: BaseFormat::Sub, filters },
-                    FormatExpr::Single { base: BaseFormat::AllUnd, filters: vec![] },
+                    FormatExpr::Single { base: BaseFormat::BestAudio, filters },
                 ]))
             }
             "w" | "worst" => {
                 let filters = Self::parse_filters(filters_str)?;
                 Ok(FormatExpr::Merge(vec![
                     FormatExpr::Single { base: BaseFormat::WorstVideo, filters: filters.clone() },
-                    FormatExpr::Single { base: BaseFormat::WorstAudio, filters: filters.clone() },
-                    FormatExpr::Single { base: BaseFormat::Sub, filters },
-                    FormatExpr::Single { base: BaseFormat::AllUnd, filters: vec![] },
+                    FormatExpr::Single { base: BaseFormat::WorstAudio, filters },
                 ]))
             }
             _ => {
@@ -264,13 +267,18 @@ impl FormatExpr {
 
     fn parse_field(s: &str) -> Result<Field> {
         match s {
-            "height" | "h" | "res" => Ok(Field::Height),
-            "width" | "w" => Ok(Field::Width),
-            "fps" | "framerate" => Ok(Field::Fps),
-            "bandwidth" | "bw" | "tbr" => Ok(Field::Bandwidth),
-            "codec" | "codecs" | "vcodec" | "acodec" => Ok(Field::Codec),
-            "lang" | "language" => Ok(Field::Language),
-            "channels" | "ch" => Ok(Field::Channels),
+            "width" => Ok(Field::Width),
+            "height" => Ok(Field::Height),
+            "tbr" => Ok(Field::Tbr),
+            "abr" => Ok(Field::Abr),
+            "vbr" => Ok(Field::Vbr),
+            "fps" => Ok(Field::Fps),
+            "audio_channels" => Ok(Field::AudioChannels),
+            "acodec" => Ok(Field::Acodec),
+            "vcodec" => Ok(Field::Vcodec),
+            "language" => Ok(Field::Language),
+            "format_id" => Ok(Field::FormatId),
+            "resolution" => Ok(Field::Resolution),
             _ => return Err(Error::FormatParse(format!("unknown field '{}'", s))),
         }
     }
@@ -385,24 +393,27 @@ fn matches_base_type(stream: &MediaPlaylist, base: &BaseFormat) -> bool {
 
 fn matches_filter(stream: &MediaPlaylist, filter: &Filter) -> bool {
     match &filter.field {
+        Field::Width => {
+            let w = stream.resolution.map(|(w, _)| w as f64).unwrap_or(0.0);
+            compare_numeric(w, &filter.op, &filter.value)
+        }
         Field::Height => {
             let h = stream.resolution.map(|(_, h)| h as f64).unwrap_or(0.0);
             compare_numeric(h, &filter.op, &filter.value)
         }
-        Field::Width => {
-            let w = stream.resolution.map(|(w, _)| w as f64).unwrap_or(0.0);
-            compare_numeric(w, &filter.op, &filter.value)
+        Field::Tbr | Field::Abr | Field::Vbr => {
+            let bw_kbps = stream.bandwidth.map(|b| b as f64 / 1000.0).unwrap_or(0.0);
+            compare_numeric(bw_kbps, &filter.op, &filter.value)
         }
         Field::Fps => {
             let fps = stream.frame_rate.map(|f| f as f64).unwrap_or(0.0);
             compare_numeric(fps, &filter.op, &filter.value)
         }
-        Field::Bandwidth => {
-            // Bandwidth stored as bps in MediaPlaylist, filter value is kbps.
-            let bw_kbps = stream.bandwidth.map(|b| b as f64 / 1000.0).unwrap_or(0.0);
-            compare_numeric(bw_kbps, &filter.op, &filter.value)
+        Field::AudioChannels => {
+            let ch = stream.channels.map(|c| c as f64).unwrap_or(0.0);
+            compare_numeric(ch, &filter.op, &filter.value)
         }
-        Field::Codec => {
+        Field::Acodec | Field::Vcodec => {
             let codec = stream.codecs.as_deref().unwrap_or("");
             compare_string(codec, &filter.op, &filter.value)
         }
@@ -410,9 +421,15 @@ fn matches_filter(stream: &MediaPlaylist, filter: &Filter) -> bool {
             let lang = stream.language.as_deref().unwrap_or("");
             compare_string(lang, &filter.op, &filter.value)
         }
-        Field::Channels => {
-            let ch = stream.channels.map(|c| c as f64).unwrap_or(0.0);
-            compare_numeric(ch, &filter.op, &filter.value)
+        Field::FormatId => {
+            compare_string(&stream.id, &filter.op, &filter.value)
+        }
+        Field::Resolution => {
+            let res = stream
+                .resolution
+                .map(|(w, h)| format!("{}x{}", w, h))
+                .unwrap_or_default();
+            compare_string(&res, &filter.op, &filter.value)
         }
     }
 }
@@ -567,7 +584,7 @@ mod tests {
 
     #[test]
     fn parse_filter_eq() {
-        let expr = FormatExpr::parse("ba[lang=en]").unwrap();
+        let expr = FormatExpr::parse("ba[language=en]").unwrap();
         assert_eq!(
             expr,
             FormatExpr::Single {
@@ -599,13 +616,13 @@ mod tests {
 
     #[test]
     fn parse_filter_contains() {
-        let expr = FormatExpr::parse("bv[codec*=avc]").unwrap();
+        let expr = FormatExpr::parse("bv[vcodec*=avc]").unwrap();
         assert_eq!(
             expr,
             FormatExpr::Single {
                 base: BaseFormat::BestVideo,
                 filters: vec![Filter {
-                    field: Field::Codec,
+                    field: Field::Vcodec,
                     op: FilterOp::Contains,
                     value: "avc".to_owned(),
                 }],
@@ -615,7 +632,7 @@ mod tests {
 
     #[test]
     fn parse_multiple_filters() {
-        let expr = FormatExpr::parse("bv[height<=720][codec^=avc1]").unwrap();
+        let expr = FormatExpr::parse("bv[height<=720][vcodec^=avc1]").unwrap();
         match expr {
             FormatExpr::Single { filters, .. } => assert_eq!(filters.len(), 2),
             _ => panic!("Expected Single"),
@@ -624,7 +641,7 @@ mod tests {
 
     #[test]
     fn parse_comma_value() {
-        let expr = FormatExpr::parse("allaud[lang=en,fr,de]").unwrap();
+        let expr = FormatExpr::parse("allaud[language=en,fr,de]").unwrap();
         assert_eq!(
             expr,
             FormatExpr::Single {
@@ -757,7 +774,7 @@ mod tests {
     #[test]
     fn eval_filter_lang_eq() {
         let streams = vec![aud("en", 512000), aud("fr", 256000), aud("es", 128000)];
-        let expr = FormatExpr::parse("ba[lang=fr]").unwrap();
+        let expr = FormatExpr::parse("ba[language=fr]").unwrap();
         let selected = select_formats(&streams, &expr);
         assert_eq!(selected, vec![1]);
     }
@@ -765,7 +782,7 @@ mod tests {
     #[test]
     fn eval_filter_lang_comma() {
         let streams = vec![aud("en", 512000), aud("fr", 256000), aud("es", 128000)];
-        let expr = FormatExpr::parse("allaud[lang=en,fr]").unwrap();
+        let expr = FormatExpr::parse("allaud[language=en,fr]").unwrap();
         let selected = select_formats(&streams, &expr);
         assert_eq!(selected, vec![0, 1]);
     }
@@ -773,16 +790,15 @@ mod tests {
     #[test]
     fn eval_filter_lang_ne() {
         let streams = vec![aud("en", 512000), aud("fr", 256000), aud("es", 128000)];
-        let expr = FormatExpr::parse("allaud[lang!=en]").unwrap();
+        let expr = FormatExpr::parse("allaud[language!=en]").unwrap();
         let selected = select_formats(&streams, &expr);
         assert_eq!(selected, vec![1, 2]);
     }
 
     #[test]
     fn eval_filter_bandwidth_kbps() {
-        // Bandwidth in MediaPlaylist is bps, filter value is kbps.
         let streams = vec![aud("en", 512000), aud("fr", 128000)];
-        let expr = FormatExpr::parse("ba[bw>=256]").unwrap();
+        let expr = FormatExpr::parse("ba[tbr>=256]").unwrap();
         let selected = select_formats(&streams, &expr);
         // 512000 bps = 512 kbps >= 256 → match.
         assert_eq!(selected, vec![0]);
@@ -791,10 +807,10 @@ mod tests {
     #[test]
     fn eval_filter_codec_contains() {
         let streams = vec![
-            vid(1920, 1080, 8000000), // avc1.640028
-            vid(1280, 720, 4500000),  // avc1.640028
+            vid(1920, 1080, 8000000),
+            vid(1280, 720, 4500000),
         ];
-        let expr = FormatExpr::parse("bv[codec*=avc]").unwrap();
+        let expr = FormatExpr::parse("bv[vcodec*=avc]").unwrap();
         let selected = select_formats(&streams, &expr);
         assert_eq!(selected, vec![0]);
     }
@@ -803,9 +819,9 @@ mod tests {
     fn eval_filter_channels() {
         let mut s1 = aud("en", 512000);
         s1.channels = Some(5.1);
-        let s2 = aud("en", 256000); // 2.0 channels
+        let s2 = aud("en", 256000);
         let streams = vec![s1, s2];
-        let expr = FormatExpr::parse("ba[ch>=5.1]").unwrap();
+        let expr = FormatExpr::parse("ba[audio_channels>=5.1]").unwrap();
         let selected = select_formats(&streams, &expr);
         assert_eq!(selected, vec![0]);
     }
@@ -860,7 +876,7 @@ mod tests {
     #[test]
     fn eval_lang_prefix_match() {
         let streams = vec![aud("en-US", 512000), aud("fr-FR", 256000)];
-        let expr = FormatExpr::parse("ba[lang=en]").unwrap();
+        let expr = FormatExpr::parse("ba[language=en]").unwrap();
         let selected = select_formats(&streams, &expr);
         assert_eq!(selected, vec![0]);
     }
@@ -881,13 +897,11 @@ mod tests {
             aud("en", 512000),
             aud("fr", 256000),
             sub("en"),
-            sub("fr"),
-            und(),
         ];
         let expr = FormatExpr::parse("b").unwrap();
         let selected = select_formats(&streams, &expr);
-        // b = bv+ba+s+allund → best video (0) + best audio (2) + first sub (4) + und (6).
-        assert_eq!(selected, vec![0, 2, 4, 6]);
+        // b = bv+ba → best video (0) + best audio (2).
+        assert_eq!(selected, vec![0, 2]);
     }
 
     #[test]
@@ -897,13 +911,11 @@ mod tests {
             vid(1280, 720, 4500000),
             aud("en", 512000),
             aud("fr", 256000),
-            sub("en"),
-            und(),
         ];
         let expr = FormatExpr::parse("w").unwrap();
         let selected = select_formats(&streams, &expr);
-        // w = wv+wa+s+allund → worst video (1) + worst audio (3) + first sub (4) + und (5).
-        assert_eq!(selected, vec![1, 3, 4, 5]);
+        // w = wv+wa → worst video (1) + worst audio (3).
+        assert_eq!(selected, vec![1, 3]);
     }
 
     #[test]
@@ -915,10 +927,11 @@ mod tests {
             aud("fr", 256000),
             sub("en"),
             sub("fr"),
+            und(),
         ];
-        let expr = FormatExpr::parse("bv+ba+s").unwrap();
+        let expr = FormatExpr::parse("b+s+allund").unwrap();
         let selected = select_formats(&streams, &expr);
-        // Best video (0) + best audio (2) + first sub (4).
-        assert_eq!(selected, vec![0, 2, 4]);
+        // b(bv+ba) + s + allund → best video (0) + best audio (2) + first sub (4) + und (6).
+        assert_eq!(selected, vec![0, 2, 4, 6]);
     }
 }

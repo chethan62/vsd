@@ -60,7 +60,7 @@ impl PlaylistDownloader {
         Self {
             base_url: None,
             clip: None,
-            format_expr: FormatExpr::parse("b").unwrap(),
+            format_expr: FormatExpr::parse("b+s+allund").unwrap(),
             output: None,
             select_type: SelectType::None,
             subs_codec: "copy".to_owned(),
