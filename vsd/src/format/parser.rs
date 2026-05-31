@@ -309,22 +309,21 @@ pub fn select_formats(streams: &[MediaPlaylist], expr: &FormatExpr) -> Vec<usize
 fn eval(streams: &[MediaPlaylist], expr: &FormatExpr) -> Vec<usize> {
     match expr {
         FormatExpr::Fallback(exprs) => {
+            // Use strict evaluation: a branch is only accepted if every
+            // sub-expression in its merge produced at least one result.
             for e in exprs {
-                let result = eval(streams, e);
-                if !result.is_empty() {
+                if let Some(result) = eval_strict(streams, e) {
                     return result;
                 }
             }
             Vec::new()
         }
         FormatExpr::Merge(exprs) => {
+            // Lenient: union all sub-expression results, silently
+            // skipping any that match nothing.
             let mut merged = Vec::new();
             for e in exprs {
-                let result = eval(streams, e);
-                if result.is_empty() {
-                    return Vec::new();
-                }
-                for idx in result {
+                for idx in eval(streams, e) {
                     if !merged.contains(&idx) {
                         merged.push(idx);
                     }
@@ -338,6 +337,49 @@ fn eval(streams: &[MediaPlaylist], expr: &FormatExpr) -> Vec<usize> {
                 vec![*i]
             } else {
                 Vec::new()
+            }
+        }
+    }
+}
+
+/// Strict evaluation: returns `None` if any part of the expression matches
+/// nothing.  Used by [`Fallback`] to decide whether a branch is fully
+/// satisfied before committing to it.
+fn eval_strict(streams: &[MediaPlaylist], expr: &FormatExpr) -> Option<Vec<usize>> {
+    match expr {
+        FormatExpr::Fallback(exprs) => {
+            for e in exprs {
+                if let Some(result) = eval_strict(streams, e) {
+                    return Some(result);
+                }
+            }
+            None
+        }
+        FormatExpr::Merge(exprs) => {
+            let mut merged = Vec::new();
+            for e in exprs {
+                let result = eval_strict(streams, e)?;
+                for idx in result {
+                    if !merged.contains(&idx) {
+                        merged.push(idx);
+                    }
+                }
+            }
+            Some(merged)
+        }
+        FormatExpr::Single { base, filters } => {
+            let result = eval_single(streams, base, filters);
+            if result.is_empty() {
+                None
+            } else {
+                Some(result)
+            }
+        }
+        FormatExpr::Index(i) => {
+            if *i < streams.len() {
+                Some(vec![*i])
+            } else {
+                None
             }
         }
     }
@@ -936,5 +978,27 @@ mod tests {
         let selected = select_formats(&streams, &expr);
         // b(bv+ba) + s + allund → best video (0) + best audio (2) + first sub (4) + und (6).
         assert_eq!(selected, vec![0, 2, 4, 6]);
+    }
+
+    #[test]
+    fn eval_default_missing_subs_and_und() {
+        // No subtitles or undefined streams — default should still select video + audio.
+        let streams = vec![
+            vid(1920, 1080, 8000000),
+            aud("en", 512000),
+        ];
+        let expr = FormatExpr::parse("b+s+allund").unwrap();
+        let selected = select_formats(&streams, &expr);
+        assert_eq!(selected, vec![0, 1]);
+    }
+
+    #[test]
+    fn eval_default_audio_only() {
+        // Only audio streams — default should select best audio and skip video/sub/und.
+        let streams = vec![aud("en", 512000), aud("fr", 256000)];
+        let expr = FormatExpr::parse("b+s+allund").unwrap();
+        let selected = select_formats(&streams, &expr);
+        // b = bv+ba → bv is empty (lenient skip), ba selects index 0.
+        assert_eq!(selected, vec![0]);
     }
 }

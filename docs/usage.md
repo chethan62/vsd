@@ -40,7 +40,7 @@ Keywords are the building blocks of any format selector. They specify the target
 
 Filters allow you to narrow down streams by specifying conditions inside square brackets `[...]` after a keyword. Multiple filters can be chained together (e.g., `bv[height<=720][fps>=60]`).
 
-For string fields, comparisons are case-sensitive. The `=` (equals) and `!=` (not equals) operators also support a list of comma-separated values to perform an **OR** check (e.g., `ba[language=en,fr]` to select English or French audio).
+For string fields, comparisons are case-insensitive. The `=` (equals) and `!=` (not equals) operators also support a list of comma-separated values to perform an **OR** check (e.g., `ba[language=en,fr]` to select English or French audio).
 
 | Filter | Description |
 |--------|-------------|
