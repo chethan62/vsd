@@ -3,19 +3,18 @@ use crate::{
     playlist::{MediaPlaylist, MediaType},
 };
 
-// ─── AST Types ───────────────────────────────────────────────────────────────
-
 /// Parsed format expression AST.
 ///
 /// Grammar:
+///
 /// ```text
-/// expr       = merge ( "/" merge )*
-/// merge      = single ( "+" single )*
-/// single     = filter_expr | index
-/// filter_expr= base filter*
-/// base       = keyword (see BaseFormat)
-/// index      = <integer>
-/// filter     = "[" field op value "]"
+/// expr        = merge ( "/" merge )*
+/// merge       = single ( "+" single )*
+/// single      = filter_expr | index
+/// filter_expr = base filter*
+/// base        = keyword (see BaseFormat)
+/// index       = <integer>
+/// filter      = "[" field op value "]"
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub enum FormatExpr {
@@ -107,8 +106,6 @@ pub enum FilterOp {
     EndsWith,
 }
 
-// ─── Parser ──────────────────────────────────────────────────────────────────
-
 impl FormatExpr {
     /// Parse a format expression string into an AST.
     ///
@@ -122,7 +119,7 @@ impl FormatExpr {
     pub fn parse(s: &str) -> Result<Self> {
         let s = s.trim();
         if s.is_empty() {
-            bail!("Format expression cannot be empty.");
+            return Err(Error::FormatParse("expression cannot be empty".into()));
         }
 
         // Split by "/" for fallback chains (respecting brackets).
@@ -157,7 +154,9 @@ impl FormatExpr {
         // Try parsing as an integer index first.
         if let Ok(idx) = s.parse::<usize>() {
             return if idx == 0 {
-                bail!("Stream index must be >= 1, got 0.");
+                Err(Error::FormatParse(
+                    "stream index must be >= 1, got 0".into(),
+                ))
             } else {
                 Ok(FormatExpr::Index(idx - 1))
             };
@@ -191,7 +190,7 @@ impl FormatExpr {
             "allvideo" => Ok(BaseFormat::AllVideo),
             "allaudio" => Ok(BaseFormat::AllAudio),
             "allsubs" => Ok(BaseFormat::AllSubs),
-            _ => bail!("Unknown format keyword '{}'.", s),
+            _ => return Err(Error::FormatParse(format!("unknown keyword '{}'", s))),
         }
     }
 
@@ -205,7 +204,7 @@ impl FormatExpr {
 
         while let Some(start) = remaining.find('[') {
             let end = remaining.find(']').ok_or_else(|| {
-                Error::Other(format!("Unclosed bracket in filter expression: {}", remaining))
+                Error::FormatParse(format!("unclosed bracket in '{}'", remaining))
             })?;
             let inner = &remaining[start + 1..end];
             filters.push(Self::parse_one_filter(inner)?);
@@ -242,7 +241,7 @@ impl FormatExpr {
             }
         }
 
-        bail!("Invalid filter expression: [{}]", s);
+        return Err(Error::FormatParse(format!("invalid filter '[{}]'", s)));
     }
 
     fn parse_field(s: &str) -> Result<Field> {
@@ -254,7 +253,7 @@ impl FormatExpr {
             "codec" | "codecs" | "vcodec" | "acodec" => Ok(Field::Codec),
             "lang" | "language" => Ok(Field::Language),
             "channels" | "ch" => Ok(Field::Channels),
-            _ => bail!("Unknown filter field '{}'.", s),
+            _ => return Err(Error::FormatParse(format!("unknown field '{}'", s))),
         }
     }
 }
@@ -346,10 +345,12 @@ fn eval_single(streams: &[MediaPlaylist], base: &BaseFormat, filters: &[Filter])
 
     // 2. Apply selection strategy.
     match base {
-        BaseFormat::Best | BaseFormat::BestVideo | BaseFormat::BestAudio | BaseFormat::Sub
-        | BaseFormat::BestVideoAny | BaseFormat::BestAudioAny => {
-            candidates.into_iter().take(1).collect()
-        }
+        BaseFormat::Best
+        | BaseFormat::BestVideo
+        | BaseFormat::BestAudio
+        | BaseFormat::Sub
+        | BaseFormat::BestVideoAny
+        | BaseFormat::BestAudioAny => candidates.into_iter().take(1).collect(),
         BaseFormat::Worst | BaseFormat::WorstVideo | BaseFormat::WorstAudio => {
             candidates.into_iter().last().into_iter().collect()
         }
@@ -445,18 +446,14 @@ fn compare_string(actual: &str, op: &FilterOp, value_str: &str) -> bool {
     let actual_lower = actual.to_lowercase();
 
     match op {
-        FilterOp::Eq => value_str
-            .split(',')
-            .any(|v| {
-                let v = v.trim().to_lowercase();
-                actual_lower == v || actual_lower.starts_with(&format!("{}-", v))
-            }),
-        FilterOp::Ne => value_str
-            .split(',')
-            .all(|v| {
-                let v = v.trim().to_lowercase();
-                actual_lower != v && !actual_lower.starts_with(&format!("{}-", v))
-            }),
+        FilterOp::Eq => value_str.split(',').any(|v| {
+            let v = v.trim().to_lowercase();
+            actual_lower == v || actual_lower.starts_with(&format!("{}-", v))
+        }),
+        FilterOp::Ne => value_str.split(',').all(|v| {
+            let v = v.trim().to_lowercase();
+            actual_lower != v && !actual_lower.starts_with(&format!("{}-", v))
+        }),
         FilterOp::Contains => {
             let v = value_str.to_lowercase();
             actual_lower.contains(&v)
@@ -481,9 +478,7 @@ fn compare_string(actual: &str, op: &FilterOp, value_str: &str) -> bool {
 fn is_index_only(expr: &FormatExpr) -> bool {
     match expr {
         FormatExpr::Index(_) => true,
-        FormatExpr::Merge(exprs) | FormatExpr::Fallback(exprs) => {
-            exprs.iter().all(is_index_only)
-        }
+        FormatExpr::Merge(exprs) | FormatExpr::Fallback(exprs) => exprs.iter().all(is_index_only),
         FormatExpr::Single { .. } => false,
     }
 }
@@ -734,11 +729,7 @@ mod tests {
 
     #[test]
     fn eval_merge() {
-        let streams = vec![
-            vid(1920, 1080, 8000000),
-            aud("en", 512000),
-            sub("en"),
-        ];
+        let streams = vec![vid(1920, 1080, 8000000), aud("en", 512000), sub("en")];
         let expr = FormatExpr::parse("bv+ba+s").unwrap();
         let selected = select_formats(&streams, &expr);
         assert_eq!(selected, vec![0, 1, 2]);
@@ -824,11 +815,7 @@ mod tests {
 
     #[test]
     fn eval_all() {
-        let streams = vec![
-            vid(1920, 1080, 8000000),
-            aud("en", 512000),
-            sub("en"),
-        ];
+        let streams = vec![vid(1920, 1080, 8000000), aud("en", 512000), sub("en")];
         let expr = FormatExpr::parse("all").unwrap();
         let selected = select_formats(&streams, &expr);
         assert_eq!(selected, vec![0, 1, 2]);

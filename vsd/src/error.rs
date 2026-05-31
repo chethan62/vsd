@@ -21,6 +21,8 @@ pub enum Error {
         /// The error message or stdout/stderr output.
         message: String,
     },
+    /// Failed to parse a format selection expression.
+    FormatParse(String),
     /// A decryption key was required but could not be resolved.
     ///
     /// Stores the default key ID (KID) in hexadecimal.
@@ -55,6 +57,7 @@ impl std::fmt::Display for Error {
             Self::FfmpegFailed { code, message } => {
                 write!(f, "Failed to execute ffmpeg ({}): {}", code, message)
             }
+            Self::FormatParse(x) => write!(f, "Failed to parse format expr: {}.", x),
             Self::MissingKey(x) => write!(f, "Missing decryption key for {}.", x),
             Self::MissingSegments => write!(f, "Stream contains no segments."),
             Self::Mp4Parse(x) => write!(f, "vsd-mp4: {}", x),
