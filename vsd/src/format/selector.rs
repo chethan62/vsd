@@ -5,10 +5,7 @@ use crate::{
 use colored::Colorize;
 use log::info;
 use requestty::{Question, question::Choice};
-use std::{
-    collections::HashSet,
-    io::{self, Write},
-};
+use std::io::{self, Write};
 
 #[derive(Clone, Default)]
 pub enum SelectType {
@@ -127,14 +124,14 @@ fn interact_raw(streams: &[MediaPlaylist], selected: &[usize]) -> Result<Vec<usi
     info!("Select streams to download:");
 
     let mut choice_num = 1_usize;
-    let mut defaults = HashSet::new();
+    let mut defaults = Vec::new();
 
     for choice in choices {
         match choice {
             Choice::Separator(header) => info!("{}", header.replace('─', "-").cyan()),
             Choice::Choice((choice, selected)) => {
                 if selected {
-                    defaults.insert(choice_num);
+                    defaults.push(choice_num);
                 }
                 info!(
                     "{:>2}) [{}] {}",
