@@ -728,7 +728,7 @@ mod tests {
         assert_eq!(
             FormatExpr::parse("b+s+allund")
                 .unwrap()
-                .eval(&[vid(1920, 1080, 8000000), aud("en", 512000)]),
+                .eval(&[vid(1920, 1080, 8000000), sub("en")]),
             [0, 1]
         );
     }
