@@ -191,7 +191,11 @@ impl Save {
             info!(
                 "{:>2} {:>3} {:>9} {:>5} {:>12} {:>3} {:>2}",
                 format!("{}", i + 1).green(),
-                stream.media_type.to_string(),
+                if stream.segments.first().is_some_and(|s| s.key.is_some()) {
+                    stream.media_type.to_string().bold().red()
+                } else {
+                    stream.media_type.to_string().normal()
+                },
                 if stream.media_type == MediaType::Video {
                     stream
                         .resolution
