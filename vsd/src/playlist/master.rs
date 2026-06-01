@@ -1,7 +1,7 @@
 use crate::{
     core::PlaylistDownloadConfig,
     error::Result,
-    format::{FormatExpr, SelectType, StreamSelector},
+    format::{self, FormatExpr, SelectType},
     playlist::types::{MasterPlaylist, MediaType, StreamMetadata},
 };
 use std::cmp::Reverse;
@@ -50,14 +50,8 @@ impl MasterPlaylist {
         format_expr: &FormatExpr,
         select_type: &SelectType,
     ) -> Result<Self> {
-        let pre_selected = format_expr.eval(&self.streams);
-        let selected = StreamSelector::new(&self.streams).select(&pre_selected, select_type)?;
-        self.streams = self
-            .streams
-            .into_iter()
-            .enumerate()
-            .filter_map(|(i, s)| if selected.contains(&i) { Some(s) } else { None })
-            .collect();
+        let selected = format_expr.eval(&self.streams);
+        self.streams = format::select(self.streams, &selected, select_type)?;
         Ok(self)
     }
 

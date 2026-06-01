@@ -196,7 +196,7 @@ impl PlaylistDownloader {
 
     /// Fetches and parses the playlist manifest.
     ///
-    /// If `partial_parse` is `true`, it applies filters and interactive prompts
+    /// If `partial_parse` is `true`, it applies format selection and interactive prompts
     /// to determine which streams should be processed.
     ///
     /// # Errors
