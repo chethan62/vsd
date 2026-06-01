@@ -308,7 +308,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse() {
+    fn parse() {
         let input = b"# Netscape HTTP Cookie File\n\
                      # This is a comment\n\
                      \n\
@@ -340,7 +340,28 @@ mod tests {
     }
 
     #[test]
-    fn test_url() {
+    fn header() {
+        let c1 = Cookie {
+            domain: "example.com",
+            include_subdomains: true,
+            path: "/path",
+            secure: true,
+            expires: 1716672000,
+            name: "foo",
+            value: "bar",
+            http_only: true,
+        };
+        let header = c1.as_header();
+        assert!(header.contains("foo=bar"));
+        assert!(header.contains("; Domain=example.com"));
+        assert!(header.contains("; Path=/path"));
+        assert!(header.contains("; Expires=Sat, 25 May 2024 21:20:00 GMT"));
+        assert!(header.contains("; Secure"));
+        assert!(header.contains("; HttpOnly"));
+    }
+
+    #[test]
+    fn url() {
         let c1 = Cookie {
             domain: ".example.com",
             include_subdomains: true,
@@ -364,26 +385,5 @@ mod tests {
             http_only: false,
         };
         assert_eq!(c2.url(), "http://example.com/");
-    }
-
-    #[test]
-    fn test_header() {
-        let c1 = Cookie {
-            domain: "example.com",
-            include_subdomains: true,
-            path: "/path",
-            secure: true,
-            expires: 1716672000,
-            name: "foo",
-            value: "bar",
-            http_only: true,
-        };
-        let header = c1.as_header();
-        assert!(header.contains("foo=bar"));
-        assert!(header.contains("; Domain=example.com"));
-        assert!(header.contains("; Path=/path"));
-        assert!(header.contains("; Expires=Sat, 25 May 2024 21:20:00 GMT"));
-        assert!(header.contains("; Secure"));
-        assert!(header.contains("; HttpOnly"));
     }
 }
