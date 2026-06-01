@@ -96,7 +96,6 @@ For string fields, comparisons are case-insensitive. The `=` (equals) and `!=` (
 | `audio_channels` | Number of audio channels |
 | `acodec` | Name of the audio codec |
 | `vcodec` | Name of the video codec |
-| `format_id` | Numeric ID of the format |
 
 | Operator | Description |
 |---------|-------------|

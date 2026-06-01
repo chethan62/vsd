@@ -48,7 +48,6 @@ pub enum Field {
     AudioChannels,
     Acodec,
     Vcodec,
-    FormatId,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -186,7 +185,7 @@ impl FormatExpr {
             "allaud" => Ok(BaseFormat::AllAud),
             "allsub" => Ok(BaseFormat::AllSub),
             "allund" => Ok(BaseFormat::AllUnd),
-            _ => return Err(Error::FormatParse(format!("unknown keyword '{}'", s))),
+            _ => Err(Error::FormatParse(format!("unknown keyword '{}'", s))),
         }
     }
 
@@ -237,13 +236,15 @@ impl FormatExpr {
             }
         }
 
-        return Err(Error::FormatParse(format!("invalid filter '[{}]'", s)));
+        Err(Error::FormatParse(format!("invalid filter '[{}]'", s)))
     }
 
     fn parse_field(s: &str) -> Result<Field> {
         match s {
             "width" => Ok(Field::Width),
             "height" => Ok(Field::Height),
+            "resolution" => Ok(Field::Resolution),
+            "language" => Ok(Field::Language),
             "tbr" => Ok(Field::Tbr),
             "abr" => Ok(Field::Abr),
             "vbr" => Ok(Field::Vbr),
@@ -251,10 +252,7 @@ impl FormatExpr {
             "audio_channels" => Ok(Field::AudioChannels),
             "acodec" => Ok(Field::Acodec),
             "vcodec" => Ok(Field::Vcodec),
-            "language" => Ok(Field::Language),
-            "format_id" => Ok(Field::FormatId),
-            "resolution" => Ok(Field::Resolution),
-            _ => return Err(Error::FormatParse(format!("unknown field '{}'", s))),
+            _ => Err(Error::FormatParse(format!("unknown field '{}'", s))),
         }
     }
 
@@ -297,9 +295,6 @@ impl FormatExpr {
         }
     }
 
-    /// Strict evaluation: returns `None` if any part of the expression matches
-    /// nothing.  Used by [`Fallback`] to decide whether a branch is fully
-    /// satisfied before committing to it.
     fn eval_strict(&self, streams: &[MediaPlaylist]) -> Option<Vec<usize>> {
         match self {
             FormatExpr::Fallback(exprs) => {
@@ -341,13 +336,23 @@ impl FormatExpr {
     }
 
     fn eval_single(streams: &[MediaPlaylist], base: &BaseFormat, filters: &[Filter]) -> Vec<usize> {
-        let candidates: Vec<usize> = streams
+        let candidates = streams
             .iter()
             .enumerate()
-            .filter(|(_, s)| Self::matches_base_type(s, base))
+            .filter(|(_, s)| match base {
+                BaseFormat::All => true,
+                BaseFormat::AllVid | BaseFormat::BestVideo | BaseFormat::WorstVideo => {
+                    s.media_type == MediaType::Video
+                }
+                BaseFormat::AllAud | BaseFormat::BestAudio | BaseFormat::WorstAudio => {
+                    s.media_type == MediaType::Audio
+                }
+                BaseFormat::AllSub | BaseFormat::Sub => s.media_type == MediaType::Subtitles,
+                BaseFormat::AllUnd => s.media_type == MediaType::Undefined,
+            })
             .filter(|(_, s)| filters.iter().all(|f| Self::matches_filter(s, f)))
             .map(|(i, _)| i)
-            .collect();
+            .collect::<Vec<_>>();
 
         match base {
             BaseFormat::BestVideo | BaseFormat::BestAudio | BaseFormat::Sub => {
@@ -364,119 +369,97 @@ impl FormatExpr {
         }
     }
 
-    fn matches_base_type(stream: &MediaPlaylist, base: &BaseFormat) -> bool {
-        match base {
-            BaseFormat::All => true,
-            BaseFormat::BestVideo | BaseFormat::WorstVideo | BaseFormat::AllVid => {
-                stream.media_type == MediaType::Video
-            }
-            BaseFormat::BestAudio | BaseFormat::WorstAudio | BaseFormat::AllAud => {
-                stream.media_type == MediaType::Audio
-            }
-            BaseFormat::Sub | BaseFormat::AllSub => stream.media_type == MediaType::Subtitles,
-            BaseFormat::AllUnd => stream.media_type == MediaType::Undefined,
-        }
-    }
-
     fn matches_filter(stream: &MediaPlaylist, filter: &Filter) -> bool {
-        match &filter.field {
-            Field::Width => {
-                let w = stream.resolution.map(|(w, _)| w as f64).unwrap_or(0.0);
-                Self::compare_numeric(w, &filter.op, &filter.value)
-            }
-            Field::Height => {
-                let h = stream.resolution.map(|(_, h)| h as f64).unwrap_or(0.0);
-                Self::compare_numeric(h, &filter.op, &filter.value)
-            }
-            Field::Tbr | Field::Abr | Field::Vbr => {
-                let bw_kbps = stream.bandwidth.map(|b| b as f64 / 1000.0).unwrap_or(0.0);
-                Self::compare_numeric(bw_kbps, &filter.op, &filter.value)
-            }
-            Field::Fps => {
-                let fps = stream.frame_rate.map(|f| f as f64).unwrap_or(0.0);
-                Self::compare_numeric(fps, &filter.op, &filter.value)
-            }
-            Field::AudioChannels => {
-                let ch = stream.channels.map(|c| c as f64).unwrap_or(0.0);
-                Self::compare_numeric(ch, &filter.op, &filter.value)
-            }
-            Field::Acodec | Field::Vcodec => {
-                let codec = stream.codecs.as_deref().unwrap_or("");
-                Self::compare_string(codec, &filter.op, &filter.value)
-            }
-            Field::Language => {
-                let lang = stream.language.as_deref().unwrap_or("");
-                Self::compare_string(lang, &filter.op, &filter.value)
-            }
-            Field::FormatId => Self::compare_string(&stream.id, &filter.op, &filter.value),
-            Field::Resolution => {
-                let res = stream
-                    .resolution
-                    .map(|(w, h)| format!("{}x{}", w, h))
-                    .unwrap_or_default();
-                Self::compare_string(&res, &filter.op, &filter.value)
-            }
-        }
-    }
+        let compare_numeric = |actual: f64, op: &FilterOp, value: &str| {
+            const EPS: f64 = 0.001;
 
-    fn compare_numeric(actual: f64, op: &FilterOp, value_str: &str) -> bool {
-        // Small epsilon to handle f32 -> f64 precision loss.
-        const EPS: f64 = 0.001;
-
-        // Support comma-separated values for Eq/Ne.
-        match op {
-            FilterOp::Eq => value_str
-                .split(',')
-                .filter_map(|v| v.trim().parse::<f64>().ok())
-                .any(|v| (actual - v).abs() < EPS),
-            FilterOp::Ne => value_str
-                .split(',')
-                .filter_map(|v| v.trim().parse::<f64>().ok())
-                .all(|v| (actual - v).abs() >= EPS),
-            _ => {
-                let Ok(target) = value_str.trim().parse::<f64>() else {
-                    return false;
-                };
-                match op {
-                    FilterOp::Le => actual <= target + EPS,
-                    FilterOp::Ge => actual >= target - EPS,
-                    FilterOp::Lt => actual < target - EPS,
-                    FilterOp::Gt => actual > target + EPS,
-                    _ => false, // String ops don't apply to numeric.
+            match op {
+                FilterOp::Eq => value
+                    .split(',')
+                    .filter_map(|v| v.trim().parse::<f64>().ok())
+                    .any(|v| (actual - v).abs() < EPS),
+                FilterOp::Ne => value
+                    .split(',')
+                    .filter_map(|v| v.trim().parse::<f64>().ok())
+                    .all(|v| (actual - v).abs() >= EPS),
+                _ => {
+                    let Ok(value) = value.trim().parse::<f64>() else {
+                        return false;
+                    };
+                    match op {
+                        FilterOp::Le => actual <= value + EPS,
+                        FilterOp::Ge => actual >= value - EPS,
+                        FilterOp::Lt => actual < value - EPS,
+                        FilterOp::Gt => actual > value + EPS,
+                        _ => false,
+                    }
                 }
             }
-        }
-    }
+        };
+        let compare_string = |actual: &str, op: &FilterOp, value: &str| {
+            let actual = actual.trim().to_lowercase();
 
-    fn compare_string(actual: &str, op: &FilterOp, value_str: &str) -> bool {
-        let actual_lower = actual.to_lowercase();
+            match op {
+                FilterOp::Eq => value.split(',').any(|v| {
+                    let v = v.trim().to_lowercase();
+                    actual == v || actual.starts_with(&format!("{}-", v))
+                }),
+                FilterOp::Ne => value.split(',').all(|v| {
+                    let v = v.trim().to_lowercase();
+                    actual != v && !actual.starts_with(&format!("{}-", v))
+                }),
+                FilterOp::Contains => actual.contains(&value.trim().to_lowercase()),
+                FilterOp::StartsWith => actual.starts_with(&value.trim().to_lowercase()),
+                FilterOp::EndsWith => actual.ends_with(&value.trim().to_lowercase()),
+                _ => false,
+            }
+        };
 
-        match op {
-            FilterOp::Eq => value_str.split(',').any(|v| {
-                let v = v.trim().to_lowercase();
-                actual_lower == v || actual_lower.starts_with(&format!("{}-", v))
-            }),
-            FilterOp::Ne => value_str.split(',').all(|v| {
-                let v = v.trim().to_lowercase();
-                actual_lower != v && !actual_lower.starts_with(&format!("{}-", v))
-            }),
-            FilterOp::Contains => {
-                let v = value_str.to_lowercase();
-                actual_lower.contains(&v)
-            }
-            FilterOp::StartsWith => {
-                let v = value_str.to_lowercase();
-                actual_lower.starts_with(&v)
-            }
-            FilterOp::EndsWith => {
-                let v = value_str.to_lowercase();
-                actual_lower.ends_with(&v)
-            }
-            // Numeric ops on strings: compare lexicographically.
-            FilterOp::Le => actual_lower <= value_str.to_lowercase(),
-            FilterOp::Ge => actual_lower >= value_str.to_lowercase(),
-            FilterOp::Lt => actual_lower < value_str.to_lowercase(),
-            FilterOp::Gt => actual_lower > value_str.to_lowercase(),
+        match &filter.field {
+            Field::Width => compare_numeric(
+                stream.resolution.map(|(w, _)| w as f64).unwrap_or(0.0),
+                &filter.op,
+                &filter.value,
+            ),
+            Field::Height => compare_numeric(
+                stream.resolution.map(|(_, h)| h as f64).unwrap_or(0.0),
+                &filter.op,
+                &filter.value,
+            ),
+            Field::Resolution => compare_string(
+                stream
+                    .resolution
+                    .map(|(w, h)| format!("{}x{}", w, h))
+                    .as_deref()
+                    .unwrap_or(""),
+                &filter.op,
+                &filter.value,
+            ),
+            Field::Language => compare_string(
+                stream.language.as_deref().unwrap_or(""),
+                &filter.op,
+                &filter.value,
+            ),
+            Field::Tbr | Field::Abr | Field::Vbr => compare_numeric(
+                stream.bandwidth.map(|b| b as f64 / 1000.0).unwrap_or(0.0),
+                &filter.op,
+                &filter.value,
+            ),
+            Field::Fps => compare_numeric(
+                stream.frame_rate.map(|f| f as f64).unwrap_or(0.0),
+                &filter.op,
+                &filter.value,
+            ),
+            Field::AudioChannels => compare_numeric(
+                stream.channels.map(|c| c as f64).unwrap_or(0.0),
+                &filter.op,
+                &filter.value,
+            ),
+            Field::Acodec | Field::Vcodec => compare_string(
+                stream.codecs.as_deref().unwrap_or_default(),
+                &filter.op,
+                &filter.value,
+            ),
         }
     }
 }
