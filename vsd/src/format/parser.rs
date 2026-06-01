@@ -3,60 +3,31 @@ use crate::{
     playlist::{MediaPlaylist, MediaType},
 };
 
-/// Parsed format expression AST.
-///
-/// Grammar:
-///
-/// ```text
-/// expr        = merge ( "/" merge )*
-/// merge       = single ( "+" single )*
-/// single      = filter_expr | index
-/// filter_expr = base filter*
-/// base        = keyword (see BaseFormat)
-/// index       = <integer>
-/// filter      = "[" field op value "]"
-/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub enum FormatExpr {
-    /// Fallback chain: try each in order, return first non-empty result.
     Fallback(Vec<FormatExpr>),
-    /// Merge: combine selected streams from each sub-expression.
     Merge(Vec<FormatExpr>),
-    /// A single format selector with optional filters.
     Single {
         base: BaseFormat,
         filters: Vec<Filter>,
     },
-    /// A raw stream index (0-based internally, 1-based from user input).
     Index(usize),
 }
 
-/// Base format keyword determining which streams to consider.
 #[derive(Clone, Debug, PartialEq)]
 pub enum BaseFormat {
-    /// `bv` / `bestvideo` — best video stream.
     BestVideo,
-    /// `ba` / `bestaudio` — best audio stream.
     BestAudio,
-    /// `s` / `sub` — a subtitle stream (first available).
-    Sub,
-    /// `wv` / `worstvideo` — worst video stream.
     WorstVideo,
-    /// `wa` / `worstaudio` — worst audio stream.
     WorstAudio,
-    /// `all` — all streams of all types.
+    Sub,
     All,
-    /// `allvid` — all video streams.
     AllVid,
-    /// `allaud` — all audio streams.
     AllAud,
-    /// `allsub` — all subtitle streams.
     AllSub,
-    /// `allund` — all undefined streams.
     AllUnd,
 }
 
-/// A filter applied to streams, e.g. `[height<=720]`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Filter {
     pub field: Field,
@@ -64,59 +35,36 @@ pub struct Filter {
     pub value: String,
 }
 
-/// Filterable stream fields.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Field {
     Width,
     Height,
-    /// Total bitrate in kbps.
+    Resolution,
+    Language,
     Tbr,
-    /// Audio bitrate in kbps.
     Abr,
-    /// Video bitrate in kbps.
     Vbr,
     Fps,
     AudioChannels,
     Acodec,
     Vcodec,
-    Language,
     FormatId,
-    Resolution,
 }
 
-/// Filter comparison operators.
 #[derive(Clone, Debug, PartialEq)]
 pub enum FilterOp {
-    /// `=` — equals (comma-separated values for OR match).
     Eq,
-    /// `!=` — not equals (comma-separated values for NOR match).
     Ne,
-    /// `<=`
     Le,
-    /// `>=`
     Ge,
-    /// `<`
     Lt,
-    /// `>`
     Gt,
-    /// `*=` — contains (string).
     Contains,
-    /// `^=` — starts with.
     StartsWith,
-    /// `$=` — ends with.
     EndsWith,
 }
 
 impl FormatExpr {
-    /// Parse a format expression string into an AST.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// FormatExpr::parse("bv+ba+s")?;
-    /// FormatExpr::parse("bv[height<=720]+ba[lang=en,fr]")?;
-    /// FormatExpr::parse("bv[height=1080]+ba / bv[height=720]+ba")?;
-    /// ```
     pub fn parse(s: &str) -> Result<Self> {
         let s = s.trim();
         if s.is_empty() {
@@ -174,15 +122,27 @@ impl FormatExpr {
             "b" | "best" => {
                 let filters = Self::parse_filters(filters_str)?;
                 Ok(FormatExpr::Merge(vec![
-                    FormatExpr::Single { base: BaseFormat::BestVideo, filters: filters.clone() },
-                    FormatExpr::Single { base: BaseFormat::BestAudio, filters },
+                    FormatExpr::Single {
+                        base: BaseFormat::BestVideo,
+                        filters: filters.clone(),
+                    },
+                    FormatExpr::Single {
+                        base: BaseFormat::BestAudio,
+                        filters,
+                    },
                 ]))
             }
             "w" | "worst" => {
                 let filters = Self::parse_filters(filters_str)?;
                 Ok(FormatExpr::Merge(vec![
-                    FormatExpr::Single { base: BaseFormat::WorstVideo, filters: filters.clone() },
-                    FormatExpr::Single { base: BaseFormat::WorstAudio, filters },
+                    FormatExpr::Single {
+                        base: BaseFormat::WorstVideo,
+                        filters: filters.clone(),
+                    },
+                    FormatExpr::Single {
+                        base: BaseFormat::WorstAudio,
+                        filters,
+                    },
                 ]))
             }
             _ => {
@@ -395,9 +355,9 @@ fn eval_single(streams: &[MediaPlaylist], base: &BaseFormat, filters: &[Filter])
         .collect();
 
     match base {
-        BaseFormat::BestVideo
-        | BaseFormat::BestAudio
-        | BaseFormat::Sub => candidates.into_iter().take(1).collect(),
+        BaseFormat::BestVideo | BaseFormat::BestAudio | BaseFormat::Sub => {
+            candidates.into_iter().take(1).collect()
+        }
         BaseFormat::WorstVideo | BaseFormat::WorstAudio => {
             candidates.into_iter().last().into_iter().collect()
         }
@@ -453,9 +413,7 @@ fn matches_filter(stream: &MediaPlaylist, filter: &Filter) -> bool {
             let lang = stream.language.as_deref().unwrap_or("");
             compare_string(lang, &filter.op, &filter.value)
         }
-        Field::FormatId => {
-            compare_string(&stream.id, &filter.op, &filter.value)
-        }
+        Field::FormatId => compare_string(&stream.id, &filter.op, &filter.value),
         Field::Resolution => {
             let res = stream
                 .resolution
@@ -526,8 +484,6 @@ fn compare_string(actual: &str, op: &FilterOp, value_str: &str) -> bool {
         FilterOp::Gt => actual_lower > value_str.to_lowercase(),
     }
 }
-
-
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -838,10 +794,7 @@ mod tests {
 
     #[test]
     fn eval_filter_codec_contains() {
-        let streams = vec![
-            vid(1920, 1080, 8000000),
-            vid(1280, 720, 4500000),
-        ];
+        let streams = vec![vid(1920, 1080, 8000000), vid(1280, 720, 4500000)];
         let expr = FormatExpr::parse("bv[vcodec*=avc]").unwrap();
         let selected = select_formats(&streams, &expr);
         assert_eq!(selected, vec![0]);
@@ -983,10 +936,7 @@ mod tests {
     #[test]
     fn eval_default_missing_subs_and_und() {
         // No subtitles or undefined streams — default should still select video + audio.
-        let streams = vec![
-            vid(1920, 1080, 8000000),
-            aud("en", 512000),
-        ];
+        let streams = vec![vid(1920, 1080, 8000000), aud("en", 512000)];
         let expr = FormatExpr::parse("b+s+allund").unwrap();
         let selected = select_formats(&streams, &expr);
         assert_eq!(selected, vec![0, 1]);
