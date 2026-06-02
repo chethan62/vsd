@@ -4,6 +4,7 @@
 [![Crate Downloads](https://img.shields.io/crates/d/vsd?logo=rust&style=flat-square)](https://crates.io/crates/vsd)
 [![Crate Version](https://img.shields.io/crates/v/vsd?style=flat-square)](https://crates.io/crates/vsd)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/clitic/vsd/build.yml?logo=github&style=flat-square)](https://github.com/clitic/vsd/actions)
+[![Docs Status](https://img.shields.io/docsrs/vsd?logo=docsdotrs&style=flat-square)](https://docs.rs/vsd)
 [![Crate License](https://img.shields.io/crates/l/vsd?style=flat-square)](https://crates.io/crates/vsd)
 [![Repo Size](https://img.shields.io/github/repo-size/clitic/vsd?logo=github&style=flat-square)](https://github.com/clitic/vsd)
 
