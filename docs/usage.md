@@ -176,3 +176,21 @@ Here are some practical examples of how to construct format selection queries fo
 | `bv[height=1080]+ba / bv[height=720]+ba / b` | Try to get 1080p video with best audio; fallback to 720p video; fallback to the best available resolution. |
 | `1+3` | Download streams with index `1` and `3` as shown in the `-F` stream list. |
 | `allvid+allaud` | Download all available video and audio streams. |
+
+## Library
+
+Add this to your Cargo.toml file.
+
+```toml
+[dependencies]
+vsd = { version = "0.5", default-features = false, features = ["rustls-tls"]}
+```
+
+Or add from command line.
+
+```bash
+cargo add vsd --no-default-features --features rustls-tls
+```
+
+See [docs](https://docs.rs/vsd) and [examples](https://github.com/clitic/vsd/tree/main/vsd/examples) to 
+know how to use it.

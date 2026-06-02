@@ -13,7 +13,6 @@ nav = [
     { "Cli" = "cli.md" },
     { "Android" = "android.md" },
     { "Build" = "build.md" },
-    { "Alternatives" = "alternatives.md" },
     { "Changelog" = "CHANGELOG.md" },
 ]
 

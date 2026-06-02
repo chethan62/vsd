@@ -18,7 +18,7 @@ This document contains cli reference for the `vsd` command-line program.
 
 ## `vsd`
 
-A command-line utility and library for downloading DASH and HLS playlists.
+A command-line utility and library for downloading streams from DASH manifests and HLS playlists.
 
 ```
 vsd [OPTIONS] <COMMAND>
