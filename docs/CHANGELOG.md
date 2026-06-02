@@ -31,7 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `--no-certificate-checks`, `--set-cookie` and `--user-agent` flags removed.
     - Default retries changed from 15 to 10.
     - Mux undefined streams.
-    - Now `--output` flag works with `--parse` flag
+    - Now `--output` flag works with `--parse` flag.
+    - `--select-streams` flag replaced by `--format` flag.
 - `capture`
     - Feature re-worked.
 
