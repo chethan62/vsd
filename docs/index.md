@@ -12,9 +12,9 @@ icon: lucide/house
 
 ## Features
 
-- [x] **DASH & HLS Support**: Supports both DASH (`.mpd`) manifests and HLS (`m3u8`) playlists.
+- [x] **DASH & HLS Support**: Supports both DASH `.mpd` manifests and HLS `.m3u8` playlists.
 - [x] **DRM Support**: Decrypt protected content using keys acquired from Widevine and PlayReady license servers.
 - [x] **Subtitles Extraction**: Extract subtitle tracks from fragmented mp4 streams.
 - [x] **Multi-threaded Downloads**: Fetch media segments concurrently with customizable thread counts to maximize bandwidth.
-- [x] **Rust Library Support**: Integrate `vsd` directly into your Rust projects as a library.
+- [x] **Rust Library Support**: Integrate `vsd` directly into your rust projects as a library.
 - [ ] **Live Stream Downloading**: Live stream downloading is not yet supported.

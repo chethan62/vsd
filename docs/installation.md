@@ -7,7 +7,7 @@ icon: lucide/rocket
 ## Dependencies
 
 - [ffmpeg](https://www.ffmpeg.org/download.html) (optional, *recommended*) required for transmuxing streams.
-- [chrome](https://www.google.com/chrome) / [chromium](https://www.chromium.org/getting-involved/download-chromium/) (optional) needed only for the `capture` sub-command. 
+- [chrome](https://www.google.com/chrome) / [chromium](https://www.chromium.org/getting-involved/download-chromium/) (optional) needed only for the [capture](https://clitic.github.io/vsd/cli/#vsd-capture) sub-command. 
 
 ## Pre-built Binaries
 
@@ -32,6 +32,12 @@ Visit the [releases page](https://github.com/clitic/vsd/releases) for pre-built 
 === ":fontawesome-brands-linux: Linux"
 
     Downloads and extracts the `vsd` binary to your current directory.
+
+    === "via Yay (AUR)"
+
+        ```bash
+        yay -S vsd
+        ```
 
     === "x86_64"
 

@@ -1,6 +1,6 @@
 [project]
 site_name = "Video Stream Downloader"
-site_description = "Documentation for vsd (video stream downloader)"
+site_description = "Documentation for vsd, a command-line utility and library for downloading streams from DASH manifests and HLS playlists."
 site_author = "clitic"
 site_url = "https://clitic.github.io/vsd"
 copyright = "Copyright &copy; 2026 clitic"
@@ -14,7 +14,7 @@ nav = [
     { "Android" = "android.md" },
     { "Build" = "build.md" },
     { "Alternatives" = "alternatives.md" },
-    { "Changelog" = "CHANGELOG.md", icon = "lucide/square-pen" },
+    { "Changelog" = "CHANGELOG.md" },
 ]
 
 [project.theme]

@@ -6,7 +6,7 @@ icon: lucide/mouse-pointer-2
 
 ## Downloading Playlists
 
-Use the [save](https://clitic.github.io/vsd/cli/#vsd-save) sub-command to download streams from a DASH or HLS playlist. By providing an output path, you can optionally mux them into a single file using [ffmpeg](https://github.com/Tyrrrz/FFmpegBin/releases).
+Use the [save](https://clitic.github.io/vsd/cli/#vsd-save) sub-command to download streams from a DASH or HLS playlist. By providing an output path, you can optionally mux them into a single file using ffmpeg.
 
 ```bash
 vsd save "https://media.axprod.net/TestVectors/Hls/not_protected_hls_1080p_h264/manifest.m3u8" -o output.mp4

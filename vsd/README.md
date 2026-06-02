@@ -19,7 +19,7 @@
 - [x] **DRM Support**: Decrypt protected content using keys acquired from Widevine and PlayReady license servers.
 - [x] **Subtitles Extraction**: Extract subtitle tracks from fragmented mp4 streams.
 - [x] **Multi-threaded Downloads**: Fetch media segments concurrently with customizable thread counts to maximize bandwidth.
-- [x] **Rust Library Support**: Integrate `vsd` directly into your Rust projects as a library.
+- [x] **Rust Library Support**: Integrate `vsd` directly into your rust projects as a library.
 - [ ] **Live Stream Downloading**: Live stream downloading is not yet supported.
 
 ## [Installation](https://clitic.github.io/vsd/installation)
@@ -27,7 +27,7 @@
 ### Dependencies
 
 - [ffmpeg](https://www.ffmpeg.org/download.html) (optional, *recommended*) required for transmuxing streams.
-- [chrome](https://www.google.com/chrome) / [chromium](https://www.chromium.org/getting-involved/download-chromium/) (optional) needed only for the `capture` sub-command. 
+- [chrome](https://www.google.com/chrome) / [chromium](https://www.chromium.org/getting-involved/download-chromium/) (optional) needed only for the [capture](https://clitic.github.io/vsd/cli/#vsd-capture) sub-command. 
 
 ### Pre-built Binaries
 
@@ -52,7 +52,7 @@ cargo install vsd
 
 Detailed usage examples are available on the [usage](https://clitic.github.io/vsd/usage) page. For a complete list of commands and options, see the [cli reference](https://clitic.github.io/vsd/cli). 
 
-The main entry point is the [save](https://clitic.github.io/vsd/cli/#vsd-save) sub-command. It downloads streams from a DASH or HLS playlist. By providing an output path, you can optionally mux them into a single file using [ffmpeg](https://github.com/Tyrrrz/FFmpegBin/releases).
+The main entry point is the [save](https://clitic.github.io/vsd/cli/#vsd-save) sub-command. It downloads streams from a DASH or HLS playlist. By providing an output path, you can optionally mux them into a single file using ffmpeg.
 
 ```bash
 vsd save "https://media.axprod.net/TestVectors/Hls/not_protected_hls_1080p_h264/manifest.m3u8" -o output.mp4
