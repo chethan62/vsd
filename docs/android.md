@@ -16,7 +16,7 @@ icon: fontawesome/brands/android
 2. Install [vsd in termux](https://clitic.github.io/vsd/build/#termux). Currently, only `arm64-v8a` binaries pre-builts are available which can be installed using this command.
 
     ```bash
-    curl -L https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-aarch64-linux-android.tar.xz | tar xJC $PREFIX/bin
+    curl -L https://github.com/clitic/vsd/releases/download/vsd-0.5.0/vsd-0.5.0-aarch64-linux-android.tar.xz | tar xJC $PREFIX/bin
     ```
 
 3. Use third party browsers like [Lemur Browser](https://play.google.com/store/apps/details?id=com.lemurbrowser.exts) (*developer tools*) or [Via Browser](https://play.google.com/store/apps/details?id=mark.via.gp) (*tools > resource sniffer*) to find playlists within the websites.

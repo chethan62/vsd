@@ -20,13 +20,13 @@ Visit the [releases page](https://github.com/clitic/vsd/releases) for pre-built 
     === "x86_64"
 
         ```powershell
-        irm https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-x86_64-pc-windows-msvc.zip -OutFile vsd.zip; Expand-Archive vsd.zip -DestinationPath . -Force; rm vsd.zip
+        irm https://github.com/clitic/vsd/releases/download/vsd-0.5.0/vsd-0.5.0-x86_64-pc-windows-msvc.zip -OutFile vsd.zip; Expand-Archive vsd.zip -DestinationPath . -Force; rm vsd.zip
         ```
 
     === "arm64"
     
         ```powershell
-        irm https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-aarch64-pc-windows-msvc.zip -OutFile vsd.zip; Expand-Archive vsd.zip -DestinationPath . -Force; rm vsd.zip
+        irm https://github.com/clitic/vsd/releases/download/vsd-0.5.0/vsd-0.5.0-aarch64-pc-windows-msvc.zip -OutFile vsd.zip; Expand-Archive vsd.zip -DestinationPath . -Force; rm vsd.zip
         ```
 
 === ":fontawesome-brands-linux: Linux"
@@ -42,13 +42,13 @@ Visit the [releases page](https://github.com/clitic/vsd/releases) for pre-built 
     === "x86_64"
 
         ```bash
-        curl -L https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-x86_64-unknown-linux-musl.tar.xz | tar xJC .
+        curl -L https://github.com/clitic/vsd/releases/download/vsd-0.5.0/vsd-0.5.0-x86_64-unknown-linux-musl.tar.xz | tar xJC .
         ```
 
     === "arm64"
     
         ```bash
-        curl -L https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-aarch64-unknown-linux-musl.tar.xz | tar xJC .
+        curl -L https://github.com/clitic/vsd/releases/download/vsd-0.5.0/vsd-0.5.0-aarch64-unknown-linux-musl.tar.xz | tar xJC .
         ```
 
 === ":fontawesome-brands-apple: MacOS"
@@ -64,7 +64,7 @@ Visit the [releases page](https://github.com/clitic/vsd/releases) for pre-built 
     === "arm64"
     
         ```bash
-        curl -L https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-aarch64-apple-darwin.tar.xz | tar xJC .
+        curl -L https://github.com/clitic/vsd/releases/download/vsd-0.5.0/vsd-0.5.0-aarch64-apple-darwin.tar.xz | tar xJC .
         ```
 
 === ":fontawesome-brands-android: Android"
@@ -74,7 +74,7 @@ Visit the [releases page](https://github.com/clitic/vsd/releases) for pre-built 
     === "arm64"
 
         ```bash
-        curl -L https://github.com/clitic/vsd/releases/download/vsd-0.4.3/vsd-0.4.3-aarch64-linux-android.tar.xz | tar xJC $PREFIX/bin
+        curl -L https://github.com/clitic/vsd/releases/download/vsd-0.5.0/vsd-0.5.0-aarch64-linux-android.tar.xz | tar xJC $PREFIX/bin
         ```
 
 ## Install via Cargo
