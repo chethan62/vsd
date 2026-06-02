@@ -7,7 +7,7 @@
 [![Crate License](https://img.shields.io/crates/l/vsd?style=flat-square)](https://crates.io/crates/vsd)
 [![Repo Size](https://img.shields.io/github/repo-size/clitic/vsd?logo=github&style=flat-square)](https://github.com/clitic/vsd)
 
-**V**ideo **S**tream **D**ownloader is a command-line utility and Rust library for downloading streams from [DASH](https://en.wikipedia.org/wiki/Dynamic_Adaptive_Streaming_over_HTTP) (`.mpd`) manifests and [HLS](https://en.wikipedia.org/wiki/HTTP_Live_Streaming) (`.m3u8`) playlists.
+**V**ideo **S**tream **D**ownloader is a command-line utility and rust library for downloading streams from [DASH](https://en.wikipedia.org/wiki/Dynamic_Adaptive_Streaming_over_HTTP) `.mpd` manifests and [HLS](https://en.wikipedia.org/wiki/HTTP_Live_Streaming) `.m3u8` playlists.
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/clitic/vsd/refs/heads/main/docs/images/showcase.gif" width="700px">
@@ -15,14 +15,14 @@
 
 ## Features
 
-- [x] **DASH & HLS Support**: Supports both DASH (`.mpd`) manifests and HLS (`m3u8`) playlists.
+- [x] **DASH & HLS Support**: Supports both DASH `.mpd` manifests and HLS `.m3u8` playlists.
 - [x] **DRM Support**: Decrypt protected content using keys acquired from Widevine and PlayReady license servers.
 - [x] **Subtitles Extraction**: Extract subtitle tracks from fragmented mp4 streams.
 - [x] **Multi-threaded Downloads**: Fetch media segments concurrently with customizable thread counts to maximize bandwidth.
 - [x] **Rust Library Support**: Integrate `vsd` directly into your Rust projects as a library.
 - [ ] **Live Stream Downloading**: Live stream downloading is not yet supported.
 
-## [Installation](https://clitic.github.io/vsd/install)
+## [Installation](https://clitic.github.io/vsd/installation)
   
 ### Dependencies
 
@@ -110,6 +110,9 @@ This project is developed and maintained in my free time. Donations help cover d
 <div align="center">
   <a href="mailto:clitic21@gmail.com" target="_blank" style="text-decoration: none;">
     <img src="https://raw.githubusercontent.com/clitic/vsd/refs/heads/main/docs/assets/contact.svg" alt="Contact Me" height="42px">
+  </a>
+  <a href="https://ko-fi.com/clitic" target="_blank" style="text-decoration: none;">
+    <img src="https://storage.ko-fi.com/cdn/kofi5.png?v=6" alt="Buy Me a Coffee at ko-fi.com" height="40px" />
   </a>
   <a href="https://www.buymeacoffee.com/clitic" target="_blank" style="text-decoration: none;">
     <img src="https://raw.githubusercontent.com/clitic/vsd/refs/heads/main/docs/assets/bmc.svg" alt="Buy Me A Coffee" height="40px">

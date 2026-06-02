@@ -41,7 +41,7 @@ curl -X GET -H 'Referer: https://bitmovin.com/' -H 'User-Agent: Mozilla/5.0 (Win
 !!! tip "Testing Captured Requests"
     You can import the generated `curl` commands into API clients like [Hoppscotch](https://hoppscotch.io) to verify that the captured headers successfully retrieve the playlist.
 
-Once the playlist url and required headers are captured, pass them to the [save](https://clitic.github.io/vsd/cli/#vsd-save) sub-command to download the streams.
+Once the playlist url and required headers are captured, pass them to the save sub-command to download the streams.
 
 ```bash
 vsd save -d "https://cdn.bitmovin.com/content/assets/art-of-motion-dash-hls-progressive/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8" \
@@ -98,7 +98,7 @@ DrmPsh [wvd] AAAAXHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAADwSEEBgqGWIeEJnnL+RrluuHnI
 DrmKey [wvd] 4060a865887842679cbf91ae5bae1e72:fc35340837310cc0fb53de97e22a69e0
 ```
 
-Finally, pass the acquired decryption key to the [save] sub-command using the `--keys` option to download and decrypt the streams.
+Finally, pass the acquired decryption key to the save sub-command using the `--keys` option to download and decrypt the streams.
 
 ```bash
 vsd save "https://media.axprod.net/TestVectors/Dash/protected_dash_1080p_h264_singlekey/manifest.mpd" \
