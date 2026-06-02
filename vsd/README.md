@@ -6,9 +6,8 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/clitic/vsd/build.yml?logo=github&style=flat-square)](https://github.com/clitic/vsd/actions)
 [![Crate License](https://img.shields.io/crates/l/vsd?style=flat-square)](https://crates.io/crates/vsd)
 [![Repo Size](https://img.shields.io/github/repo-size/clitic/vsd?logo=github&style=flat-square)](https://github.com/clitic/vsd)
-[![Open In Colab](https://img.shields.io/badge/Open%20In%20Colab-F9AB00?logo=googlecolab&color=525252&style=flat-square)](https://colab.research.google.com/github/clitic/vsd/blob/main/vsd/vsd-on-colab.ipynb)
 
-**V**ideo **S**tream **D**ownloader is a powerful command-line utility that enables users to download video content streamed over HTTP from websites. It supports both [DASH (Dynamic Adaptive Streaming over HTTP)](https://en.wikipedia.org/wiki/Dynamic_Adaptive_Streaming_over_HTTP) using `.mpd` manifest files and [HLS (HTTP Live Streaming)](https://en.wikipedia.org/wiki/HTTP_Live_Streaming) using `.m3u8` playlists. The tool is designed to handle adaptive bitrate streams, fetch individual video and audio segments, and optionally mux them into a single playable file, making it ideal for offline viewing, archival, or analysis of online video content.
+**V**ideo **S**tream **D**ownloader is a command-line utility and Rust library for downloading streams from [DASH](https://en.wikipedia.org/wiki/Dynamic_Adaptive_Streaming_over_HTTP) (`.mpd`) manifests and [HLS](https://en.wikipedia.org/wiki/HTTP_Live_Streaming) (`.m3u8`) playlists.
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/clitic/vsd/refs/heads/main/docs/images/showcase.gif" width="700px">
@@ -16,14 +15,12 @@
 
 ## Features
 
-- [x] Captures network requests and lists playlist and subtitle files from websites.
-- [x] Compatible with both DASH and HLS playlists.
-- [x] Enables multi-threaded downloading for faster performance.
-- [x] Muxing streams to single video container using ffmpeg.
-- [x] Offers robust automation support.
-- [x] One unified progress bar tracking the entire download, with real-time file size updates.
-- [x] Supports decryption for `AES-128`, `SAMPLE-AES`, `CENC`, `CENS`, `CBC1` and `CBCS`.
-- [ ] Live stream downloading, consider [contributing](https://github.com/clitic/vsd/fork) this feature.
+- [x] **DASH & HLS Support**: Supports both DASH (`.mpd`) manifests and HLS (`m3u8`) playlists.
+- [x] **DRM Support**: Decrypt protected content using keys acquired from Widevine and PlayReady license servers.
+- [x] **Subtitles Extraction**: Extract subtitle tracks from fragmented mp4 streams.
+- [x] **Multi-threaded Downloads**: Fetch media segments concurrently with customizable thread counts to maximize bandwidth.
+- [x] **Rust Library Support**: Integrate `vsd` directly into your Rust projects as a library.
+- [ ] **Live Stream Downloading**: Live stream downloading is not yet supported.
 
 ## [Installation](https://clitic.github.io/vsd/install)
   
@@ -51,9 +48,42 @@ cargo install vsd
 - [Build Instructions](https://clitic.github.io/vsd/build)
 - [Changelog](https://clitic.github.io/vsd/CHANGELOG)
 
-## [Usage](https://clitic.github.io/vsd/usage)
+## Usage
 
-Below are detailed usage scenarios for `vsd`. For complete option details, see the [cli reference](https://clitic.github.io/vsd/cli).
+Detailed usage examples are available on the [usage](https://clitic.github.io/vsd/usage) page. For a complete list of commands and options, see the [cli reference](https://clitic.github.io/vsd/cli). 
+
+The main entry point is the [save](https://clitic.github.io/vsd/cli/#vsd-save) sub-command. It downloads streams from a DASH or HLS playlist. By providing an output path, you can optionally mux them into a single file using [ffmpeg](https://github.com/Tyrrrz/FFmpegBin/releases).
+
+```bash
+vsd save "https://media.axprod.net/TestVectors/Hls/not_protected_hls_1080p_h264/manifest.m3u8" -o output.mp4
+```
+
+```
+Stream [vid] 1920x1080 | 4140k | avc1.640028… |   ? fps
+Stream [vid]  1280x720 | 2982k | avc1.64001f… |   ? fps
+Stream [vid]  1024x576 | 1799k | avc1.64001f… |   ? fps
+Stream [vid]   640x360 | 1272k | avc1.64001e… |   ? fps
+Stream [vid]   512x288 |  738k | avc1.640015… |   ? fps
+Stream [vid]   384x216 |  617k | avc1.64000d… |   ? fps
+Stream [aud]        en |     ? |            ? |   2 ch
+Stream [aud]    en-low |     ? |            ? |   2 ch
+Stream [aud]   en-high |     ? |            ? |   2 ch
+Stream [sub]        fr |    ?k |            ? |
+Stream [sub]        en |    ?k |            ? |
+Stream [sub]        de |    ?k |            ? |
+DownLd [vid] 1920x1080 4140k avc1.640028… ?fps
+Saving [vid] vsd-vid-f3f2d26
+[#(1/3) 258.3MiB/~258.3MiB(100%) PT:184/184 DL:1.2MiB ETA:0s]
+Concat [vid] vsd-vid-f3f2d26.ts
+DownLd [aud] en ? ? 2ch
+Saving [aud] vsd-aud-8053bac
+[#(2/3) 16.8MiB/~16.8MiB(100%) PT:184/184 DL:1.4MiB ETA:0s]
+Concat [aud] vsd-aud-8053bac.ts
+DownLd [sub] fr ?k ?
+Saving [sub] vsd-sub-c7fc10a.vtt
+[#(3/3) 15.7KiB/~15.7KiB(100%) PT:184/184 DL:2.0KiB ETA:0s]
+Muxing [exe] ffmpeg -hide_banner -y -i vsd-vid-f3f2d26.ts -i vsd-aud-8053bac.ts -i vsd-sub-c7fc10a.vtt -map 0 -map 1 -map 2 -metadata:s:a:0 language=en -metadata:s:s:0 language=fr -disposition:a:0 default -disposition:s:0 default -c:v copy -c:a copy -c:s mov_text output.mp4
+```
 
 ## Library
 

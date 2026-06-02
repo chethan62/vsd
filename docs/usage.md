@@ -6,7 +6,7 @@ icon: lucide/mouse-pointer-2
 
 ## Downloading Playlists
 
-Use the [save] sub-command to download streams from a DASH or HLS playlist. By providing an output path, you can optionally mux them into a single file using [ffmpeg](https://github.com/Tyrrrz/FFmpegBin/releases).
+Use the [save](https://clitic.github.io/vsd/cli/#vsd-save) sub-command to download streams from a DASH or HLS playlist. By providing an output path, you can optionally mux them into a single file using [ffmpeg](https://github.com/Tyrrrz/FFmpegBin/releases).
 
 ```bash
 vsd save "https://media.axprod.net/TestVectors/Hls/not_protected_hls_1080p_h264/manifest.m3u8" -o output.mp4
@@ -41,7 +41,7 @@ curl -X GET -H 'Referer: https://bitmovin.com/' -H 'User-Agent: Mozilla/5.0 (Win
 !!! tip "Testing Captured Requests"
     You can import the generated `curl` commands into API clients like [Hoppscotch](https://hoppscotch.io) to verify that the captured headers successfully retrieve the playlist.
 
-Once the playlist url and required headers are captured, pass them to the [save] sub-command to download the streams.
+Once the playlist url and required headers are captured, pass them to the [save](https://clitic.github.io/vsd/cli/#vsd-save) sub-command to download the streams.
 
 ```bash
 vsd save -d "https://cdn.bitmovin.com/content/assets/art-of-motion-dash-hls-progressive/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8" \
@@ -176,5 +176,3 @@ Here are some practical examples of how to construct format selection queries fo
 | `bv[height=1080]+ba / bv[height=720]+ba / b` | Try to get 1080p video with best audio; fallback to 720p video; fallback to the best available resolution. |
 | `1+3` | Download streams with index `1` and `3` as shown in the `-F` stream list. |
 | `allvid+allaud` | Download all available video and audio streams. |
-
-[save]: https://clitic.github.io/vsd/cli/#vsd-save
