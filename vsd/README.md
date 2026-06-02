@@ -29,14 +29,12 @@
   
 ### Dependencies
 
-- [ffmpeg](https://www.ffmpeg.org/download.html) (optional, *recommended*) required for transmuxing and transcoding streams.
-- [chrome](https://www.google.com/chrome) / [chromium](https://www.chromium.org/getting-involved/download-chromium/) (optional) needed only for the capture sub-command. 
+- [ffmpeg](https://www.ffmpeg.org/download.html) (optional, *recommended*) required for transmuxing streams.
+- [chrome](https://www.google.com/chrome) / [chromium](https://www.chromium.org/getting-involved/download-chromium/) (optional) needed only for the `capture` sub-command. 
 
 ### Pre-built Binaries
 
-Visit the [releases page](https://github.com/clitic/vsd/releases) for pre-built binaries or grab the [latest CI builds](https://nightly.link/clitic/vsd/workflows/build/main).
-Download and extract the archive, then copy the vsd binary to a directory of your choice.
-Finally, add that directory to your system's `PATH` environment variable.
+Visit the [releases page](https://github.com/clitic/vsd/releases) for pre-built binaries or grab the [latest CI builds](https://nightly.link/clitic/vsd/workflows/build/main). Extract the binary and add its path to your system's `PATH`.
 
 [![Packaging Status](https://repology.org/badge/vertical-allrepos/vsd.svg)](https://repology.org/project/vsd/versions)
 
@@ -56,6 +54,24 @@ cargo install vsd
 ## [Usage](https://clitic.github.io/vsd/usage)
 
 Below are detailed usage scenarios for `vsd`. For complete option details, see the [cli reference](https://clitic.github.io/vsd/cli).
+
+## Library
+
+Add this to your Cargo.toml file.
+
+```toml
+[dependencies]
+vsd = { version = "0.5", default-features = false, features = ["rustls-tls"]}
+```
+
+Or add from command line.
+
+```bash
+cargo add vsd --no-default-features --features rustls-tls
+```
+
+See [docs](https://docs.rs/vsd) and [examples](https://github.com/clitic/vsd/tree/main/vsd/examples) to 
+know how to use it.
 
 ## Donate
 

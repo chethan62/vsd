@@ -4,8 +4,6 @@ icon: lucide/mouse-pointer-2
 
 # Usage
 
-Practical examples and common scenarios for the `vsd` command-line utility.
-
 ## Downloading Playlists
 
 Use the [save] sub-command to download streams from a DASH or HLS playlist. By providing an output path, you can optionally mux them into a single file using [ffmpeg](https://github.com/Tyrrrz/FFmpegBin/releases).
@@ -15,7 +13,7 @@ vsd save "https://media.axprod.net/TestVectors/Hls/not_protected_hls_1080p_h264/
 ```
 
 !!! info "Note about default format selection"
-    By default, when no format expression is specified, the cli defaults to **`b+s+allund`** (best video + best audio + first subtitle track + all undefined streams). See [format selection](#format-selection) section for more info.
+    By default, when no format expression is specified, the cli defaults to **`b+s+allund`** (best video + best audio + first subtitle track + all undefined streams). See [format selection](#format-selection) section for more details.
 
 !!! info "Note for yt-dlp users"
     Unlike `yt-dlp`, which automatically merges streams when possible, `vsd` will only merge the downloaded streams into a single output file if the `-o` / `--output` flag is explicitly specified. Otherwise, each stream is saved as a separate file.
@@ -51,9 +49,9 @@ vsd save -d "https://cdn.bitmovin.com/content/assets/art-of-motion-dash-hls-prog
   -f worstvideo -o output.mp4
 ```
 
-## Downloading DRM-Protected Playlists
+## Downloading DRM Protected Playlists
 
-To download and decrypt DRM-protected playlist (e.g. using Widevine or PlayReady), you must obtain the decryption keys. The following examples use test vectors from [Axinom/public-test-vectors](https://github.com/Axinom/public-test-vectors).
+To download and decrypt DRM protected playlist (e.g. using Widevine or PlayReady), you must obtain the decryption keys. The following examples use test vectors from [Axinom/public-test-vectors](https://github.com/Axinom/public-test-vectors).
 
 If you attempt to save protected playlist directly without keys, the download will fail and display the required KeyIDs.
 
@@ -93,7 +91,7 @@ vsd license "https://media.axprod.net/TestVectors/Dash/protected_dash_1080p_h264
   --skip-playready
 ```
 
-If successful, the license sub-command outputs the keyID and decryption key in `KID:KEY` format.
+If successful, the license sub-command outputs the KeyID and decryption key in `KID:KEY` format.
 
 ```
 DrmPsh [wvd] AAAAXHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAADwSEEBgqGWIeEJnnL+RrluuHnISEEBgqGWIeEJnnL+RrluuHnISEEBgqGWIeEJnnL+RrluuHnJI49yVmwY=
