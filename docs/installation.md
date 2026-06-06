@@ -17,6 +17,12 @@ Visit the [releases page](https://github.com/clitic/vsd/releases) for pre-built 
 
     Downloads and extracts the `vsd` binary to your current directory.
 
+    === "via Scoop"
+
+        ```bash
+        scoop install vsd
+        ```
+   
     === "x86_64"
 
         ```powershell
@@ -36,7 +42,7 @@ Visit the [releases page](https://github.com/clitic/vsd/releases) for pre-built 
     === "via Yay (AUR)"
 
         ```bash
-        yay -S vsd
+        yay -Syu vsd
         ```
 
     === "x86_64"
