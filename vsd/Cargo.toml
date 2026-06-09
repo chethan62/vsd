@@ -4,7 +4,6 @@ categories = ["command-line-utilities"]
 description = "A command-line utility and library for downloading streams from DASH manifests and HLS playlists."
 documentation = "https://docs.rs/vsd"
 edition = "2024"
-exclude = ["images"]
 keywords = ["m3u8", "mpd"]
 license = "MIT OR Apache-2.0"
 name = "vsd"
