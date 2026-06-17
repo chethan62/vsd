@@ -4,7 +4,7 @@ icon: lucide/house
 
 # VSD
 
-**V**ideo **S**tream **D**ownloader is a command-line utility and rust library for downloading streams from [DASH](https://en.wikipedia.org/wiki/Dynamic_Adaptive_Streaming_over_HTTP) `.mpd` manifests and [HLS](https://en.wikipedia.org/wiki/HTTP_Live_Streaming) `.m3u8` playlists.
+**V**ideo **S**tream **D**ownloader is a command-line utility and Rust library for downloading video streams from [DASH](https://en.wikipedia.org/wiki/Dynamic_Adaptive_Streaming_over_HTTP) `.mpd` manifests and [HLS](https://en.wikipedia.org/wiki/HTTP_Live_Streaming) `.m3u8` playlists. It handles multi-threaded segment fetching, DRM decryption, subtitle extraction, and ffmpeg-based muxing.
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/clitic/vsd/refs/heads/main/docs/images/showcase.gif" width="700px">

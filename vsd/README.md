@@ -2,13 +2,13 @@
 
 [![Github Downloads](https://img.shields.io/github/downloads/clitic/vsd/total?logo=github&style=flat-square)](https://github.com/clitic/vsd/releases)
 [![Crate Downloads](https://img.shields.io/crates/d/vsd?logo=rust&style=flat-square)](https://crates.io/crates/vsd)
-[![Crate Version](https://img.shields.io/crates/v/vsd?style=flat-square)](https://crates.io/crates/vsd)
+[![Crate Version](https://img.shields.io/crates/v/vsd?logo=rust&style=flat-square)](https://crates.io/crates/vsd)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/clitic/vsd/build.yml?logo=github&style=flat-square)](https://github.com/clitic/vsd/actions)
 [![Docs Status](https://img.shields.io/docsrs/vsd?logo=docsdotrs&style=flat-square)](https://docs.rs/vsd)
 [![Crate License](https://img.shields.io/crates/l/vsd?style=flat-square)](https://crates.io/crates/vsd)
 [![Repo Size](https://img.shields.io/github/repo-size/clitic/vsd?logo=github&style=flat-square)](https://github.com/clitic/vsd)
 
-**V**ideo **S**tream **D**ownloader is a command-line utility and rust library for downloading streams from [DASH](https://en.wikipedia.org/wiki/Dynamic_Adaptive_Streaming_over_HTTP) `.mpd` manifests and [HLS](https://en.wikipedia.org/wiki/HTTP_Live_Streaming) `.m3u8` playlists.
+**V**ideo **S**tream **D**ownloader is a command-line utility and Rust library for downloading video streams from [DASH](https://en.wikipedia.org/wiki/Dynamic_Adaptive_Streaming_over_HTTP) `.mpd` manifests and [HLS](https://en.wikipedia.org/wiki/HTTP_Live_Streaming) `.m3u8` playlists. It handles multi-threaded segment fetching, DRM decryption, subtitle extraction, and ffmpeg-based muxing.
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/clitic/vsd/refs/heads/main/docs/images/showcase.gif" width="700px">
@@ -36,14 +36,6 @@ Visit the [releases page](https://github.com/clitic/vsd/releases) for pre-built 
 
 [![Packaging Status](https://repology.org/badge/vertical-allrepos/vsd.svg)](https://repology.org/project/vsd/versions)
 
-### Install via Cargo
-
-You can also install vsd using cargo.
-
-```bash
-cargo install vsd
-```
-
 ### Additional Resources
 
 - [Build Instructions](https://clitic.github.io/vsd/build)
@@ -51,13 +43,16 @@ cargo install vsd
 
 ## Usage
 
-Detailed usage examples are available on the [usage](https://clitic.github.io/vsd/usage) page. For a complete list of commands and options, see the [cli reference](https://clitic.github.io/vsd/cli). 
+For detailed usage examples, see the [usage](https://clitic.github.io/vsd/usage) page. For a complete list of commands and options, see the [CLI reference](https://clitic.github.io/vsd/cli).
 
-The main entry point is the [save](https://clitic.github.io/vsd/cli/#vsd-save) sub-command. It downloads streams from a DASH or HLS playlist. By providing an output path, you can optionally mux them into a single file using ffmpeg.
+The main entry point is the [save](https://clitic.github.io/vsd/cli/#vsd-save) sub-command, which downloads streams from a DASH or HLS playlist. When an output path is provided, it can also mux them into a single file using ffmpeg.
 
 ```bash
 vsd save "https://media.axprod.net/TestVectors/Hls/not_protected_hls_1080p_h264/manifest.m3u8" -o output.mp4
 ```
+
+<details>
+<summary>Click to see output</summary>
 
 ```
 Stream [vid] 1920x1080 | 4140k | avc1.640028… |   ? fps
@@ -86,6 +81,8 @@ Saving [sub] vsd-sub-c7fc10a.vtt
 Muxing [exe] ffmpeg -hide_banner -y -i vsd-vid-f3f2d26.ts -i vsd-aud-8053bac.ts -i vsd-sub-c7fc10a.vtt -map 0 -map 1 -map 2 -metadata:s:a:0 language=en -metadata:s:s:0 language=fr -disposition:a:0 default -disposition:s:0 default -c:v copy -c:a copy -c:s mov_text output.mp4
 ```
 
+</details>
+
 ## Library
 
 Add this to your Cargo.toml file.
@@ -103,6 +100,22 @@ cargo add vsd --no-default-features --features rustls-tls
 
 See [docs](https://docs.rs/vsd) and [examples](https://github.com/clitic/vsd/tree/main/vsd/examples) to 
 know how to use it.
+
+## vsd vs N_m3u8DL-RE
+
+[N_m3u8DL-RE](https://github.com/nilaoda/N_m3u8DL-RE) is another popular streaming downloader. This section helps you decide which tool fits your needs.
+
+| Feature | vsd | N_m3u8DL-RE |
+|---|---|---|
+| DASH | ✅ | ✅ |
+| HLS | ✅ | ✅ |
+| MSS | ❌ | ✅ |
+| Live Stream Recording | ❌ | ✅ |
+| Built-in Decryption | ✅ | ✅ |
+| DRM License Acquisition | ✅ | ❌ |
+| Concurrent Downloads | ❌ | ✅ |
+| Browser Capture | ✅ | ❌ |
+| Library Support | ✅ | ❌ |
 
 ## Donate
 
