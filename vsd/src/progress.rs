@@ -3,10 +3,13 @@
 use colored::Colorize;
 use std::{
     io::{self, Write},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}},
     time::Instant,
 };
 use tokio::task::JoinHandle;
+
+/// Global flag for percent-only progress mode (set once at startup).
+pub static PERCENT_ONLY: AtomicBool = AtomicBool::new(false);
 
 /// The snapshot state of a progress indicator used for callbacks.
 pub struct ProgressState {
@@ -155,6 +158,8 @@ impl Progress {
         let inner = self.inner.lock().unwrap();
         if let Some(cb) = &self.callback {
             cb.on_finish(&inner.state());
+        } else if PERCENT_ONLY.load(Ordering::Relaxed) {
+            Self::render_percent_only(&inner);
         } else {
             Self::render(&inner);
             eprintln!();
@@ -173,6 +178,8 @@ impl Progress {
                     let inner = inner.lock().unwrap();
                     if let Some(cb) = &callback {
                         cb.on_progress(&inner.state());
+                    } else if PERCENT_ONLY.load(Ordering::Relaxed) {
+                        Self::render_percent_only(&inner);
                     } else {
                         Self::render(&inner);
                     }
@@ -207,6 +214,17 @@ impl Progress {
             "]".magenta(),
         )
         .unwrap();
+        handle.flush().unwrap();
+    }
+
+    fn render_percent_only(inner: &ProgressInner) {
+        if inner.counter == 0 {
+            return;
+        }
+        let state = inner.state();
+        let stderr = io::stderr();
+        let mut handle = stderr.lock();
+        writeln!(handle, "{:.1}%", state.percent).unwrap();
         handle.flush().unwrap();
     }
 }

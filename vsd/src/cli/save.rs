@@ -39,6 +39,10 @@ pub struct Save {
     #[arg(long, value_name = "CODEC", default_value = "copy")]
     pub subs_codec: String,
 
+    /// Output only percentage lines (machine-readable, for MediaSniff integration).
+    #[arg(long, help_heading = "Download Options")]
+    pub percent_only: bool,
+
     /// Cookies file path for requests (netscape cookie file).
     #[arg(long, value_name = "PATH", help_heading = "Client Options")]
     pub cookies: Option<PathBuf>,
@@ -242,6 +246,9 @@ impl Save {
     }
 
     pub async fn execute(self) -> Result<()> {
+        // MediaSniff: set percent-only mode globally for machine-readable output.
+        crate::progress::PERCENT_ONLY.store(self.percent_only, std::sync::atomic::Ordering::Relaxed);
+
         let mut client = Client::builder()
             .default_headers(HeaderMap::from_iter(self.headers))
             .cookie_store(true)
