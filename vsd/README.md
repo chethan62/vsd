@@ -1,5 +1,7 @@
 <h1 align="center">vsd</h1>
 
+> **Fork** of [clitic/vsd](https://github.com/clitic/vsd) — adds `--percent-only` flag for machine-readable progress output (MediaSniff integration).
+
 [![Github Downloads](https://img.shields.io/github/downloads/clitic/vsd/total?logo=github&style=flat-square)](https://github.com/clitic/vsd/releases)
 [![Crate Downloads](https://img.shields.io/crates/d/vsd?logo=rust&style=flat-square)](https://crates.io/crates/vsd)
 [![Crate Version](https://img.shields.io/crates/v/vsd?logo=rust&style=flat-square)](https://crates.io/crates/vsd)
